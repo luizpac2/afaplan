@@ -1,0 +1,26 @@
+{
+  "name": "afaplan",
+  "version": "1.0.0",
+  "description": "Planejamento do Ensino na AFA",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luizpac2/afaplan.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/luizpac2/afaplan/issues"
+  },
+  "homepage": "https://github.com/luizpac2/afaplan#readme",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.101.1",
+    "firebase-admin": "^13.7.0",
+    "uuid": "^13.0.0"
+  }
+}
