@@ -1,0 +1,198 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap');
+
+/* 
+  Nota para o IDE: Se você vir avisos de "Unknown at rule" como @import "tailwindcss", 
+  isso é normal no Tailwind v4. Os estilos abaixo foram convertidos para CSS padrão 
+  onde possível para reduzir avisos visuais enquanto mantém a funcionalidade.
+*/
+
+:root {
+  font-family: "Google Sans", system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color: #0f172a;
+  /* slate-900 */
+}
+
+/* Global Font and Weight Override */
+* {
+  font-family: "Google Sans", system-ui, Avenir, Helvetica, Arial, sans-serif !important;
+}
+
+/* Ensure headings and strong tags have default bold weight */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+b,
+strong,
+th {
+  font-weight: 700;
+}
+
+.dark {
+  color-scheme: dark;
+  color: #f8fafc;
+  /* slate-50 */
+}
+
+body {
+  font-family: "Google Sans", sans-serif;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* Prevent window scroll, scroll inside main instead */
+  background-color: #f9fafb;
+  /* Match gray-50 */
+}
+
+html {
+  height: 100%;
+  background-color: #ffffff;
+  color: #0f172a;
+  /* slate-900 */
+  transition: background-color 0.3s, color 0.3s;
+}
+
+html.dark {
+  background-color: #020617;
+  /* slate-950 */
+  color: #f8fafc;
+  /* slate-50 */
+  color-scheme: dark;
+}
+
+#root {
+  height: 100%;
+}
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 5mm;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+    color: black;
+    font-size: 12pt;
+  }
+
+  /* Ensure background colors print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Layout adjustments for print */
+  body,
+  html,
+  #root,
+  main {
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
+    display: block !important;
+  }
+
+  /* Reset shadows and borders for cleaner look */
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg,
+  .shadow-xl {
+    box-shadow: none !important;
+  }
+
+  .border {
+    border-color: #cbd5e1 !important;
+    /* Slate-300 */
+  }
+
+  /* Optimize Charts for Print */
+  .recharts-responsive-container {
+    height: 350px !important;
+    /* Fixed height for charts on paper */
+  }
+}
+
+/* Estilos de transição e cores base para o body */
+body {
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.dark body {
+  background-color: #020617;
+  /* slate-950 */
+  color: #ffffff;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  /* slate-300 */
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+  /* slate-400 */
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+  /* slate-600 */
+}
+
+
+/* UI Definition & Contrast Enhancements (Light Mode) */
+html:not(.dark) .border,
+html:not(.dark) .border-slate-100,
+html:not(.dark) .border-slate-200,
+html:not(.dark) .border-slate-300,
+html:not(.dark) .border-gray-100,
+html:not(.dark) .border-gray-200 {
+  border-color: #94a3b8 !important;
+  /* slate-400 */
+}
+
+html:not(.dark) .shadow-sm {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.15), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+}
+
+html:not(.dark) .shadow-md {
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.25), 0 4px 6px -4px rgb(0 0 0 / 0.2) !important;
+}
+
+html:not(.dark) .bg-white {
+  background-color: #ffffff !important;
+}
+
+html:not(.dark) .bg-gray-50,
+html:not(.dark) .bg-slate-50 {
+  background-color: #f8fafc !important;
+  /* slate-50 */
+}
