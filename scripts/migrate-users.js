@@ -1,13 +1,11 @@
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 
-// Substitua estas chaves pelos valores reais do seu painel Supabase
-// (Project Settings > API)
-// ATENÇÃO: Use a chave SERVICE_ROLE secreta aqui para poder criar usuários bypassing o limite
-const SUPABASE_URL = 'https://sgwrpkdgoeovdoepaweo.supabase.co';
-const SUPABASE_SERVICE_ROLE_KEY = 'SUBSTITUA_PELA_SUA_CHAVE_SERVICE_ROLE_SECRETA_AQUI';
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY  // service_role apenas em scripts server-side
+);
 
 async function migrateUsers() {
   const users = JSON.parse(fs.readFileSync('./backup/auth-users.json'));

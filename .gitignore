@@ -1,0 +1,20 @@
+# Variáveis de ambiente (nunca commitar)
+.env
+.env.local
+.env.*.local
+
+# Chave do Firebase Admin SDK (contém credenciais privadas)
+*.json
+!package.json
+!package-lock.json
+!skills-lock.json
+
+# Dependências
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Relatório de migração (pode conter info sensível)
+migration_report.txt
