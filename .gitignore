@@ -8,6 +8,11 @@
 !package.json
 !package-lock.json
 !skills-lock.json
+!app/tsconfig.json
+!app/tsconfig.app.json
+!app/tsconfig.node.json
+!app/tailwind.config.js
+!vercel.json
 
 # Dependências
 node_modules/
