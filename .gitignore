@@ -18,3 +18,5 @@ npm-debug.log*
 
 # Relatório de migração (pode conter info sensível)
 migration_report.txt
+
+.vercel
