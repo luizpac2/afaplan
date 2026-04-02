@@ -120,10 +120,16 @@ export const saveDocument = async (
   id: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any,
+  idColumn: string = "id",
 ) => {
+  const payload = clean(data);
+  // Garante que o ID está no payload com a coluna correta
+  const upsertData = { ...payload, [idColumn]: id };
+
   const { error } = await supabase
     .from(tableName)
-    .upsert({ id, ...clean(data) });
+    .upsert(upsertData);
+
   if (error) {
     console.error(`[Supabase Save:${tableName}:${id}]`, error);
     throw error;
@@ -136,11 +142,13 @@ export const updateDocument = async (
   id: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   updates: any,
+  idColumn: string = "id",
 ) => {
   const { error } = await supabase
     .from(tableName)
     .update(clean(updates))
-    .eq("id", id);
+    .eq(idColumn, id);
+
   if (error) {
     console.error(`[Supabase Update:${tableName}:${id}]`, error);
     throw error;
@@ -148,8 +156,16 @@ export const updateDocument = async (
 };
 
 /** Remove um registro */
-export const deleteDocument = async (tableName: string, id: string) => {
-  const { error } = await supabase.from(tableName).delete().eq("id", id);
+export const deleteDocument = async (
+  tableName: string,
+  id: string,
+  idColumn: string = "id",
+) => {
+  const { error } = await supabase
+    .from(tableName)
+    .delete()
+    .eq(idColumn, id);
+
   if (error) {
     console.error(`[Supabase Delete:${tableName}:${id}]`, error);
     throw error;
@@ -170,12 +186,16 @@ export const batchSave = async (tableName: string, items: any[]) => {
 };
 
 /** Remove vários registros por ID */
-export const batchDelete = async (tableName: string, ids: string[]) => {
+export const batchDelete = async (
+  tableName: string,
+  ids: string[],
+  idColumn: string = "id",
+) => {
   if (!ids.length) return;
   const { error } = await supabase
     .from(tableName)
     .delete()
-    .in("id", ids);
+    .in(idColumn, ids);
   if (error) {
     console.error(`[Supabase BatchDelete:${tableName}]`, error);
     throw error;

@@ -292,7 +292,7 @@ export const useCourseStore = create<CourseState>((set) => ({
     const updatePromises = allAffectedIds.map((evId) => {
       const shouldLink = newEventIds.includes(evId);
       return saveDocument(
-        "events",
+        "programacao_aulas",
         evId,
         { changeRequestId: shouldLink ? requestId : null },
       );
@@ -384,7 +384,7 @@ export const useCourseStore = create<CourseState>((set) => ({
     }
   },
 
-  updateDiscipline: (id, updates) => {
+  updateDiscipline: async (id, updates) => {
     const state = useCourseStore.getState();
     const before = state.disciplines.find((d) => d.id === id);
     set((state) => ({
@@ -409,7 +409,7 @@ export const useCourseStore = create<CourseState>((set) => ({
       });
     }
     if (after) {
-      saveDocument("disciplines", id, after);
+      await saveDocument("disciplines", id, after);
       invalidateStaticCache("disciplines");
     }
   },
@@ -467,7 +467,9 @@ export const useCourseStore = create<CourseState>((set) => ({
 
       // Sync with Firestore for each updated discipline
       if (true) {
-        batchSave("disciplines", updatedDisciplines);
+        batchSave("disciplines", updatedDisciplines).catch(err => 
+          console.error("Failed to batch save disciplines:", err)
+        );
         invalidateStaticCache("disciplines");
       }
 
@@ -582,7 +584,7 @@ export const useCourseStore = create<CourseState>((set) => ({
       invalidateStaticCache("disciplines");
       if (eventIdsToDelete.length > 0) {
         // Bulk delete associated events
-        await batchDelete("events", eventIdsToDelete).catch((err) =>
+        await batchDelete("programacao_aulas", eventIdsToDelete).catch((err) =>
           console.error("Failed to batch delete associated events:", err),
         );
       }
@@ -622,7 +624,7 @@ export const useCourseStore = create<CourseState>((set) => ({
     });
 
     if (true) {
-      saveDocument("events", event.id, event).catch((err) => {
+      saveDocument("programacao_aulas", event.id, event).catch((err) => {
         console.error("Failed to save event:", err);
       });
     }
@@ -656,7 +658,7 @@ export const useCourseStore = create<CourseState>((set) => ({
     });
 
     if (true) {
-      batchSave("events", events).catch((err) => {
+      batchSave("programacao_aulas", events).catch((err) => {
         console.error("Failed to batch save events:", err);
         alert("Erro ao salvar eventos em lote no banco de dados.");
       });
@@ -689,7 +691,7 @@ export const useCourseStore = create<CourseState>((set) => ({
     invalidateEventsLocalCache();
 
     if (true) {
-      updateDocument("events", id, updates).catch((err) => {
+      updateDocument("programacao_aulas", id, updates).catch((err) => {
         console.error("Failed to update event:", err);
       });
     }
@@ -715,7 +717,7 @@ export const useCourseStore = create<CourseState>((set) => ({
     invalidateEventsLocalCache();
 
     if (true) {
-      deleteDocument("events", id).catch((err) => {
+      deleteDocument("programacao_aulas", id).catch((err) => {
         console.error("Failed to delete event:", err);
       });
     }
@@ -752,7 +754,7 @@ export const useCourseStore = create<CourseState>((set) => ({
     });
 
     if (true) {
-      batchDelete("events", ids).catch((err) => {
+      batchDelete("programacao_aulas", ids).catch((err) => {
         console.error("❌ Falha crítica ao deletar no Firestore:", err);
       });
     }
@@ -882,7 +884,7 @@ export const useCourseStore = create<CourseState>((set) => ({
     // Sync with Firestore
     if (true) {
       updates.forEach((update) => {
-        saveDocument("events", update.id, update).catch((err) => {
+        saveDocument("programacao_aulas", update.id, update).catch((err) => {
           console.error("Failed to swap events:", err);
           alert("Erro ao salvar troca de eventos. Tente recarregar a página.");
         });
@@ -1112,9 +1114,9 @@ export const useCourseStore = create<CourseState>((set) => ({
 
     if (true) {
       try {
-        await saveDocument("instructors", instructor.trigram, instructor);
+        await saveDocument("instructors", instructor.trigram, instructor, "trigram");
         invalidateStaticCache("instructors");
-        console.log(`✅ Instrutor ${instructor.trigram} salvo no Firestore`);
+        console.log(`✅ Instrutor ${instructor.trigram} salvo no DB`);
       } catch (err) {
         console.error("❌ Falha ao salvar instrutor no Firestore:", err);
         alert(
@@ -1149,9 +1151,9 @@ export const useCourseStore = create<CourseState>((set) => ({
       });
       if (true) {
         try {
-          await saveDocument("instructors", trigram, after);
+          await saveDocument("instructors", trigram, after, "trigram");
           invalidateStaticCache("instructors");
-          console.log(`✅ Instrutor ${trigram} atualizado no Firestore`);
+          console.log(`✅ Instrutor ${trigram} atualizado no DB`);
         } catch (err) {
           console.error("❌ Falha ao atualizar instrutor no Firestore:", err);
           alert(
@@ -1175,7 +1177,7 @@ export const useCourseStore = create<CourseState>((set) => ({
         entityName: instructor.warName,
       });
       if (true) {
-        deleteDocument("instructors", trigram);
+        deleteDocument("instructors", trigram, "trigram");
         invalidateStaticCache("instructors");
       }
     }
