@@ -19,19 +19,27 @@ export const Settings = () => {
             return;
         }
 
-        // This is now just a manual force sync since we are already connected
+        // Sincronização manual: força um upsert do estado atual para o Supabase
         if (!window.confirm('Isso salvará forçadamente todos os dados atuais na nuvem. Continuar?')) return;
 
         setIsMigrating(true);
         try {
-            await batchSave('disciplines', store.disciplines);
-            await batchSave('events', store.events);
-            await batchSave('classes', store.classes);
-            await batchSave('cohorts', store.cohorts);
-            alert('Migração concluída com sucesso!');
+            await Promise.all([
+                batchSave('disciplines', store.disciplines),
+                batchSave('events', store.events),
+                batchSave('classes', store.classes),
+                batchSave('cohorts', store.cohorts),
+                batchSave('notices', store.notices),
+                batchSave('visualConfigs', store.visualConfigs),
+                batchSave('instructors', store.instructors),
+                batchSave('occurrences', store.occurrences),
+                batchSave('semester_configs', store.semesterConfigs),
+                batchSave('schedule_change_requests', store.changeRequests),
+            ]);
+            alert('Sincronização concluída com sucesso!');
         } catch (error) {
             console.error(error);
-            alert('Erro na migração. Verifique o console.');
+            alert('Erro ao sincronizar. Verifique o console.');
         } finally {
             setIsMigrating(false);
         }
@@ -56,11 +64,11 @@ export const Settings = () => {
                             <Cloud size={24} />
                         </div>
                         <div className="flex-1">
-                            <h2 className={`text-xl  ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>Sincronização em Nuvem (Firebase)</h2>
+                            <h2 className={`text-xl  ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>Sincronização em Nuvem (Supabase)</h2>
                             <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                                 {user
                                     ? `Conectado como ${user.email}`
-                                    : 'Conecte-se para sincronizar seus dados em tempo real.'}
+                                    : 'Conecte-se para sincronizar seus dados com a nuvem.'}
                             </p>
                         </div>
                         {user && (
@@ -113,7 +121,7 @@ export const Settings = () => {
                             <h2 className={`text-xl  ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>Backup e Restauração</h2>
                             <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                                 Salve uma cópia de segurança dos seus dados ou restaure um backup anterior.
-                                Isso é importante pois os dados atuais estão salvos apenas no seu navegador.
+                                Mesmo com os dados na nuvem, backups JSON ajudam em auditoria e versionamento.
                             </p>
                         </div>
                     </div>
@@ -154,15 +162,15 @@ export const Settings = () => {
                             <div className={`mt-4 p-4 rounded-lg border font-mono text-sm ${theme === 'dark' ? 'bg-slate-900/50 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
                                 <div className="flex justify-between mb-2">
                                     <span>Tipo de Armazenamento:</span>
-                                    <span className={` ${theme === 'dark' ? 'text-blue-400' : 'text-blue-800'}`}>Firestore (Google Cloud)</span>
+                                    <span className={` ${theme === 'dark' ? 'text-blue-400' : 'text-blue-800'}`}>Postgres (Supabase)</span>
                                 </div>
                                 <div className="flex justify-between mb-2">
                                     <span>Persistência:</span>
                                     <span className={` ${theme === 'dark' ? 'text-green-400' : 'text-green-600'}`}>Segura (Nuvem)</span>
                                 </div>
                                 <div className={`text-xs mt-2 border-t pt-2 ${theme === 'dark' ? 'text-slate-500 border-slate-700' : 'text-slate-400 border-slate-200'}`}>
-                                    Seus dados estão sendo salvos automaticamente na nuvem. Você pode acessar de qualquer dispositivo fazendo login.
-                                    Backups manuais (JSON) ainda podem ser úteis para versionamento.
+                                    Seus dados são salvos na nuvem com controle de acesso (RLS). Você pode acessar de qualquer dispositivo fazendo login.
+                                    Backups manuais (JSON) continuam úteis como plano B e para auditoria.
                                 </div>
                             </div>
                         </div>
