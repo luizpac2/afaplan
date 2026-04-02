@@ -149,7 +149,9 @@ const invalidateEventsLocalCache = () => {
 // Invalida cache de coleções estáticas do fetchCollectionCached (ex: 'disciplines', 'instructors')
 const invalidateStaticCache = (collectionName: string) => {
   try {
+    // compat: versões antigas (afa_cache_) e atual (afa_cache_v2_)
     localStorage.removeItem(`afa_cache_${collectionName}`);
+    localStorage.removeItem(`afa_cache_v2_${collectionName}`);
   } catch {
     /* ignora */
   }
@@ -687,7 +689,7 @@ export const useCourseStore = create<CourseState>((set) => ({
     invalidateEventsLocalCache();
 
     if (true) {
-      saveDocument("events", id, updates).catch((err) => {
+      updateDocument("events", id, updates).catch((err) => {
         console.error("Failed to update event:", err);
       });
     }
@@ -1288,8 +1290,8 @@ export const useCourseStore = create<CourseState>((set) => ({
       const { data, error } = await supabase
         .from("programacao_aulas")
         .select("*")
-        .gte("data", start)
-        .lte("data", end);
+        .gte("date",start)
+        .lte("date",end);
 
       if (error) throw error;
       const events = (data ?? []) as unknown as ScheduleEvent[];
@@ -1365,8 +1367,8 @@ export const useCourseStore = create<CourseState>((set) => ({
       const { data: rawData, error: fetchError } = await supabase
         .from("programacao_aulas")
         .select("*")
-        .gte("data", startDay)
-        .lte("data", endDay);
+        .gte("date",startDay)
+        .lte("date",endDay);
 
       if (fetchError) throw fetchError;
       const allEvents = (rawData ?? []) as unknown as ScheduleEvent[];

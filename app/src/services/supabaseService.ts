@@ -25,7 +25,7 @@ export const fetchCollectionCached = async (
   tableName: string,
   ttlHours = 24,
 ) => {
-  const key = `afa_cache_${tableName}`;
+  const key = `afa_cache_v2_${tableName}`;
   try {
     const raw = localStorage.getItem(key);
     if (raw) {
@@ -93,8 +93,8 @@ export const subscribeToEventsByDateRange = (
     const { data, error } = await supabase
       .from("programacao_aulas")
       .select("*")
-      .gte("data", startDate)
-      .lte("data", endDate);
+      .gte("date", startDate)
+      .lte("date", endDate);
     if (!error) callback(data ?? []);
   };
 

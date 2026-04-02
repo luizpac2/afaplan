@@ -35,13 +35,13 @@ export const Dashboard = () => {
   const evaluationEvents = useMemo(() => {
     return allYearEvents
       .filter((e) => e.type === "EVALUATION")
-      .sort((a, b) => a.date.localeCompare(b.date));
+      .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
   }, [allYearEvents]);
 
   const academicEvents = useMemo(() => {
     return allYearEvents
       .filter((e) => e.type === "ACADEMIC" || e.disciplineId === "ACADEMIC")
-      .sort((a, b) => a.date.localeCompare(b.date));
+      .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
   }, [allYearEvents]);
 
   // Filters for Notice Board
@@ -72,6 +72,7 @@ export const Dashboard = () => {
 
     // 1. Avisos normais
     const standardNotices = notices.filter((notice) => {
+      if (!notice.startDate || !notice.endDate) return false;
       const [sYear, sMonth, sDay] = notice.startDate.split("-").map(Number);
       const start = new Date(sYear, sMonth - 1, sDay);
 
@@ -141,6 +142,7 @@ export const Dashboard = () => {
 
     const mappedAcademic = Array.from(groupedAcademicMap.values()).filter(
       (event) => {
+        if (!event.endDate) return false;
         const [eYear, eMonth, eDay] = event.endDate.split("-").map(Number);
         const end = new Date(eYear, eMonth - 1, eDay);
         end.setHours(23, 59, 59, 999);

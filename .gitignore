@@ -19,4 +19,10 @@ npm-debug.log*
 # Relatório de migração (pode conter info sensível)
 migration_report.txt
 
+# Supabase CLI temp files
+supabase/.temp/
+
+# Backups de migração (podem conter dados sensíveis)
+backup/
+
 .vercel
