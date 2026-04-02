@@ -59,7 +59,7 @@ export const FirestoreSync = () => {
 
         const [
           disciplines,
-          classes,
+          _classes,
           cohorts,
           visualConfigs,
           instructors,
@@ -81,24 +81,22 @@ export const FirestoreSync = () => {
           setDisciplines(mapped as Discipline[]);
         } else console.warn("⚠️ Falha ao carregar disciplinas:", disciplines.reason);
 
-        if (classes.status === "fulfilled") {
-          const turmasList = cohorts.status === "fulfilled" ? (cohorts.value as any[]) : [];
+        // turma_secoes está vazia — usar tabela 'turmas' diretamente (já carregada como cohorts)
+        if (cohorts.status === "fulfilled") {
           const currentYear = new Date().getFullYear();
-          const mapped = (classes.value as any[]).map(c => {
-            const turma = turmasList.find((t: any) => t.id === c.turma_id);
-            const entryYear = turma?.entryYear || turma?.ano_ingresso;
+          const mapped = (cohorts.value as any[]).map((t: any) => {
+            const entryYear = t.entryYear || t.ano_ingresso;
             const computedYear = entryYear ? Math.min(4, Math.max(1, currentYear - entryYear + 1)) : 1;
             return {
-              ...c,
-              id: c.id,
-              name: c.secao || c.name || turma?.name || "?",
-              year: c.year || computedYear,
-              type: c.type || c.tipo || "AVIATION",
-              studentCount: c.qtd_alunos || c.studentCount,
+              id: String(t.id),
+              name: t.name || t.nome || "?",
+              year: computedYear as 1 | 2 | 3 | 4,
+              type: "AVIATION" as const,
+              studentCount: t.qtd_alunos,
             };
           });
           setClasses(mapped as CourseClass[]);
-        } else console.warn("⚠️ Falha ao carregar turma_secoes:", classes.reason);
+        }
 
         if (cohorts.status === "fulfilled") {
           const mapped = (cohorts.value as any[]).map(c => ({
