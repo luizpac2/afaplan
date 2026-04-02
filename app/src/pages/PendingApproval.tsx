@@ -107,7 +107,7 @@ export const PendingApproval = () => {
         setIsSubmitting(true);
 
         try {
-            const isSuperAdmin = user.email === 'pelicano307@gmail.com';
+            const isSuperAdmin = (user.email ?? '').trim().toLowerCase() === 'pelicano307@gmail.com';
             const assignedRole = isSuperAdmin ? 'super_admin' : 'visitante';
 
             await supabase.from('user_roles').upsert({

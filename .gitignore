@@ -8,6 +8,8 @@
 !package.json
 !package-lock.json
 !skills-lock.json
+!vercel.json
+!app/vercel.json
 
 # Dependências
 node_modules/
