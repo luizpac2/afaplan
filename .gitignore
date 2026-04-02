@@ -10,6 +10,8 @@
 !skills-lock.json
 !vercel.json
 !app/vercel.json
+!app/tsconfig.json
+!app/tsconfig.*.json
 
 # Dependências
 node_modules/
