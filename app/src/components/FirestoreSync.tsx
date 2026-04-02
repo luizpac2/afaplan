@@ -82,13 +82,21 @@ export const FirestoreSync = () => {
         } else console.warn("⚠️ Falha ao carregar disciplinas:", disciplines.reason);
 
         if (classes.status === "fulfilled") {
-          const mapped = (classes.value as any[]).map(c => ({
-            ...c,
-            id: c.id,
-            name: c.secao || c.name,
-            type: c.tipo || "AVIATION",
-            studentCount: c.qtd_alunos
-          }));
+          const turmasList = cohorts.status === "fulfilled" ? (cohorts.value as any[]) : [];
+          const currentYear = new Date().getFullYear();
+          const mapped = (classes.value as any[]).map(c => {
+            const turma = turmasList.find((t: any) => t.id === c.turma_id);
+            const entryYear = turma?.entryYear || turma?.ano_ingresso;
+            const computedYear = entryYear ? Math.min(4, Math.max(1, currentYear - entryYear + 1)) : 1;
+            return {
+              ...c,
+              id: c.id,
+              name: c.secao || c.name || turma?.name || "?",
+              year: c.year || computedYear,
+              type: c.type || c.tipo || "AVIATION",
+              studentCount: c.qtd_alunos || c.studentCount,
+            };
+          });
           setClasses(mapped as CourseClass[]);
         } else console.warn("⚠️ Falha ao carregar turma_secoes:", classes.reason);
 
@@ -96,9 +104,9 @@ export const FirestoreSync = () => {
           const mapped = (cohorts.value as any[]).map(c => ({
             ...c,
             id: c.id,
-            name: c.nome,
-            entryYear: c.ano_ingresso,
-            color: c.cor_hex
+            name: c.nome || c.name,
+            entryYear: c.ano_ingresso || c.entryYear,
+            color: c.cor_hex || c.color
           }));
           setCohorts(mapped as Cohort[]);
         } else console.warn("⚠️ Falha ao carregar turmas:", cohorts.reason);
