@@ -1098,7 +1098,6 @@ export const useCourseStore = create<CourseState>((set) => ({
 
       try {
         const mappedAfter = {
-          trigram: after.trigram,
           warName: after.warName,
           name: after.fullName,
           specialty: after.rank,
@@ -1110,7 +1109,7 @@ export const useCourseStore = create<CourseState>((set) => ({
           },
         };
 
-        await saveDocument("instructors", trigram, mappedAfter, "trigram");
+        await updateDocument("instructors", trigram, mappedAfter, "trigram");
         invalidateStaticCache("instructors");
         console.log(`✅ Docente ${trigram} atualizado no DB (tabela instructors)`);
       } catch (err) {
