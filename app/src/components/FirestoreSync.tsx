@@ -71,12 +71,12 @@ export const FirestoreSync = () => {
         if (disciplines.status === "fulfilled") {
           const mapped = (disciplines.value as any[]).map(d => ({
             ...d,
-            code: d.sigla || d.id,
-            name: d.nome || "Sem Nome",
-            trainingField: d.campo || "GERAL",
-            // Mapping ID to legacy-style reference if needed
-            instructorTrigram: d.docente_id, 
-            load_hours: d.carga_horaria,
+            id: d.id,
+            code: d.sigla || d.code || d.id,
+            name: d.nome || d.name || "Sem Nome",
+            trainingField: d.campo || d.trainingField || "GERAL",
+            instructorTrigram: d.docente_id || d.instructorTrigram,
+            load_hours: d.carga_horaria || d.load_hours,
           }));
           setDisciplines(mapped as Discipline[]);
         } else console.warn("⚠️ Falha ao carregar disciplinas:", disciplines.reason);
