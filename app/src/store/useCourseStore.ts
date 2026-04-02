@@ -1050,18 +1050,21 @@ export const useCourseStore = create<CourseState>((set) => ({
 
     try {
       const dbInstructor = {
-        trigrama: instructor.trigram,
-        nome_guerra: instructor.warName,
-        nome_completo: instructor.fullName,
-        vinculo: instructor.venture,
-        titulacao: instructor.rank,
-        carga_horaria_max: instructor.weeklyLoadLimit,
-        ativo: true
+        trigram: instructor.trigram,
+        warName: instructor.warName,
+        name: instructor.fullName,
+        specialty: instructor.rank,
+        data: {
+          venture: instructor.venture,
+          weeklyLoadLimit: instructor.weeklyLoadLimit,
+          enabledDisciplines: instructor.enabledDisciplines,
+          enabledClasses: instructor.enabledClasses,
+        },
       };
 
-      await saveDocument("docentes", instructor.trigram, dbInstructor, "trigrama");
+      await saveDocument("instructors", instructor.trigram, dbInstructor, "trigram");
       invalidateStaticCache("instructors");
-      console.log(`✅ Docente ${instructor.trigram} salvo no DB (tabela docentes)`);
+      console.log(`✅ Docente ${instructor.trigram} salvo no DB (tabela instructors)`);
     } catch (err) {
       console.error("❌ Falha ao salvar docente no Supabase:", err);
       // Revert optimistic update here if needed (optional)
@@ -1095,17 +1098,21 @@ export const useCourseStore = create<CourseState>((set) => ({
 
       try {
         const mappedAfter = {
-          trigrama: after.trigram,
-          nome_guerra: after.warName,
-          nome_completo: after.fullName,
-          vinculo: after.venture,
-          titulacao: after.rank,
-          carga_horaria_max: after.weeklyLoadLimit,
+          trigram: after.trigram,
+          warName: after.warName,
+          name: after.fullName,
+          specialty: after.rank,
+          data: {
+            venture: after.venture,
+            weeklyLoadLimit: after.weeklyLoadLimit,
+            enabledDisciplines: after.enabledDisciplines,
+            enabledClasses: after.enabledClasses,
+          },
         };
 
-        await saveDocument("docentes", trigram, mappedAfter, "trigrama");
+        await saveDocument("instructors", trigram, mappedAfter, "trigram");
         invalidateStaticCache("instructors");
-        console.log(`✅ Docente ${trigram} atualizado no DB (tabela docentes)`);
+        console.log(`✅ Docente ${trigram} atualizado no DB (tabela instructors)`);
       } catch (err) {
         console.error("❌ Falha ao atualizar docente no Supabase:", err);
         alert("Erro ao atualizar docente. Verifique as restrições do banco.");
@@ -1175,7 +1182,7 @@ export const useCourseStore = create<CourseState>((set) => ({
         entityName: instructor.warName,
       });
       try {
-        await deleteDocument("docentes", trigram, "trigrama");
+        await deleteDocument("instructors", trigram, "trigram");
         invalidateStaticCache("instructors");
       } catch (err) {
         console.error("❌ Falha ao deletar docente:", err);
