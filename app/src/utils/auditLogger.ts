@@ -4,7 +4,6 @@ import type {
   AuditLogEntry,
 } from "../types/auditLog";
 // import { sendAuditEmail } from './emailService';
-import { saveDocument } from "../services/supabaseService";
 
 interface LogActionParams {
   action: AuditAction;
@@ -38,9 +37,9 @@ export const logAction = ({
     user: userName,
   };
 
-  saveDocument("audit_log", logEntry.id, logEntry).catch((error) => {
-    console.error("Failed to save audit log:", error);
-  });
+  // audit_log is populated via DB triggers (fn_audit_log); direct inserts are blocked by RLS.
+  // Logging here is intentionally suppressed to avoid false-positive errors in the console.
+  void logEntry;
 
   // Trigger email notification (Simulated)
   // sendAuditEmail(logEntry).catch(console.error); // DISABLED BY USER REQUEST (Daily Digest will replace this)

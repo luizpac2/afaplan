@@ -1049,20 +1049,19 @@ export const useCourseStore = create<CourseState>((set) => ({
     });
 
     try {
-      // Mapping to Supabase table 'instructors'
       const dbInstructor = {
-        trigram: instructor.trigram,
-        warName: instructor.warName,
-        fullName: instructor.fullName,
-        venture: instructor.venture,
-        rank: instructor.rank,
-        weeklyLoadLimit: instructor.weeklyLoadLimit,
+        trigrama: instructor.trigram,
+        nome_guerra: instructor.warName,
+        nome_completo: instructor.fullName,
+        vinculo: instructor.venture,
+        titulacao: instructor.rank,
+        carga_horaria_max: instructor.weeklyLoadLimit,
         ativo: true
       };
-      
-      await saveDocument("instructors", instructor.trigram, dbInstructor, "trigram");
+
+      await saveDocument("docentes", instructor.trigram, dbInstructor, "trigrama");
       invalidateStaticCache("instructors");
-      console.log(`✅ Docente ${instructor.trigram} salvo no DB (tabela instructors)`);
+      console.log(`✅ Docente ${instructor.trigram} salvo no DB (tabela docentes)`);
     } catch (err) {
       console.error("❌ Falha ao salvar docente no Supabase:", err);
       // Revert optimistic update here if needed (optional)
@@ -1095,19 +1094,18 @@ export const useCourseStore = create<CourseState>((set) => ({
       });
 
       try {
-        // Mapping updates to Supabase columns in 'instructors' table
         const mappedAfter = {
-          trigram: after.trigram,
-          warName: after.warName,
-          fullName: after.fullName,
-          venture: after.venture,
-          rank: after.rank,
-          weeklyLoadLimit: after.weeklyLoadLimit,
+          trigrama: after.trigram,
+          nome_guerra: after.warName,
+          nome_completo: after.fullName,
+          vinculo: after.venture,
+          titulacao: after.rank,
+          carga_horaria_max: after.weeklyLoadLimit,
         };
 
-        await saveDocument("instructors", trigram, mappedAfter, "trigram");
+        await saveDocument("docentes", trigram, mappedAfter, "trigrama");
         invalidateStaticCache("instructors");
-        console.log(`✅ Docente ${trigram} atualizado no DB (tabela instructors)`);
+        console.log(`✅ Docente ${trigram} atualizado no DB (tabela docentes)`);
       } catch (err) {
         console.error("❌ Falha ao atualizar docente no Supabase:", err);
         alert("Erro ao atualizar docente. Verifique as restrições do banco.");
