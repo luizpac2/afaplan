@@ -51,7 +51,7 @@ export const FirestoreSync = () => {
           fetchCollectionCached("turma_secoes"),
           fetchCollectionCached("turmas"),
           fetchCollectionCached("visualConfigs"),
-          fetchCollectionCached("docentes"),
+          fetchCollectionCached("instructors"),
           fetchCollectionCached("docente_ocorrencias"),
           fetchCollectionCached("semester_configs"),
           fetchCollectionCached("solicitacoes_sap"),
@@ -114,17 +114,17 @@ export const FirestoreSync = () => {
         if (instructors.status === "fulfilled") {
           const mapped = (instructors.value as any[]).map((i) => ({
             ...i,
-            trigram: i.trigrama || i.id,
-            warName: i.nome_guerra || i.trigrama || "Sem Nome",
-            fullName: i.nome_completo || "",
-            venture: i.vinculo || "EFETIVO",
-            rank: i.titulacao || "",
-            weeklyLoadLimit: i.carga_horaria_max || 12,
-            specialty: i.especialidade || "", // Mapping for later migration
+            trigram: i.trigram || i.trigrama || i.id,
+            warName: i.warName || i.nome_guerra || i.trigram || i.trigrama || "Sem Nome",
+            fullName: i.fullName || i.nome_completo || "",
+            venture: i.venture || i.vinculo || "EFETIVO",
+            rank: i.rank || i.titulacao || "",
+            weeklyLoadLimit: i.weeklyLoadLimit || i.carga_horaria_max || 12,
+            specialty: i.specialty || i.especialidade || "",
           }));
           setInstructors(mapped as Instructor[]);
         } else
-          console.warn("⚠️ Falha ao carregar docentes:", instructors.reason);
+          console.warn("⚠️ Falha ao carregar instructors (tabela instructors):", instructors.reason);
 
         if (occurrences.status === "fulfilled")
           setOccurrences(occurrences.value as InstructorOccurrence[]);

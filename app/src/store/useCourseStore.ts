@@ -1049,20 +1049,20 @@ export const useCourseStore = create<CourseState>((set) => ({
     });
 
     try {
-      // Mapping to Supabase table 'docentes'
+      // Mapping to Supabase table 'instructors'
       const dbInstructor = {
-        trigrama: instructor.trigram,
-        nome_guerra: instructor.warName,
-        nome_completo: instructor.fullName,
-        vinculo: instructor.venture,
-        titulacao: instructor.rank,
-        carga_horaria_max: instructor.weeklyLoadLimit,
+        trigram: instructor.trigram,
+        warName: instructor.warName,
+        fullName: instructor.fullName,
+        venture: instructor.venture,
+        rank: instructor.rank,
+        weeklyLoadLimit: instructor.weeklyLoadLimit,
         ativo: true
       };
       
-      await saveDocument("docentes", instructor.trigram, dbInstructor, "trigrama");
+      await saveDocument("instructors", instructor.trigram, dbInstructor, "trigram");
       invalidateStaticCache("instructors");
-      console.log(`✅ Docente ${instructor.trigram} salvo no DB`);
+      console.log(`✅ Docente ${instructor.trigram} salvo no DB (tabela instructors)`);
     } catch (err) {
       console.error("❌ Falha ao salvar docente no Supabase:", err);
       // Revert optimistic update here if needed (optional)
@@ -1095,29 +1095,19 @@ export const useCourseStore = create<CourseState>((set) => ({
       });
 
       try {
-        // Mapping updates to Supabase columns
-        const dbUpdates: any = {};
-        if (updates.trigram) dbUpdates.trigrama = updates.trigram;
-        if (updates.warName) dbUpdates.nome_guerra = updates.warName;
-        if (updates.fullName) dbUpdates.nome_completo = updates.fullName;
-        if (updates.venture) dbUpdates.vinculo = updates.venture;
-        if (updates.rank) dbUpdates.titulacao = updates.rank;
-        if (updates.weeklyLoadLimit !== undefined) dbUpdates.carga_horaria_max = updates.weeklyLoadLimit;
-
-        // If no mapped updates but still called, might be other fields (which we don't handle yet in DB)
-        // For safety, if it's a full update, we can map the 'after' object
+        // Mapping updates to Supabase columns in 'instructors' table
         const mappedAfter = {
-          trigrama: after.trigram,
-          nome_guerra: after.warName,
-          nome_completo: after.fullName,
-          vinculo: after.venture,
-          titulacao: after.rank,
-          carga_horaria_max: after.weeklyLoadLimit,
+          trigram: after.trigram,
+          warName: after.warName,
+          fullName: after.fullName,
+          venture: after.venture,
+          rank: after.rank,
+          weeklyLoadLimit: after.weeklyLoadLimit,
         };
 
-        await saveDocument("docentes", trigram, mappedAfter, "trigrama");
+        await saveDocument("instructors", trigram, mappedAfter, "trigram");
         invalidateStaticCache("instructors");
-        console.log(`✅ Docente ${trigram} atualizado no DB`);
+        console.log(`✅ Docente ${trigram} atualizado no DB (tabela instructors)`);
       } catch (err) {
         console.error("❌ Falha ao atualizar docente no Supabase:", err);
         alert("Erro ao atualizar docente. Verifique as restrições do banco.");
