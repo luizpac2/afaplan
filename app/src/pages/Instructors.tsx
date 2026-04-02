@@ -489,7 +489,7 @@ export const Instructors = () => {
                               <td className="px-4 py-1.5 min-w-[120px]">
                                  <div className="flex flex-wrap gap-1">
                                     {(instructor.enabledDisciplines || []).length > 0 ? instructor.enabledDisciplines?.map(id => {
-                                       const disc = disciplines.find(d => d.id === id);
+                                       const disc = disciplines.find(d => d.id === id || d.code === id);
                                        return disc ? <Badge key={id} variant="slate" title={disc.name}>{disc.code}</Badge> : null;
                                     }) : <span className="text-[10px] text-slate-400 italic">Nenhuma</span>}
                                  </div>

@@ -112,18 +112,29 @@ export const FirestoreSync = () => {
           );
 
         if (instructors.status === "fulfilled") {
-          const mapped = (instructors.value as any[]).map((i) => ({
-            ...i,
-            trigram: i.trigram || i.trigrama || i.id,
-            warName: i.warName || i.nome_guerra || i.trigram || i.trigrama || "Sem Nome",
-            fullName: i.name || i.fullName || i.nome_completo || "",
-            venture: i.data?.venture || i.venture || i.vinculo || "EFETIVO",
-            rank: i.specialty || i.data?.rank || i.rank || i.titulacao || "",
-            weeklyLoadLimit: i.data?.weeklyLoadLimit || i.weeklyLoadLimit || i.carga_horaria_max || 12,
-            specialty: i.specialty || i.especialidade || "",
-            enabledDisciplines: i.data?.enabledDisciplines || i.enabledDisciplines || [],
-            enabledClasses: i.data?.enabledClasses || i.enabledClasses || [],
-          }));
+          const disciplinesList = disciplines.status === "fulfilled" ? (disciplines.value as any[]) : [];
+          const mapped = (instructors.value as any[]).map((i) => {
+            const rawDisciplines: string[] = i.data?.enabledDisciplines || i.enabledDisciplines || [];
+            // Normalize: convert sigla/code references to Supabase id
+            const normalizedDisciplines = rawDisciplines.map((ref: string) => {
+              const byId = disciplinesList.find((d: any) => d.id === ref);
+              if (byId) return ref;
+              const byCode = disciplinesList.find((d: any) => d.sigla === ref || d.code === ref);
+              return byCode ? byCode.id : ref;
+            });
+            return {
+              ...i,
+              trigram: i.trigram || i.trigrama || i.id,
+              warName: i.warName || i.nome_guerra || i.trigram || i.trigrama || "Sem Nome",
+              fullName: i.name || i.fullName || i.nome_completo || "",
+              venture: i.data?.venture || i.venture || i.vinculo || "EFETIVO",
+              rank: i.specialty || i.data?.rank || i.rank || i.titulacao || "",
+              weeklyLoadLimit: i.data?.weeklyLoadLimit || i.weeklyLoadLimit || i.carga_horaria_max || 12,
+              specialty: i.specialty || i.especialidade || "",
+              enabledDisciplines: normalizedDisciplines,
+              enabledClasses: i.data?.enabledClasses || i.enabledClasses || [],
+            };
+          });
           setInstructors(mapped as Instructor[]);
         } else
           console.warn("⚠️ Falha ao carregar instructors (tabela instructors):", instructors.reason);
