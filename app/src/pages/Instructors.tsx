@@ -75,9 +75,9 @@ export const Instructors = () => {
          }
          const q = debouncedSearch.toLowerCase();
          const matchesSearch = !q ||
-            i.fullName.toLowerCase().includes(q) ||
-            i.warName.toLowerCase().includes(q) ||
-            i.trigram.toLowerCase().includes(q) ||
+            i.fullName?.toLowerCase().includes(q) ||
+            i.warName?.toLowerCase().includes(q) ||
+            i.trigram?.toLowerCase().includes(q) ||
             i.specialty?.toLowerCase().includes(q) ||
             i.rank?.toLowerCase().includes(q);
          const matchesVenture = ventureFilter === 'ALL' || i.venture === ventureFilter;
@@ -560,7 +560,7 @@ export const Instructors = () => {
                               <label className="block text-xs font-medium text-slate-500 mb-1">Matérias Habilitadas</label>
                               <div className="relative mb-2"><Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={13} /><input type="text" placeholder="Filtrar matérias..." value={disciplineSearch} onChange={e => setDisciplineSearch(e.target.value)} className={`w-full pl-7 pr-3 py-1 text-xs rounded border ${theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`} /></div>
                               <div className={`h-24 overflow-y-auto border rounded p-2 space-y-1 ${theme === 'dark' ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50'}`}>
-                                 {disciplines.filter(d => d.code.toLowerCase().includes(disciplineSearch.toLowerCase()) || d.name.toLowerCase().includes(disciplineSearch.toLowerCase())).sort((a, b) => a.code.localeCompare(b.code)).map(d => (
+                                 {disciplines.filter(d => (d.code?.toLowerCase() || "").includes(disciplineSearch.toLowerCase()) || (d.name?.toLowerCase() || "").includes(disciplineSearch.toLowerCase())).sort((a, b) => (a.code || "").localeCompare(b.code || "")).map(d => (
                                     <label key={d.id} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-blue-500/10 p-0.5 rounded">
                                        <input type="checkbox" checked={selectedDisciplines.includes(d.id)} onChange={e => setSelectedDisciplines(prev => e.target.checked ? [...prev, d.id] : prev.filter(id => id !== d.id))} className="rounded text-blue-600" />
                                        <span className="font-mono text-blue-500">{d.code}</span><span className="truncate">{d.name}</span>

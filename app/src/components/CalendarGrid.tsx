@@ -710,7 +710,7 @@ export const CalendarGrid = ({
                       const activeRingColor = activeConfig
                         ? theme === "light" &&
                           (activeConfig.ringColor === "#FFFFFF" ||
-                            activeConfig.ringColor.toLowerCase() === "#ffffff")
+                            activeConfig.ringColor?.toLowerCase() === "#ffffff")
                           ? "#1e293b"
                           : activeConfig.ringColor
                         : "";
@@ -1098,7 +1098,7 @@ export const CalendarGrid = ({
                         const mActiveRingColor = mActiveConfig
                           ? theme === "light" &&
                             (mActiveConfig.ringColor === "#FFFFFF" ||
-                              mActiveConfig.ringColor.toLowerCase() ===
+                              mActiveConfig.ringColor?.toLowerCase() ===
                                 "#ffffff")
                             ? "#1e293b"
                             : mActiveConfig.ringColor

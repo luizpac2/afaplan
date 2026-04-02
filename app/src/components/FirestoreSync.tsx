@@ -47,14 +47,14 @@ export const FirestoreSync = () => {
     const loadStaticCollections = async () => {
       try {
         const results = await Promise.allSettled([
-          fetchCollectionCached("disciplines"),
-          fetchCollectionCached("classes"),
-          fetchCollectionCached("cohorts"),
+          fetchCollectionCached("disciplinas"),
+          fetchCollectionCached("turma_secoes"),
+          fetchCollectionCached("turmas"),
           fetchCollectionCached("visualConfigs"),
-          fetchCollectionCached("instructors"),
-          fetchCollectionCached("occurrences"),
+          fetchCollectionCached("docentes"),
+          fetchCollectionCached("docente_ocorrencias"),
           fetchCollectionCached("semester_configs"),
-          fetchCollectionCached("schedule_change_requests"),
+          fetchCollectionCached("solicitacoes_sap"),
         ]);
 
         const [
@@ -68,18 +68,40 @@ export const FirestoreSync = () => {
           changeRequests,
         ] = results;
 
-        if (disciplines.status === "fulfilled")
-          setDisciplines(disciplines.value as Discipline[]);
-        else
-          console.warn("⚠️ Falha ao carregar disciplines:", disciplines.reason);
+        if (disciplines.status === "fulfilled") {
+          const mapped = (disciplines.value as any[]).map(d => ({
+            ...d,
+            code: d.sigla || d.id,
+            name: d.nome || "Sem Nome",
+            trainingField: d.campo || "GERAL",
+            // Mapping ID to legacy-style reference if needed
+            instructorTrigram: d.docente_id, 
+            load_hours: d.carga_horaria,
+          }));
+          setDisciplines(mapped as Discipline[]);
+        } else console.warn("⚠️ Falha ao carregar disciplinas:", disciplines.reason);
 
-        if (classes.status === "fulfilled")
-          setClasses(classes.value as CourseClass[]);
-        else console.warn("⚠️ Falha ao carregar classes:", classes.reason);
+        if (classes.status === "fulfilled") {
+          const mapped = (classes.value as any[]).map(c => ({
+            ...c,
+            id: c.id,
+            name: c.secao || c.name,
+            type: c.tipo || "AVIATION",
+            studentCount: c.qtd_alunos
+          }));
+          setClasses(mapped as CourseClass[]);
+        } else console.warn("⚠️ Falha ao carregar turma_secoes:", classes.reason);
 
-        if (cohorts.status === "fulfilled")
-          setCohorts(cohorts.value as Cohort[]);
-        else console.warn("⚠️ Falha ao carregar cohorts:", cohorts.reason);
+        if (cohorts.status === "fulfilled") {
+          const mapped = (cohorts.value as any[]).map(c => ({
+            ...c,
+            id: c.id,
+            name: c.nome,
+            entryYear: c.ano_ingresso,
+            color: c.cor_hex
+          }));
+          setCohorts(mapped as Cohort[]);
+        } else console.warn("⚠️ Falha ao carregar turmas:", cohorts.reason);
 
         if (visualConfigs.status === "fulfilled")
           setVisualConfigs(visualConfigs.value as VisualConfig[]);
@@ -92,16 +114,22 @@ export const FirestoreSync = () => {
         if (instructors.status === "fulfilled") {
           const mapped = (instructors.value as any[]).map((i) => ({
             ...i,
-            trigram: i.trigram || i.id,
+            trigram: i.trigrama || i.id,
+            warName: i.nome_guerra || i.trigrama || "Sem Nome",
+            fullName: i.nome_completo || "",
+            venture: i.vinculo || "EFETIVO",
+            rank: i.titulacao || "",
+            weeklyLoadLimit: i.carga_horaria_max || 12,
+            specialty: i.especialidade || "", // Mapping for later migration
           }));
           setInstructors(mapped as Instructor[]);
         } else
-          console.warn("⚠️ Falha ao carregar instructors:", instructors.reason);
+          console.warn("⚠️ Falha ao carregar docentes:", instructors.reason);
 
         if (occurrences.status === "fulfilled")
           setOccurrences(occurrences.value as InstructorOccurrence[]);
         else
-          console.warn("⚠️ Falha ao carregar occurrences:", occurrences.reason);
+          console.warn("⚠️ Falha ao carregar ocorrencias:", occurrences.reason);
 
         if (semesterConfigs.status === "fulfilled")
           setSemesterConfigs(semesterConfigs.value as SemesterConfig[]);
@@ -115,27 +143,25 @@ export const FirestoreSync = () => {
           setChangeRequests(changeRequests.value as ScheduleChangeRequest[]);
         else
           console.warn(
-            "⚠️ Falha ao carregar schedule_change_requests:",
+            "⚠️ Falha ao carregar solicitacoes_sap:",
             changeRequests.reason,
           );
 
         console.log(
-          "✅ Dados estáticos carregados (resultados parciais aceitos).",
+          "✅ Dados estáticos carregados do Supabase.",
         );
       } catch (err) {
         console.error("❌ Erro crítico ao carregar dados estáticos:", err);
       } finally {
-        // Sinaliza que tentou carregar — páginas podem renderizar com o que foi obtido
         setDataReady(true);
       }
     };
 
     loadStaticCollections();
 
-    // Apenas notices mantém onSnapshot: avisos do sistema precisam aparecer
-    // em tempo real para todos os usuários sem precisar recarregar.
-    console.log("🔌 Iniciando listener em tempo real apenas para notices...");
-    const unsubNotices = subscribeToCollection("notices", (data) =>
+    // Apenas avisos mantêm tempo real
+    console.log("🔌 Inscrito em tempo real para avisos (avisos)...");
+    const unsubNotices = subscribeToCollection("avisos", (data) =>
       setNotices(data as SystemNotice[]),
     );
 

@@ -106,7 +106,7 @@ export const InstructorReport = () => {
   const myDisciplines = useMemo(() => {
     if (!targetInstructorName || !Array.isArray(disciplines)) return [];
 
-    const cleanInstructorName = targetInstructorName.toLowerCase().trim();
+    const cleanInstructorName = (targetInstructorName || "").toLowerCase().trim();
 
     return disciplines.filter((d: Discipline) => {
       if (!d || !d.instructor) return false;

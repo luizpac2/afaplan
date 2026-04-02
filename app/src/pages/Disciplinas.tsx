@@ -170,7 +170,7 @@ export const Disciplinas = () => {
 
             // 2. NORMAL SEARCH
             const matchesSearch = debouncedSearch.startsWith('!') ? true : (
-                d.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                d.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
                 d.code?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
                 d.instructor?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
                 formatTrainingField(d.trainingField).toLowerCase().includes(debouncedSearch.toLowerCase())

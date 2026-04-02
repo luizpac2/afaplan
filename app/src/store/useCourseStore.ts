@@ -367,50 +367,79 @@ export const useCourseStore = create<CourseState>((set) => ({
     }
   },
 
-  addDiscipline: (discipline) => {
+  addDiscipline: async (discipline) => {
+    // Optimistic UI update
     set((state) => ({ disciplines: [...state.disciplines, discipline] }));
+    
     logAction({
       action: "ADD",
       entity: "DISCIPLINE",
       entityId: discipline.id,
-      entityName: getEntityName(
-        discipline as unknown as Record<string, unknown>,
-        "DISCIPLINE",
-      ),
+      entityName: discipline.name,
     });
-    if (true) {
-      saveDocument("disciplines", discipline.id, discipline);
-      invalidateStaticCache("disciplines");
+
+    try {
+      const dbDiscipline = {
+        sigla: discipline.code,
+        nome: discipline.name,
+        categoria: "GERAL", // Default mapping for now
+        carga_horaria: discipline.load_hours || 0,
+        campo: discipline.trainingField === "GERAL" ? null : discipline.trainingField,
+        ativo: true
+      };
+      
+      await saveDocument("disciplinas", discipline.code, dbDiscipline, "sigla");
+      invalidateStaticCache("disciplinas");
+      console.log(`✅ Disciplina ${discipline.code} salva no DB`);
+    } catch (err) {
+      console.error("❌ Falha ao salvar disciplina no Supabase:", err);
+      alert("Erro ao salvar disciplina no banco de dados.");
     }
   },
 
   updateDiscipline: async (id, updates) => {
     const state = useCourseStore.getState();
     const before = state.disciplines.find((d) => d.id === id);
+    
+    // id can be code or uuid here depending on caller
+    const sigla = before?.code || id;
+
+    // Optimistic
     set((state) => ({
       disciplines: state.disciplines.map((d) =>
-        d.id === id ? { ...d, ...updates } : d,
+        d.id === id || d.code === id ? { ...d, ...updates } : d,
       ),
     }));
+
     const after = useCourseStore
       .getState()
-      .disciplines.find((d) => d.id === id);
+      .disciplines.find((d) => d.id === id || d.code === id);
+
     if (before && after) {
       logAction({
         action: "UPDATE",
         entity: "DISCIPLINE",
-        entityId: id,
-        entityName: getEntityName(
-          after as unknown as Record<string, unknown>,
-          "DISCIPLINE",
-        ),
-        before: before as unknown as Record<string, unknown>,
-        after: after as unknown as Record<string, unknown>,
+        entityId: sigla,
+        entityName: after.name,
+        before: before as any,
+        after: after as any,
       });
-    }
-    if (after) {
-      await saveDocument("disciplines", id, after);
-      invalidateStaticCache("disciplines");
+
+      try {
+        const dbUpdates: any = {
+          sigla: after.code,
+          nome: after.name,
+          carga_horaria: after.load_hours || 0,
+          campo: after.trainingField === "GERAL" ? null : after.trainingField,
+        };
+        
+        await saveDocument("disciplinas", sigla, dbUpdates, "sigla");
+        invalidateStaticCache("disciplinas");
+        console.log(`✅ Disciplina ${sigla} atualizada no DB`);
+      } catch (err) {
+        console.error("❌ Falha ao atualizar disciplina no Supabase:", err);
+        alert("Erro ao atualizar disciplina no banco.");
+      }
     }
   },
 
@@ -419,8 +448,9 @@ export const useCourseStore = create<CourseState>((set) => ({
 
     set((state) => {
       const newDisciplines = state.disciplines.map((d) => {
-        if (updates[d.id]) {
-          const updatedItem = { ...d, ...updates[d.id] };
+        const up = updates[d.id] || updates[d.code];
+        if (up) {
+          const updatedItem = { ...d, ...up };
           itemsToSave.push(updatedItem);
           return updatedItem;
         }
@@ -436,9 +466,18 @@ export const useCourseStore = create<CourseState>((set) => ({
         entityId: "BATCH",
         entityName: `Atualização em massa (${itemsToSave.length} disciplinas)`,
       });
-      if (true) {
-        await batchSave("disciplines", itemsToSave);
-        invalidateStaticCache("disciplines");
+
+      try {
+        const dbItems = itemsToSave.map(d => ({
+          sigla: d.code,
+          nome: d.name,
+          carga_horaria: d.load_hours || 0,
+          campo: d.trainingField === "GERAL" ? null : d.trainingField,
+        }));
+        await batchSave("disciplinas", dbItems);
+        invalidateStaticCache("disciplinas");
+      } catch (err) {
+        console.error("❌ Falha no batch save de disciplinas:", err);
       }
     }
   },
@@ -485,111 +524,6 @@ export const useCourseStore = create<CourseState>((set) => ({
     });
   },
 
-  deleteDiscipline: (id) => {
-    const state = useCourseStore.getState();
-    const discipline = state.disciplines.find((d) => d.id === id);
-
-    // Find associated events to delete
-    const eventsToDelete = state.events.filter((e) => e.disciplineId === id);
-
-    set((state) => {
-      const newYearCache = { ...state.yearEventsCache };
-      eventsToDelete.forEach((event) => {
-        const year = new Date(event.date + "T12:00:00").getFullYear();
-        if (newYearCache[year]) {
-          newYearCache[year] = newYearCache[year].filter(
-            (e) => e.id !== event.id,
-          );
-        }
-      });
-
-      return {
-        disciplines: state.disciplines.filter((d) => d.id !== id),
-        events: state.events.filter((e) => e.disciplineId !== id),
-        yearEventsCache: newYearCache,
-        weeklyEventsCache: {},
-      };
-    });
-
-    if (discipline) {
-      logAction({
-        action: "DELETE",
-        entity: "DISCIPLINE",
-        entityId: id,
-        entityName: getEntityName(
-          discipline as unknown as Record<string, unknown>,
-          "DISCIPLINE",
-        ),
-      });
-    }
-
-    if (true) {
-      deleteDocument("disciplines", id);
-      invalidateStaticCache("disciplines");
-      // Delete associated events from Firestore
-      if (eventsToDelete.length > 0) {
-        batchDelete(
-          "events",
-          eventsToDelete.map((e) => e.id),
-        ).catch((err) =>
-          console.error(`Failed to delete events for discipline ${id}`, err),
-        );
-      }
-    }
-  },
-
-  deleteBatchDisciplines: async (ids) => {
-    const state = useCourseStore.getState();
-    const disciplinesToDelete = state.disciplines.filter((d) =>
-      ids.includes(d.id),
-    );
-    const eventsToDelete = state.events.filter((e) =>
-      ids.includes(e.disciplineId),
-    );
-    const eventIdsToDelete = eventsToDelete.map((e) => e.id);
-
-    set((state) => {
-      const newYearCache = { ...state.yearEventsCache };
-      eventsToDelete.forEach((event) => {
-        const year = new Date(event.date + "T12:00:00").getFullYear();
-        if (newYearCache[year]) {
-          newYearCache[year] = newYearCache[year].filter(
-            (e) => e.id !== event.id,
-          );
-        }
-      });
-
-      return {
-        disciplines: state.disciplines.filter((d) => !ids.includes(d.id)),
-        events: state.events.filter((e) => !ids.includes(e.disciplineId)),
-        yearEventsCache: newYearCache,
-        weeklyEventsCache: {},
-      };
-    });
-
-    disciplinesToDelete.forEach((d) => {
-      logAction({
-        action: "DELETE",
-        entity: "DISCIPLINE",
-        entityId: d.id,
-        entityName: getEntityName(
-          d as unknown as Record<string, unknown>,
-          "DISCIPLINE",
-        ),
-      });
-    });
-
-    if (true) {
-      await batchDelete("disciplines", ids);
-      invalidateStaticCache("disciplines");
-      if (eventIdsToDelete.length > 0) {
-        // Bulk delete associated events
-        await batchDelete("programacao_aulas", eventIdsToDelete).catch((err) =>
-          console.error("Failed to batch delete associated events:", err),
-        );
-      }
-    }
-  },
 
   clearDisciplines: () => set({ disciplines: [] }),
 
@@ -1104,7 +1038,9 @@ export const useCourseStore = create<CourseState>((set) => ({
   // Instructor Implementations
   setInstructors: (instructors) => set({ instructors }),
   addInstructor: async (instructor) => {
+    // Optimistic UI
     set((state) => ({ instructors: [...state.instructors, instructor] }));
+    
     logAction({
       action: "ADD",
       entity: "INSTRUCTOR",
@@ -1112,34 +1048,42 @@ export const useCourseStore = create<CourseState>((set) => ({
       entityName: instructor.warName,
     });
 
-    if (true) {
-      try {
-        await saveDocument("instructors", instructor.trigram, instructor, "trigram");
-        invalidateStaticCache("instructors");
-        console.log(`✅ Instrutor ${instructor.trigram} salvo no DB`);
-      } catch (err) {
-        console.error("❌ Falha ao salvar instrutor no Firestore:", err);
-        alert(
-          "Erro ao salvar docente no banco de dados. Verifique sua conexão.",
-        );
-      }
-    } else {
-      console.warn(
-        "⚠️ Usuário não autenticado. Instructor não será salvo no Firestore.",
-      );
+    try {
+      // Mapping to Supabase table 'docentes'
+      const dbInstructor = {
+        trigrama: instructor.trigram,
+        nome_guerra: instructor.warName,
+        nome_completo: instructor.fullName,
+        vinculo: instructor.venture,
+        titulacao: instructor.rank,
+        carga_horaria_max: instructor.weeklyLoadLimit,
+        ativo: true
+      };
+      
+      await saveDocument("docentes", instructor.trigram, dbInstructor, "trigrama");
+      invalidateStaticCache("instructors");
+      console.log(`✅ Docente ${instructor.trigram} salvo no DB`);
+    } catch (err) {
+      console.error("❌ Falha ao salvar docente no Supabase:", err);
+      // Revert optimistic update here if needed (optional)
+      alert("Erro ao salvar docente no banco de dados. Verifique os campos.");
     }
   },
   updateInstructor: async (trigram, updates) => {
     const state = useCourseStore.getState();
     const before = state.instructors.find((i) => i.trigram === trigram);
+    
+    // Optimistic UI
     set((state) => ({
       instructors: state.instructors.map((i) =>
         i.trigram === trigram ? { ...i, ...updates } : i,
       ),
     }));
+
     const after = useCourseStore
       .getState()
       .instructors.find((i) => i.trigram === trigram);
+
     if (before && after) {
       logAction({
         action: "UPDATE",
@@ -1149,26 +1093,92 @@ export const useCourseStore = create<CourseState>((set) => ({
         before: before as any,
         after: after as any,
       });
-      if (true) {
-        try {
-          await saveDocument("instructors", trigram, after, "trigram");
-          invalidateStaticCache("instructors");
-          console.log(`✅ Instrutor ${trigram} atualizado no DB`);
-        } catch (err) {
-          console.error("❌ Falha ao atualizar instrutor no Firestore:", err);
-          alert(
-            "Erro ao atualizar docente. Suas mudanças podem não ter sido salvas.",
-          );
-        }
+
+      try {
+        // Mapping updates to Supabase columns
+        const dbUpdates: any = {};
+        if (updates.trigram) dbUpdates.trigrama = updates.trigram;
+        if (updates.warName) dbUpdates.nome_guerra = updates.warName;
+        if (updates.fullName) dbUpdates.nome_completo = updates.fullName;
+        if (updates.venture) dbUpdates.vinculo = updates.venture;
+        if (updates.rank) dbUpdates.titulacao = updates.rank;
+        if (updates.weeklyLoadLimit !== undefined) dbUpdates.carga_horaria_max = updates.weeklyLoadLimit;
+
+        // If no mapped updates but still called, might be other fields (which we don't handle yet in DB)
+        // For safety, if it's a full update, we can map the 'after' object
+        const mappedAfter = {
+          trigrama: after.trigram,
+          nome_guerra: after.warName,
+          nome_completo: after.fullName,
+          vinculo: after.venture,
+          titulacao: after.rank,
+          carga_horaria_max: after.weeklyLoadLimit,
+        };
+
+        await saveDocument("docentes", trigram, mappedAfter, "trigrama");
+        invalidateStaticCache("instructors");
+        console.log(`✅ Docente ${trigram} atualizado no DB`);
+      } catch (err) {
+        console.error("❌ Falha ao atualizar docente no Supabase:", err);
+        alert("Erro ao atualizar docente. Verifique as restrições do banco.");
       }
     }
   },
-  deleteInstructor: (trigram) => {
+  deleteDiscipline: async (id) => {
+    const state = useCourseStore.getState();
+    const discipline = state.disciplines.find((d) => d.id === id || d.code === id);
+    const sigla = discipline?.code || id;
+
+    set((state) => ({
+      disciplines: state.disciplines.filter((d) => d.id !== id && d.code !== id),
+    }));
+
+    if (discipline) {
+      logAction({
+        action: "DELETE",
+        entity: "DISCIPLINE",
+        entityId: sigla,
+        entityName: discipline.name,
+      });
+      try {
+        await deleteDocument("disciplinas", sigla, "sigla");
+        invalidateStaticCache("disciplinas");
+      } catch (err) {
+        console.error("❌ Falha ao deletar disciplina:", err);
+      }
+    }
+  },
+
+  deleteBatchDisciplines: async (ids) => {
+    // ids are expected to be codes/siglas
+    set((state) => ({
+      disciplines: state.disciplines.filter((d) => !ids.includes(d.id) && !ids.includes(d.code)),
+    }));
+
+    logAction({
+      action: "DELETE",
+      entity: "DISCIPLINE",
+      entityId: "BATCH",
+      entityName: `Exclusão em massa (${ids.length} disciplinas)`,
+    });
+
+    try {
+      await batchDelete("disciplinas", ids, "sigla");
+      invalidateStaticCache("disciplinas");
+    } catch (err) {
+      console.error("❌ Falha no batch delete de disciplinas:", err);
+    }
+  },
+
+  // ... (rest of the file)
+  deleteInstructor: async (trigram) => {
     const state = useCourseStore.getState();
     const instructor = state.instructors.find((i) => i.trigram === trigram);
+    
     set((state) => ({
       instructors: state.instructors.filter((i) => i.trigram !== trigram),
     }));
+
     if (instructor) {
       logAction({
         action: "DELETE",
@@ -1176,9 +1186,11 @@ export const useCourseStore = create<CourseState>((set) => ({
         entityId: trigram,
         entityName: instructor.warName,
       });
-      if (true) {
-        deleteDocument("instructors", trigram, "trigram");
+      try {
+        await deleteDocument("docentes", trigram, "trigrama");
         invalidateStaticCache("instructors");
+      } catch (err) {
+        console.error("❌ Falha ao deletar docente:", err);
       }
     }
   },

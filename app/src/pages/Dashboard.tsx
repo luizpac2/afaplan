@@ -198,7 +198,7 @@ export const Dashboard = () => {
 
     if (!activeConfig || !activeConfig.showRing) return null;
     const ringColor =
-      theme === "light" && activeConfig.ringColor.toLowerCase() === "#ffffff"
+      theme === "light" && activeConfig.ringColor?.toLowerCase() === "#ffffff"
         ? "#cbd5e1"
         : activeConfig.ringColor;
 
