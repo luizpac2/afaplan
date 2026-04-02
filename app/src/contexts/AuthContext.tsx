@@ -17,6 +17,10 @@ const mapRole = (dbRole: string): UserRole => {
   }
 };
 
+const SUPER_ADMIN_EMAILS = new Set<string>([
+  "pelicano307@gmail.com",
+]);
+
 interface AuthContextType {
   user: SupabaseUser;
   userProfile: UserProfile | null;
@@ -37,6 +41,21 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext);
 
 const buildProfile = async (user: NonNullable<SupabaseUser>): Promise<UserProfile | null> => {
+  const email = (user.email ?? "").trim().toLowerCase();
+  const meta = (user.user_metadata ?? {}) as Record<string, string>;
+
+  // Fallback: garante super-admin mesmo se `user_roles` estiver inconsistente/indisponível
+  if (SUPER_ADMIN_EMAILS.has(email)) {
+    return {
+      uid: user.id,
+      email: user.email ?? "",
+      displayName: meta.nome ?? user.email ?? "",
+      role: "SUPER_ADMIN",
+      createdAt: user.created_at,
+      status: "APPROVED",
+    };
+  }
+
   const { data, error } = await supabase
     .from("user_roles")
     .select("role, turma_id, docente_id")
@@ -44,8 +63,6 @@ const buildProfile = async (user: NonNullable<SupabaseUser>): Promise<UserProfil
     .single();
 
   if (error || !data) return null;
-
-  const meta = (user.user_metadata ?? {}) as Record<string, string>;
 
   return {
     uid: user.id,
