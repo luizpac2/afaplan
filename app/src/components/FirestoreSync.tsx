@@ -119,15 +119,34 @@ export const FirestoreSync = () => {
 
         if (instructors.status === "fulfilled") {
           const disciplinesList = disciplines.status === "fulfilled" ? (disciplines.value as any[]) : [];
+          const turmasList = cohorts.status === "fulfilled" ? (cohorts.value as any[]) : [];
+          const currentYear = new Date().getFullYear();
           const mapped = (instructors.value as any[]).map((i) => {
             const rawDisciplines: string[] = i.data?.enabledDisciplines || i.enabledDisciplines || [];
-            // Normalize: convert sigla/code references to Supabase id
             const normalizedDisciplines = rawDisciplines.map((ref: string) => {
               const byId = disciplinesList.find((d: any) => d.id === ref);
               if (byId) return ref;
               const byCode = disciplinesList.find((d: any) => d.sigla === ref || d.code === ref);
               return byCode ? byCode.id : ref;
             });
+
+            const rawClasses: string[] = i.data?.enabledClasses || i.enabledClasses || [];
+            const normalizedClasses = [...new Set(rawClasses.map((ref: string) => {
+              // Already a valid turmas id
+              if (turmasList.find((t: any) => String(t.id) === ref)) return ref;
+              // Legacy format "1A", "2B", etc. — extract year digit and find matching turma
+              const yearMatch = ref.match(/^(\d)/);
+              if (yearMatch) {
+                const legacyYear = parseInt(yearMatch[1]);
+                const turma = turmasList.find((t: any) => {
+                  const entryYear = t.entryYear || t.ano_ingresso;
+                  return entryYear && Math.min(4, Math.max(1, currentYear - entryYear + 1)) === legacyYear;
+                });
+                if (turma) return String(turma.id);
+              }
+              return ref;
+            }))];
+
             return {
               ...i,
               trigram: i.trigram || i.trigrama || i.id,
@@ -138,7 +157,7 @@ export const FirestoreSync = () => {
               weeklyLoadLimit: i.data?.weeklyLoadLimit || i.weeklyLoadLimit || i.carga_horaria_max || 12,
               specialty: i.specialty || i.especialidade || "",
               enabledDisciplines: normalizedDisciplines,
-              enabledClasses: i.data?.enabledClasses || i.enabledClasses || [],
+              enabledClasses: normalizedClasses,
             };
           });
           setInstructors(mapped as Instructor[]);
