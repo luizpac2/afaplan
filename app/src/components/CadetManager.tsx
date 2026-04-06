@@ -3,7 +3,7 @@ import { supabase } from '../config/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Users, Search, Edit2, Save, X, ChevronDown, AlertCircle } from 'lucide-react';
-import type { Cadet, CadetQuadro, CadetTurma, CadetSituacao } from '../types';
+import type { Cadet, CadetQuadro, CadetTurma, CadetSituacao, Cohort } from '../types';
 
 const QUADRO_LABEL: Record<CadetQuadro, string> = {
   CFOAV:  'Aviação',
@@ -12,7 +12,6 @@ const QUADRO_LABEL: Record<CadetQuadro, string> = {
 };
 
 const TURMA_OPTIONS: CadetTurma[] = ['TURMA_A','TURMA_B','TURMA_C','TURMA_D','TURMA_E','TURMA_F'];
-
 const SITUACAO_OPTIONS: CadetSituacao[] = ['ATIVO','DESLIGADO','TRANCADO','TRANSFERIDO'];
 
 const SITUACAO_STYLE: Record<CadetSituacao, string> = {
@@ -28,19 +27,28 @@ const QUADRO_COLOR: Record<CadetQuadro, string> = {
   CFOINF: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
 };
 
-type EditState = Partial<Pick<Cadet, 'nome_guerra' | 'turma_aula' | 'situacao' | 'observacao'>>;
+const COHORT_COLOR: Record<string, string> = {
+  green: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+  blue:  'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+  red:   'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+  black: 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
+};
 
-export const CadetManager = ({ cohortId }: { cohortId?: string }) => {
+type EditState = Partial<Pick<Cadet, 'nome_guerra' | 'turma_aula' | 'situacao' | 'cohort_id' | 'observacao'>>;
+
+export const CadetManager = () => {
   const { userProfile } = useAuth();
   const { theme } = useTheme();
 
-  const [cadets, setCadets]       = useState<Cadet[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
-  const [search, setSearch]       = useState('');
-  const [filterQuadro, setFilterQuadro] = useState<CadetQuadro | ''>('');
-  const [filterTurma, setFilterTurma]   = useState<CadetTurma | ''>('');
-  const [filterSit, setFilterSit]       = useState<CadetSituacao | ''>('ATIVO');
+  const [cadets, setCadets]     = useState<Cadet[]>([]);
+  const [cohorts, setCohorts]   = useState<Cohort[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState<string | null>(null);
+  const [search, setSearch]     = useState('');
+  const [filterCohort, setFilterCohort]   = useState<string>('');
+  const [filterQuadro, setFilterQuadro]   = useState<CadetQuadro | ''>('');
+  const [filterTurma, setFilterTurma]     = useState<CadetTurma | ''>('');
+  const [filterSit, setFilterSit]         = useState<CadetSituacao | ''>('ATIVO');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<EditState>({});
   const [saving, setSaving]       = useState(false);
@@ -54,42 +62,60 @@ export const CadetManager = ({ cohortId }: { cohortId?: string }) => {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      let q = supabase.from('cadetes').select('*').order('id');
-      if (cohortId) q = q.eq('cohort_id', cohortId);
-      const { data, error } = await q;
-      if (error) setError(error.message);
-      else setCadets(data as Cadet[]);
+      const [{ data: cadetsData, error: cadetsErr }, { data: cohortsData }] = await Promise.all([
+        supabase.from('cadetes').select('*').order('id'),
+        supabase.from('cohorts').select('*').order('entryYear', { ascending: false }),
+      ]);
+      if (cadetsErr) setError(cadetsErr.message);
+      else setCadets(cadetsData as Cadet[]);
+      if (cohortsData) setCohorts(cohortsData as Cohort[]);
       setLoading(false);
     };
     void load();
-  }, [cohortId]);
+  }, []);
+
+  const cohortMap = useMemo(
+    () => Object.fromEntries(cohorts.map(c => [String(c.id), c])),
+    [cohorts],
+  );
 
   // ── Filtering ───────────────────────────────────────────────
   const filtered = useMemo(() => {
     const s = search.toLowerCase();
     return cadets.filter(c => {
+      if (filterCohort && c.cohort_id !== filterCohort) return false;
       if (filterQuadro && c.quadro !== filterQuadro) return false;
       if (filterTurma  && c.turma_aula !== filterTurma) return false;
       if (filterSit    && c.situacao !== filterSit) return false;
-      if (s && !c.nome_guerra.toLowerCase().includes(s) && !c.nome_completo.toLowerCase().includes(s) && !c.id.includes(s)) return false;
+      if (s && !c.nome_guerra.toLowerCase().includes(s)
+            && !c.nome_completo.toLowerCase().includes(s)
+            && !c.id.includes(s)) return false;
       return true;
     });
-  }, [cadets, search, filterQuadro, filterTurma, filterSit]);
+  }, [cadets, search, filterCohort, filterQuadro, filterTurma, filterSit]);
 
-  const counts = useMemo(() => ({
-    total: cadets.length,
-    ativos: cadets.filter(c => c.situacao === 'ATIVO').length,
-    av: cadets.filter(c => c.quadro === 'CFOAV' && c.situacao === 'ATIVO').length,
-    int: cadets.filter(c => c.quadro === 'CFOINT' && c.situacao === 'ATIVO').length,
-    inf: cadets.filter(c => c.quadro === 'CFOINF' && c.situacao === 'ATIVO').length,
-  }), [cadets]);
+  const counts = useMemo(() => {
+    const base = filterCohort ? cadets.filter(c => c.cohort_id === filterCohort) : cadets;
+    return {
+      total:  base.length,
+      ativos: base.filter(c => c.situacao === 'ATIVO').length,
+      av:  base.filter(c => c.quadro === 'CFOAV'  && c.situacao === 'ATIVO').length,
+      int: base.filter(c => c.quadro === 'CFOINT' && c.situacao === 'ATIVO').length,
+      inf: base.filter(c => c.quadro === 'CFOINF' && c.situacao === 'ATIVO').length,
+    };
+  }, [cadets, filterCohort]);
 
   // ── Edit ────────────────────────────────────────────────────
   const startEdit = (c: Cadet) => {
     setEditingId(c.id);
-    setEditDraft({ nome_guerra: c.nome_guerra, turma_aula: c.turma_aula, situacao: c.situacao, observacao: c.observacao ?? '' });
+    setEditDraft({
+      nome_guerra: c.nome_guerra,
+      turma_aula:  c.turma_aula,
+      situacao:    c.situacao,
+      cohort_id:   c.cohort_id,
+      observacao:  c.observacao ?? '',
+    });
   };
-
   const cancelEdit = () => { setEditingId(null); setEditDraft({}); };
 
   const saveEdit = async (id: string) => {
@@ -107,7 +133,7 @@ export const CadetManager = ({ cohortId }: { cohortId?: string }) => {
     setSaving(false);
   };
 
-  // ── Render ──────────────────────────────────────────────────
+  // ── Styles ──────────────────────────────────────────────────
   const isDark = theme === 'dark';
   const card  = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100';
   const text  = isDark ? 'text-slate-100' : 'text-slate-900';
@@ -126,10 +152,10 @@ export const CadetManager = ({ cohortId }: { cohortId?: string }) => {
             Cadetes
           </h2>
           <p className={`text-sm mt-1 ${muted}`}>
-            {counts.ativos} ativos de {counts.total} &nbsp;·&nbsp;
-            <span className="text-sky-500">{counts.av} Av</span> &nbsp;·&nbsp;
-            <span className="text-amber-500">{counts.int} Int</span> &nbsp;·&nbsp;
-            <span className="text-orange-500">{counts.inf} Inf</span>
+            {counts.ativos} ativos de {counts.total}
+            &nbsp;·&nbsp;<span className="text-sky-500">{counts.av} Av</span>
+            &nbsp;·&nbsp;<span className="text-amber-500">{counts.int} Int</span>
+            &nbsp;·&nbsp;<span className="text-orange-500">{counts.inf} Inf</span>
           </p>
         </div>
       </div>
@@ -147,7 +173,24 @@ export const CadetManager = ({ cohortId }: { cohortId?: string }) => {
           />
         </div>
 
-        {/* Quadro filter */}
+        {/* Turma (cohort) filter */}
+        <div className="relative">
+          <select
+            value={filterCohort}
+            onChange={e => setFilterCohort(e.target.value)}
+            className={`pl-3 pr-7 py-1.5 rounded-lg border text-sm appearance-none focus:outline-none focus:ring-1 focus:ring-indigo-400 ${input}`}
+          >
+            <option value="">Todas as turmas</option>
+            {cohorts.map(c => (
+              <option key={c.id} value={String(c.id)}>
+                {c.name} {c.entryYear}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${muted}`} />
+        </div>
+
+        {/* Quadro */}
         <div className="relative">
           <select
             value={filterQuadro}
@@ -162,22 +205,22 @@ export const CadetManager = ({ cohortId }: { cohortId?: string }) => {
           <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${muted}`} />
         </div>
 
-        {/* Turma filter */}
+        {/* Turma aula */}
         <div className="relative">
           <select
             value={filterTurma}
             onChange={e => setFilterTurma(e.target.value as CadetTurma | '')}
             className={`pl-3 pr-7 py-1.5 rounded-lg border text-sm appearance-none focus:outline-none focus:ring-1 focus:ring-indigo-400 ${input}`}
           >
-            <option value="">Todas as turmas</option>
+            <option value="">Todas as seções</option>
             {TURMA_OPTIONS.map(t => (
-              <option key={t} value={t}>{t.replace('TURMA_', 'Turma ')}</option>
+              <option key={t} value={t}>{t.replace('TURMA_', 'Seção ')}</option>
             ))}
           </select>
           <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${muted}`} />
         </div>
 
-        {/* Situação filter */}
+        {/* Situação */}
         <div className="relative">
           <select
             value={filterSit}
@@ -210,8 +253,9 @@ export const CadetManager = ({ cohortId }: { cohortId?: string }) => {
                 <th className="text-left px-3 py-2 font-medium w-20">Nº</th>
                 <th className="text-left px-3 py-2 font-medium w-28">N. Guerra</th>
                 <th className="text-left px-3 py-2 font-medium">Nome Completo</th>
+                <th className="text-left px-3 py-2 font-medium w-28">Turma</th>
                 <th className="text-left px-3 py-2 font-medium w-24">Quadro</th>
-                <th className="text-left px-3 py-2 font-medium w-24">Turma</th>
+                <th className="text-left px-3 py-2 font-medium w-24">Seção</th>
                 <th className="text-left px-3 py-2 font-medium w-28">Situação</th>
                 {canEdit && <th className="px-3 py-2 w-16" />}
               </tr>
@@ -219,12 +263,13 @@ export const CadetManager = ({ cohortId }: { cohortId?: string }) => {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={canEdit ? 7 : 6} className={`text-center py-8 ${muted}`}>
+                  <td colSpan={canEdit ? 8 : 7} className={`text-center py-8 ${muted}`}>
                     Nenhum cadete encontrado.
                   </td>
                 </tr>
               )}
               {filtered.map(c => {
+                const cohort = cohortMap[c.cohort_id ?? ''];
                 const isEditing = editingId === c.id;
                 return (
                   <tr
@@ -250,7 +295,34 @@ export const CadetManager = ({ cohortId }: { cohortId?: string }) => {
                     </td>
 
                     {/* Nome completo */}
-                    <td className={`px-3 py-2 ${muted} text-xs`}>{c.nome_completo}</td>
+                    <td className={`px-3 py-2 text-xs ${muted}`}>{c.nome_completo}</td>
+
+                    {/* Turma (cohort) */}
+                    <td className="px-3 py-2">
+                      {isEditing ? (
+                        <div className="relative">
+                          <select
+                            value={editDraft.cohort_id ?? c.cohort_id ?? ''}
+                            onChange={e => setEditDraft(d => ({ ...d, cohort_id: e.target.value }))}
+                            className={`w-full pl-2 pr-6 py-1 rounded border text-xs appearance-none ${input}`}
+                          >
+                            <option value="">—</option>
+                            {cohorts.map(co => (
+                              <option key={co.id} value={String(co.id)}>
+                                {co.name} {co.entryYear}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown size={11} className={`absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none ${muted}`} />
+                        </div>
+                      ) : cohort ? (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${COHORT_COLOR[cohort.color] ?? COHORT_COLOR.blue}`}>
+                          {cohort.name}
+                        </span>
+                      ) : (
+                        <span className={`text-xs ${muted}`}>—</span>
+                      )}
+                    </td>
 
                     {/* Quadro */}
                     <td className="px-3 py-2">
@@ -259,7 +331,7 @@ export const CadetManager = ({ cohortId }: { cohortId?: string }) => {
                       </span>
                     </td>
 
-                    {/* Turma */}
+                    {/* Turma aula (seção) */}
                     <td className="px-3 py-2">
                       {isEditing ? (
                         <div className="relative">
@@ -268,12 +340,14 @@ export const CadetManager = ({ cohortId }: { cohortId?: string }) => {
                             onChange={e => setEditDraft(d => ({ ...d, turma_aula: e.target.value as CadetTurma }))}
                             className={`w-full pl-2 pr-6 py-1 rounded border text-xs appearance-none ${input}`}
                           >
-                            {TURMA_OPTIONS.map(t => <option key={t} value={t}>{t.replace('TURMA_','')}</option>)}
+                            {TURMA_OPTIONS.map(t => (
+                              <option key={t} value={t}>{t.replace('TURMA_', '')}</option>
+                            ))}
                           </select>
                           <ChevronDown size={11} className={`absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none ${muted}`} />
                         </div>
                       ) : (
-                        <span className={`text-xs ${muted}`}>{c.turma_aula.replace('TURMA_','Turma ')}</span>
+                        <span className={`text-xs ${muted}`}>{c.turma_aula.replace('TURMA_', 'Seção ')}</span>
                       )}
                     </td>
 
