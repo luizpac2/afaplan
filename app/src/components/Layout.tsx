@@ -115,7 +115,14 @@ const MENU_ITEMS: MenuItem[] = [
           { title: "Ocorrências", path: "/instructor-occurrences" },
         ],
       },
-      { title: "Turmas", path: "/turmas", icon: Users },
+      {
+        title: "Turmas",
+        icon: Users,
+        submenu: [
+          { title: "Esquadrões", path: "/turmas" },
+          { title: "Cadetes", path: "/cadetes" },
+        ],
+      },
       {
         title: "Inteligência",
         icon: Zap,
