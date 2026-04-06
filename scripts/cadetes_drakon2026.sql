@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.cadetes (
   nome_completo TEXT NOT NULL,
   quadro        TEXT NOT NULL,             -- CFOAV | CFOINT | CFOINF
   turma_aula    TEXT NOT NULL,             -- TURMA_A … TURMA_F
-  cohort_id     TEXT REFERENCES public.cohorts(id),
+  cohort_id     TEXT,  -- '1'=Drakon, '2'=Perseu, '3'=Uiraçu, '4'=Athos
   situacao      TEXT NOT NULL DEFAULT 'ATIVO',  -- ATIVO | DESLIGADO | TRANCADO | TRANSFERIDO
   observacao    TEXT,
   created_at    TIMESTAMPTZ DEFAULT now(),
