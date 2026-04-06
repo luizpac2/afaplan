@@ -4,20 +4,17 @@ import { supabase } from "../config/supabase";
 // Helpers
 // ---------------------------------------------------------------------------
 
-// Remove valores undefined (Supabase não aceita undefined, apenas null)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const clean = (data: any): any =>
   JSON.parse(JSON.stringify(data, (_k, v) => (v === undefined ? null : v)));
 
 /**
  * Normaliza uma linha de programacao_aulas para o formato ScheduleEvent.
- * Corrige diferenças de nomenclatura entre o schema do DB e os tipos TS.
- *   - DB:  instructorId  → TS: instructorTrigram
+ * O banco armazena instructorId; o frontend espera instructorTrigram.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const normalizeEvent = (row: any): any => ({
   ...row,
-  // instructorId no DB → instructorTrigram no frontend
   instructorTrigram: row.instructorTrigram ?? row.instructorId ?? null,
 });
 
@@ -32,68 +29,45 @@ export const fetchCollection = async (tableName: string) => {
   return data ?? [];
 };
 
-/** Busca com cache localStorage (TTL em horas) */
+/** Busca com cache localStorage (TTL em horas, padrão 4h) */
 export const fetchCollectionCached = async (
   tableName: string,
-  ttlHours = 24,
+  ttlHours = 4,
 ) => {
-  const key = `afa_cache_v2_${tableName}`;
+  const key = `afa_cache_v3_${tableName}`;
   try {
     const raw = localStorage.getItem(key);
     if (raw) {
       const { data, ts } = JSON.parse(raw) as { data: unknown[]; ts: number };
-      if (Date.now() - ts < ttlHours * 3_600_000) {
-        console.log(`⚡ Cache hit: ${tableName} (0 reads)`);
-        return data;
-      }
+      if (Date.now() - ts < ttlHours * 3_600_000) return data;
     }
-  } catch {
-    console.warn(`Cache inválido para ${tableName}, buscando do DB...`);
-  }
+  } catch { /* ignora cache corrompido */ }
 
-  console.log(`📡 Fetching from Supabase: ${tableName}...`);
   const data = await fetchCollection(tableName);
   try {
     localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
-  } catch {
-    console.warn(`Falha ao salvar ${tableName} no localStorage`);
-  }
+  } catch { /* quota exceeded */ }
   return data;
 };
 
-// ---------------------------------------------------------------------------
-// Realtime (substitui onSnapshot / subscribeToCollection)
-// ---------------------------------------------------------------------------
-
-/** Inscreve em mudanças em tempo real de uma tabela */
+/**
+ * Substituto de subscribeToCollection — sem Realtime/WebSocket.
+ * Faz fetch inicial e retorna unsubscribe no-op.
+ * Realtime foi removido porque o projeto Supabase não tem a feature habilitada.
+ */
 export const subscribeToCollection = (
   tableName: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   callback: (data: any[]) => void,
 ) => {
-  // Carrega dados iniciais
-  void fetchCollection(tableName).then(callback);
-
-  const channel = supabase
-    .channel(`realtime:${tableName}`)
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: tableName },
-      async () => {
-        // Re-fetch completo ao receber qualquer mudança
-        const fresh = await fetchCollection(tableName);
-        callback(fresh);
-      },
-    )
-    .subscribe();
-
-  // Retorna função de cleanup (mesmo contrato que Firestore Unsubscribe)
-  return () => { void supabase.removeChannel(channel); };
+  void fetchCollection(tableName)
+    .then(callback)
+    .catch(() => callback([]));
+  return () => {}; // no-op unsubscribe
 };
 
 /**
- * Inscreve em mudanças de eventos dentro de um intervalo de datas.
- * Substitui subscribeToQuery(query(collection(db, 'events'), where('date', '>=', start), ...))
+ * Busca eventos por intervalo de datas — sem Realtime.
  */
 export const subscribeToEventsByDateRange = (
   startDate: string,
@@ -101,140 +75,106 @@ export const subscribeToEventsByDateRange = (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   callback: (data: any[]) => void,
 ) => {
-  const fetch = async () => {
-    const { data, error } = await supabase
-      .from("programacao_aulas")
-      .select("*")
-      .gte("date", startDate)
-      .lte("date", endDate);
-    if (!error) callback((data ?? []).map(normalizeEvent));
-  };
-
-  void fetch();
-
-  const channel = supabase
-    .channel(`events:${startDate}:${endDate}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "programacao_aulas" }, () => {
-      void fetch();
-    })
-    .subscribe();
-
-  return () => { void supabase.removeChannel(channel); };
+  supabase
+    .from("programacao_aulas")
+    .select("*")
+    .gte("date", startDate)
+    .lte("date", endDate)
+    .then(({ data, error }) => {
+      if (!error) callback((data ?? []).map(normalizeEvent));
+      else callback([]);
+    });
+  return () => {};
 };
 
 // ---------------------------------------------------------------------------
 // CRUD
 // ---------------------------------------------------------------------------
 
-/** Cria ou substitui um registro (equivalente a setDoc sem merge) */
 export const saveDocument = async (
   tableName: string,
   id: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any,
-  idColumn: string = "id",
+  idColumn = "id",
 ) => {
-  const payload = clean(data);
-  // Garante que o ID está no payload com a coluna correta
-  const upsertData = { ...payload, [idColumn]: id };
-
   const { error } = await supabase
     .from(tableName)
-    .upsert(upsertData);
-
+    .upsert({ ...clean(data), [idColumn]: id });
   if (error) {
-    console.error(`[Supabase Save:${tableName}:${id}]`, error);
+    console.error(`[Save:${tableName}:${id}]`, error);
     throw error;
   }
 };
 
-/** Atualiza campos específicos de um registro */
 export const updateDocument = async (
   tableName: string,
   id: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   updates: any,
-  idColumn: string = "id",
+  idColumn = "id",
 ) => {
   const { error } = await supabase
     .from(tableName)
     .update(clean(updates))
     .eq(idColumn, id);
-
   if (error) {
-    console.error(`[Supabase Update:${tableName}:${id}]`, error);
+    console.error(`[Update:${tableName}:${id}]`, error);
     throw error;
   }
 };
 
-/** Remove um registro */
 export const deleteDocument = async (
   tableName: string,
   id: string,
-  idColumn: string = "id",
+  idColumn = "id",
 ) => {
   const { error } = await supabase
     .from(tableName)
     .delete()
     .eq(idColumn, id);
-
   if (error) {
-    console.error(`[Supabase Delete:${tableName}:${id}]`, error);
+    console.error(`[Delete:${tableName}:${id}]`, error);
     throw error;
   }
 };
 
-/** Insere ou atualiza vários registros em lote */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const batchSave = async (tableName: string, items: any[]) => {
   if (!items.length) return;
-  const { error } = await supabase
-    .from(tableName)
-    .upsert(items.map(clean));
+  const { error } = await supabase.from(tableName).upsert(items.map(clean));
   if (error) {
-    console.error(`[Supabase BatchSave:${tableName}]`, error);
+    console.error(`[BatchSave:${tableName}]`, error);
     throw error;
   }
 };
 
-/** Remove vários registros por ID */
 export const batchDelete = async (
   tableName: string,
   ids: string[],
-  idColumn: string = "id",
+  idColumn = "id",
 ) => {
   if (!ids.length) return;
-  const { error } = await supabase
-    .from(tableName)
-    .delete()
-    .in(idColumn, ids);
+  const { error } = await supabase.from(tableName).delete().in(idColumn, ids);
   if (error) {
-    console.error(`[Supabase BatchDelete:${tableName}]`, error);
+    console.error(`[BatchDelete:${tableName}]`, error);
     throw error;
   }
 };
 
 // ---------------------------------------------------------------------------
-// SAP — número gerado pelo trigger no banco (gerar_numero_sap)
+// SAP
 // ---------------------------------------------------------------------------
 
-/**
- * Retorna o próximo número SAP inserindo um registro provisório e lendo o
- * número gerado pelo trigger do banco. Remove o provisório logo em seguida.
- * Na prática, o número definitivo é gerado automaticamente no INSERT real.
- */
 export const getNextSapNumber = async (
   _year: number,
   existingRequests?: { numeroAlteracao?: string }[],
 ): Promise<string> => {
-  // Fallback local: calcula a partir da lista existente
   const shortYear = String(new Date().getFullYear()).slice(-2);
-  const requests  = existingRequests ?? [];
+  const requests = existingRequests ?? [];
   const max = requests.reduce((acc, r) => {
     const m = r.numeroAlteracao?.match(/SAP (\d+)\//);
     return m ? Math.max(acc, parseInt(m[1], 10)) : acc;
   }, 0);
   return `SAP ${String(max + 1).padStart(3, "0")}/${shortYear}`;
-  // Nota: o número definitivo é gerado pelo trigger `gerar_numero_sap`
-  // no banco ao fazer o INSERT em solicitacoes_sap.
 };
