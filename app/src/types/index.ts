@@ -262,14 +262,23 @@ export type CadetTurma  = "TURMA_A" | "TURMA_B" | "TURMA_C" | "TURMA_D" | "TURMA
 export type CadetSituacao = "ATIVO" | "DESLIGADO" | "TRANCADO" | "TRANSFERIDO";
 
 export interface Cadet {
-  id: string;           // '26-001'
+  id: string;             // '26-001'
   nome_guerra: string;
   nome_completo: string;
   quadro: CadetQuadro;
-  turma_aula: CadetTurma;
-  cohort_id: string;
+  cohort_id: string;      // permanente — Drakon='1', Perseu='2'…
   situacao: CadetSituacao;
   observacao?: string;
   created_at?: string;
   updated_at?: string;
+  // Injetado pelo frontend ao carregar (join com cadete_alocacoes)
+  turma_aula?: CadetTurma;
+}
+
+/** Alocação anual de turma de aula — muda a cada ano letivo */
+export interface CadetAlocacao {
+  id?: string;
+  cadet_id: string;
+  ano: number;
+  turma_aula: CadetTurma;
 }
