@@ -47,20 +47,20 @@ export const FirestoreSync = () => {
     const loadStaticCollections = async () => {
       try {
         const results = await Promise.allSettled([
-          fetchCollectionCached("disciplinas"),
-          fetchCollectionCached("turma_secoes"),
-          fetchCollectionCached("turmas"),
-          fetchCollectionCached("visualConfigs"),
+          fetchCollectionCached("disciplines"),   // tabela real com 209 linhas
+          fetchCollectionCached("cohorts"),        // tabela real com 4 turmas
+          fetchCollectionCached("cohorts"),        // reutilizado para classes abaixo
+          fetchCollectionCached("visual_configs"),
           fetchCollectionCached("instructors"),
-          fetchCollectionCached("docente_ocorrencias"),
+          fetchCollectionCached("occurrences"),
           fetchCollectionCached("semester_configs"),
-          fetchCollectionCached("solicitacoes_sap"),
+          fetchCollectionCached("schedule_change_requests"),
         ]);
 
         const [
           disciplines,
-          _classes,
           cohorts,
+          _cohorts2,
           visualConfigs,
           instructors,
           occurrences,
@@ -69,22 +69,27 @@ export const FirestoreSync = () => {
         ] = results;
 
         if (disciplines.status === "fulfilled") {
-          const mapped = (disciplines.value as any[]).map(d => ({
+          // O campo `data` é um JSONB que armazena enabledCourses, enabledYears,
+          // ppcLoads, trainingField, location — expande para o nível raiz.
+          // Também suporta fallbacks PT/EN para compatibilidade.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const expanded = (disciplines.value as any[]).map((d) => ({
             ...d,
+            ...(d.data && typeof d.data === "object" ? d.data : {}),
             id: d.id,
             code: d.sigla || d.code || d.id,
             name: d.nome || d.name || "Sem Nome",
-            trainingField: d.campo || d.trainingField || "GERAL",
-            instructorTrigram: d.docente_id || d.instructorTrigram,
+            trainingField: d.campo || d.trainingField || d.data?.trainingField || "GERAL",
             load_hours: d.carga_horaria || d.load_hours,
           }));
-          setDisciplines(mapped as Discipline[]);
-        } else console.warn("⚠️ Falha ao carregar disciplinas:", disciplines.reason);
+          setDisciplines(expanded as Discipline[]);
+        } else console.warn("⚠️ Falha ao carregar disciplines:", disciplines.reason);
 
-        // turma_secoes está vazia — usar tabela 'turmas' diretamente (já carregada como cohorts)
+        // Deriva classes (CourseClass) a partir das turmas/cohorts
         if (cohorts.status === "fulfilled") {
           const currentYear = new Date().getFullYear();
-          const mapped = (cohorts.value as any[]).map((t: any) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const mappedClasses = (cohorts.value as any[]).map((t: any) => {
             const entryYear = t.entryYear || t.ano_ingresso;
             const computedYear = entryYear ? Math.min(4, Math.max(1, currentYear - entryYear + 1)) : 1;
             return {
@@ -95,34 +100,48 @@ export const FirestoreSync = () => {
               studentCount: t.qtd_alunos,
             };
           });
-          setClasses(mapped as CourseClass[]);
-        }
+          setClasses(mappedClasses as CourseClass[]);
 
-        if (cohorts.status === "fulfilled") {
-          const mapped = (cohorts.value as any[]).map(c => ({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const mappedCohorts = (cohorts.value as any[]).map((c) => ({
             ...c,
             id: c.id,
             name: c.nome || c.name,
             entryYear: c.ano_ingresso || c.entryYear,
-            color: c.cor_hex || c.color
+            color: c.cor_hex || c.color,
           }));
-          setCohorts(mapped as Cohort[]);
-        } else console.warn("⚠️ Falha ao carregar turmas:", cohorts.reason);
+          setCohorts(mappedCohorts as Cohort[]);
+        } else console.warn("⚠️ Falha ao carregar cohorts:", cohorts.reason);
 
         if (visualConfigs.status === "fulfilled")
           setVisualConfigs(visualConfigs.value as VisualConfig[]);
         else
-          console.warn(
-            "⚠️ Falha ao carregar visualConfigs:",
-            visualConfigs.reason,
-          );
+          console.warn("⚠️ Falha ao carregar visual_configs:", visualConfigs.reason);
 
         if (instructors.status === "fulfilled") {
+          // Busca vínculos docente↔disciplina da tabela docente_disciplinas
+          const ddMap: Record<string, string[]> = {};
+          try {
+            const { supabase } = await import("../config/supabase");
+            const { data: ddRows } = await supabase
+              .from("docente_disciplinas")
+              .select("docente_id, disciplina_id");
+            if (ddRows) {
+              for (const row of ddRows) {
+                if (!ddMap[row.docente_id]) ddMap[row.docente_id] = [];
+                ddMap[row.docente_id].push(row.disciplina_id);
+              }
+            }
+          } catch { /* silently ignore */ }
+
           const disciplinesList = disciplines.status === "fulfilled" ? (disciplines.value as any[]) : [];
           const turmasList = cohorts.status === "fulfilled" ? (cohorts.value as any[]) : [];
           const currentYear = new Date().getFullYear();
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const mapped = (instructors.value as any[]).map((i) => {
-            const rawDisciplines: string[] = i.data?.enabledDisciplines || i.enabledDisciplines || [];
+            // enabledDisciplines: prefere docente_disciplinas (mais confiável)
+            const rawDisciplines: string[] = ddMap[i.id] || i.data?.enabledDisciplines || i.enabledDisciplines || [];
             const normalizedDisciplines = rawDisciplines.map((ref: string) => {
               const byId = disciplinesList.find((d: any) => d.id === ref);
               if (byId) return ref;
@@ -132,9 +151,7 @@ export const FirestoreSync = () => {
 
             const rawClasses: string[] = i.data?.enabledClasses || i.enabledClasses || [];
             const normalizedClasses = [...new Set(rawClasses.map((ref: string) => {
-              // Already a valid turmas id
               if (turmasList.find((t: any) => String(t.id) === ref)) return ref;
-              // Legacy format "1A", "2B", etc. — extract year digit and find matching turma
               const yearMatch = ref.match(/^(\d)/);
               if (yearMatch) {
                 const legacyYear = parseInt(yearMatch[1]);
@@ -148,12 +165,13 @@ export const FirestoreSync = () => {
             }))];
 
             return {
+              ...(i.data && typeof i.data === "object" ? i.data : {}),
               ...i,
               trigram: i.trigram || i.trigrama || i.id,
-              warName: i.warName || i.nome_guerra || i.trigram || i.trigrama || "Sem Nome",
-              fullName: i.name || i.fullName || i.nome_completo || "",
+              warName: i.warName || i.nome_guerra || i.trigram || "Sem Nome",
+              fullName: i.name || i.data?.fullName || i.fullName || i.nome_completo || "",
               venture: i.data?.venture || i.venture || i.vinculo || "EFETIVO",
-              rank: i.specialty || i.data?.rank || i.rank || i.titulacao || "",
+              rank: i.data?.rank || i.rank || i.specialty || i.titulacao || "",
               weeklyLoadLimit: i.data?.weeklyLoadLimit || i.weeklyLoadLimit || i.carga_horaria_max || 12,
               specialty: i.specialty || i.especialidade || "",
               enabledDisciplines: normalizedDisciplines,
@@ -162,32 +180,24 @@ export const FirestoreSync = () => {
           });
           setInstructors(mapped as Instructor[]);
         } else
-          console.warn("⚠️ Falha ao carregar instructors (tabela instructors):", instructors.reason);
+          console.warn("⚠️ Falha ao carregar instructors:", instructors.reason);
 
         if (occurrences.status === "fulfilled")
           setOccurrences(occurrences.value as InstructorOccurrence[]);
         else
-          console.warn("⚠️ Falha ao carregar ocorrencias:", occurrences.reason);
+          console.warn("⚠️ Falha ao carregar occurrences:", occurrences.reason);
 
         if (semesterConfigs.status === "fulfilled")
           setSemesterConfigs(semesterConfigs.value as SemesterConfig[]);
         else
-          console.warn(
-            "⚠️ Falha ao carregar semester_configs:",
-            semesterConfigs.reason,
-          );
+          console.warn("⚠️ Falha ao carregar semester_configs:", semesterConfigs.reason);
 
         if (changeRequests.status === "fulfilled")
           setChangeRequests(changeRequests.value as ScheduleChangeRequest[]);
         else
-          console.warn(
-            "⚠️ Falha ao carregar solicitacoes_sap:",
-            changeRequests.reason,
-          );
+          console.warn("⚠️ Falha ao carregar schedule_change_requests:", changeRequests.reason);
 
-        console.log(
-          "✅ Dados estáticos carregados do Supabase.",
-        );
+        console.log("✅ Dados estáticos carregados do Supabase.");
       } catch (err) {
         console.error("❌ Erro crítico ao carregar dados estáticos:", err);
       } finally {
@@ -197,9 +207,8 @@ export const FirestoreSync = () => {
 
     loadStaticCollections();
 
-    // Apenas avisos mantêm tempo real
-    console.log("🔌 Inscrito em tempo real para avisos (avisos)...");
-    const unsubNotices = subscribeToCollection("avisos", (data) =>
+    console.log("🔌 Inscrito em tempo real para notices...");
+    const unsubNotices = subscribeToCollection("notices", (data) =>
       setNotices(data as SystemNotice[]),
     );
 

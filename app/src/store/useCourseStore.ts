@@ -19,6 +19,7 @@ import {
   deleteDocument,
   batchSave,
   batchDelete,
+  normalizeEvent,
 } from "../services/supabaseService"; // Import firestore service
 
 import { TIME_SLOTS } from "../utils/constants";
@@ -1302,7 +1303,7 @@ export const useCourseStore = create<CourseState>((set) => ({
         .lte("date",end);
 
       if (error) throw error;
-      const events = (data ?? []) as unknown as ScheduleEvent[];
+      const events = (data ?? []).map(normalizeEvent) as unknown as ScheduleEvent[];
 
       // Salva nos dois caches
       set((s: CourseState) => ({
@@ -1379,7 +1380,7 @@ export const useCourseStore = create<CourseState>((set) => ({
         .lte("date",endDay);
 
       if (fetchError) throw fetchError;
-      const allEvents = (rawData ?? []) as unknown as ScheduleEvent[];
+      const allEvents = (rawData ?? []).map(normalizeEvent) as unknown as ScheduleEvent[];
       const filtered = allEvents.filter((e) => {
         const isAcademic = e.type === "ACADEMIC" || e.disciplineId === "ACADEMIC";
         const belongsToSquadron = e.classId && e.classId.startsWith(String(squadronId));

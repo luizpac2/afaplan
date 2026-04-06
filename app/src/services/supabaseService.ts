@@ -9,6 +9,18 @@ import { supabase } from "../config/supabase";
 const clean = (data: any): any =>
   JSON.parse(JSON.stringify(data, (_k, v) => (v === undefined ? null : v)));
 
+/**
+ * Normaliza uma linha de programacao_aulas para o formato ScheduleEvent.
+ * Corrige diferenças de nomenclatura entre o schema do DB e os tipos TS.
+ *   - DB:  instructorId  → TS: instructorTrigram
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const normalizeEvent = (row: any): any => ({
+  ...row,
+  // instructorId no DB → instructorTrigram no frontend
+  instructorTrigram: row.instructorTrigram ?? row.instructorId ?? null,
+});
+
 // ---------------------------------------------------------------------------
 // Fetch
 // ---------------------------------------------------------------------------
@@ -95,7 +107,7 @@ export const subscribeToEventsByDateRange = (
       .select("*")
       .gte("date", startDate)
       .lte("date", endDate);
-    if (!error) callback(data ?? []);
+    if (!error) callback((data ?? []).map(normalizeEvent));
   };
 
   void fetch();
