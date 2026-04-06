@@ -238,7 +238,7 @@ export const CadetManager = () => {
         <Info size={14} className="mt-0.5 shrink-0" />
         <span>
           <strong>Esquadrão</strong> (Drakon, Perseu…) é permanente e não muda.
-          A <strong>seção de aula</strong> (A, B, C…) é anual — pode ser atualizada a cada ano letivo sem alterar o vínculo com o Esquadrão.
+          A <strong>turma de aula</strong> (A, B, C…) é anual — pode ser atualizada a cada ano letivo sem alterar o vínculo com o Esquadrão.
         </span>
       </div>
 
@@ -288,9 +288,9 @@ export const CadetManager = () => {
             onChange={e => setFilterTurma(e.target.value as CadetTurma | '')}
             className={`pl-3 pr-7 py-1.5 rounded-lg border text-sm appearance-none focus:outline-none focus:ring-1 focus:ring-indigo-400 ${input}`}
           >
-            <option value="">Todas as seções</option>
+            <option value="">Todas as t. de aula</option>
             {TURMA_OPTIONS.map(t => (
-              <option key={t} value={t}>{t.replace('TURMA_', 'Seção ')}</option>
+              <option key={t} value={t}>{t.replace('TURMA_', 'Turma ')}</option>
             ))}
           </select>
           <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${muted}`} />
@@ -330,7 +330,7 @@ export const CadetManager = () => {
                 </th>
                 <th className="text-left px-3 py-2 font-medium w-24">Quadro</th>
                 <th className="text-left px-3 py-2 font-medium w-28">
-                  Seção {anoFiltro}
+                  T. Aula {anoFiltro}
                   <span className={`ml-1 text-[10px] font-normal ${muted}`}>(anual)</span>
                 </th>
                 <th className="text-left px-3 py-2 font-medium w-28">Situação</th>
@@ -405,7 +405,7 @@ export const CadetManager = () => {
                       </span>
                     </td>
 
-                    {/* Seção de aula — anual */}
+                    {/* Turmade aula — anual */}
                     <td className="px-3 py-2">
                       {isEditing ? (
                         <div className="relative">
@@ -416,17 +416,17 @@ export const CadetManager = () => {
                           >
                             <option value="">—</option>
                             {TURMA_OPTIONS.map(t => (
-                              <option key={t} value={t}>{t.replace('TURMA_', 'Seção ')}</option>
+                              <option key={t} value={t}>{t.replace('TURMA_', 'Turma ')}</option>
                             ))}
                           </select>
                           <ChevronDown size={11} className={`absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none ${muted}`} />
                         </div>
                       ) : c.turma_aula ? (
-                        <span className={`text-xs font-medium ${text}`}>
-                          {c.turma_aula.replace('TURMA_', 'Seção ')}
+                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg font-semibold text-sm border ${isDark ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-slate-100 border-slate-200 text-slate-800'}`}>
+                          {c.turma_aula.replace('TURMA_', '')}
                         </span>
                       ) : (
-                        <span className={`text-xs italic ${muted}`}>não definida</span>
+                        <span className={`text-xs italic ${muted}`}>—</span>
                       )}
                     </td>
 
