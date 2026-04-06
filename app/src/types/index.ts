@@ -256,3 +256,20 @@ export interface VisualConfig {
 }
 
 export * from "./auditLog";
+
+export type CadetQuadro = "CFOAV" | "CFOINT" | "CFOINF";
+export type CadetTurma  = "TURMA_A" | "TURMA_B" | "TURMA_C" | "TURMA_D" | "TURMA_E" | "TURMA_F";
+export type CadetSituacao = "ATIVO" | "DESLIGADO" | "TRANCADO" | "TRANSFERIDO";
+
+export interface Cadet {
+  id: string;           // '26-001'
+  nome_guerra: string;
+  nome_completo: string;
+  quadro: CadetQuadro;
+  turma_aula: CadetTurma;
+  cohort_id: string;
+  situacao: CadetSituacao;
+  observacao?: string;
+  created_at?: string;
+  updated_at?: string;
+}
