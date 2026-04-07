@@ -128,12 +128,12 @@ CREATE POLICY "auth_modify" ON public.messages
   FOR ALL TO authenticated
   USING (
     public.is_admin_user()
-    OR sender_id = auth.uid()
-    OR recipient_id = auth.uid()
+    OR "senderId" = auth.uid()
+    OR "recipientId" = auth.uid()
   )
   WITH CHECK (
     public.is_admin_user()
-    OR sender_id = auth.uid()
+    OR "senderId" = auth.uid()
   );
 
 -- schedule_change_requests — qualquer autenticado pode submeter pedidos;
@@ -146,11 +146,11 @@ CREATE POLICY "auth_modify_scr" ON public.schedule_change_requests
   FOR ALL TO authenticated
   USING (
     public.is_admin_user()
-    OR requested_by = auth.uid()
+    OR "createdBy" = auth.uid()
   )
   WITH CHECK (
     public.is_admin_user()
-    OR requested_by = auth.uid()
+    OR "createdBy" = auth.uid()
   );
 
 -- ── 3. auth_leaked_password_protection ───────────────────────────────────────
