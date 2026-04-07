@@ -72,13 +72,13 @@ export const ChefeTurmaLancamento = () => {
         .order('date', { ascending: false })
         .order('startTime', { ascending: false });
 
-      // Buscar disciplinas para join manual
+      // Buscar disciplinas para join manual (tabela 'disciplines' com colunas id, code, name)
       const { data: discData } = await supabase
-        .from('disciplinas')
-        .select('id, sigla, nome');
+        .from('disciplines')
+        .select('id, code, name');
       const discMap: Record<string, { sigla: string; nome: string }> = {};
-      for (const d of (discData ?? []) as { id: string; sigla: string; nome: string }[]) {
-        discMap[d.id] = d;
+      for (const d of (discData ?? []) as { id: string; code: string; name: string }[]) {
+        discMap[d.id] = { sigla: d.code ?? d.id, nome: d.name ?? d.id };
       }
 
       const aulasFiltradas: AulaPassada[] = ((aulasData ?? []) as unknown[]).flatMap((a) => {

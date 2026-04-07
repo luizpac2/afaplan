@@ -165,8 +165,8 @@ SELECT
   pa.date                    AS data_aula,
   pa."startTime"             AS horario_inicio,
   pa."endTime"               AS horario_fim,
-  d.sigla                    AS disciplina_sigla,
-  d.nome                     AS disciplina_nome,
+  COALESCE(d.code, d.id)     AS disciplina_sigla,
+  COALESCE(d.name, d.id)     AS disciplina_nome,
   pa."classId"               AS turma_nome,
   -- Última letra do classId é a seção (ex: "1A" → "A"), "ESQ" = turma inteira
   CASE
@@ -182,7 +182,7 @@ FROM public.faltas_cadetes f
 JOIN public.cadetes c             ON c.id  = f.cadet_id
 JOIN public.cadetes cc            ON cc.id = f.chefe_cadet_id
 JOIN public.programacao_aulas pa  ON pa.id = f.aula_id
-JOIN public.disciplinas d         ON d.id  = pa."disciplineId";
+JOIN public.disciplines d          ON d.id  = pa."disciplineId";
 
 -- ── 8. Policy em programacao_aulas para chefe ver aulas passadas
 DROP POLICY IF EXISTS "chefe_select_aulas_turma" ON public.programacao_aulas;
