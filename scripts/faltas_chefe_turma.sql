@@ -151,6 +151,8 @@ CREATE POLICY "cadete_select_proprias_faltas" ON public.faltas_cadetes
   );
 
 -- ── 7. VIEW: resumo de faltas ────────────────────────────────
+-- Nota: programacao_aulas usa colunas camelCase (disciplineId, classId,
+-- startTime, endTime) e não tem FK para turmas/turma_secoes.
 CREATE OR REPLACE VIEW public.vw_faltas_resumo AS
 SELECT
   f.id,
@@ -161,12 +163,16 @@ SELECT
   c.cohort_id,
   f.aula_id,
   pa.date                    AS data_aula,
-  pa.horario_inicio,
-  pa.horario_fim,
+  pa."startTime"             AS horario_inicio,
+  pa."endTime"               AS horario_fim,
   d.sigla                    AS disciplina_sigla,
   d.nome                     AS disciplina_nome,
-  t.nome                     AS turma_nome,
-  ts.secao                   AS turma_aula,
+  pa."classId"               AS turma_nome,
+  -- Última letra do classId é a seção (ex: "1A" → "A"), "ESQ" = turma inteira
+  CASE
+    WHEN pa."classId" LIKE '%ESQ' THEN NULL
+    ELSE RIGHT(pa."classId", 1)
+  END                        AS turma_aula,
   f.motivo,
   f.observacao,
   f.chefe_cadet_id,
@@ -176,9 +182,7 @@ FROM public.faltas_cadetes f
 JOIN public.cadetes c             ON c.id  = f.cadet_id
 JOIN public.cadetes cc            ON cc.id = f.chefe_cadet_id
 JOIN public.programacao_aulas pa  ON pa.id = f.aula_id
-JOIN public.disciplinas d         ON d.id  = pa."disciplineId"
-JOIN public.turmas t              ON t.id  = pa."turmaId"
-LEFT JOIN public.turma_secoes ts  ON ts.id = pa."secaoId";
+JOIN public.disciplinas d         ON d.id  = pa."disciplineId";
 
 -- ── 8. Policy em programacao_aulas para chefe ver aulas passadas
 DROP POLICY IF EXISTS "chefe_select_aulas_turma" ON public.programacao_aulas;

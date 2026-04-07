@@ -60,40 +60,46 @@ export const ChefeTurmaLancamento = () => {
       const hoje = new Date().toISOString().slice(0, 10);
       const limite = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
 
+      // classId format: "{squadron}{letter}" e.g. "1A", "2B", or "{squadron}ESQ"
+      // turmaAula format: "TURMA_A", "TURMA_B", etc.
+      const letter = TURMA_LETTER[turmaAula] ?? turmaAula.replace('TURMA_', '');
+
       const { data: aulasData } = await supabase
         .from('programacao_aulas')
-        .select(`
-          id, date, horario_inicio, horario_fim,
-          disciplinas(sigla, nome),
-          turmas(nome),
-          turma_secoes(secao)
-        `)
+        .select('id, date, startTime, endTime, disciplineId, classId')
         .lt('date', hoje)
         .gte('date', limite)
         .order('date', { ascending: false })
-        .order('horario_inicio', { ascending: false });
+        .order('startTime', { ascending: false });
 
-      // Filtrar pelo turma_aula do chefe
-      const letter = TURMA_LETTER[turmaAula] ?? turmaAula.replace('TURMA_', '');
+      // Buscar disciplinas para join manual
+      const { data: discData } = await supabase
+        .from('disciplinas')
+        .select('id, sigla, nome');
+      const discMap: Record<string, { sigla: string; nome: string }> = {};
+      for (const d of (discData ?? []) as { id: string; sigla: string; nome: string }[]) {
+        discMap[d.id] = d;
+      }
+
       const aulasFiltradas: AulaPassada[] = ((aulasData ?? []) as unknown[]).flatMap((a) => {
         const row = a as {
-          id: string; date: string; horario_inicio: string; horario_fim: string;
-          disciplinas: { sigla: string; nome: string } | null;
-          turmas: { nome: string } | null;
-          turma_secoes: { secao: string } | null;
+          id: string; date: string; startTime: string; endTime: string;
+          disciplineId: string; classId: string;
         };
-        const secao = row.turma_secoes?.secao ?? null;
-        // Inclui aulas sem seção (turma inteira) ou da seção certa
-        if (secao !== null && secao !== letter) return [];
+        // classId ends with the section letter or "ESQ" (whole squadron)
+        const classEndsWithLetter = row.classId?.endsWith(letter);
+        const classIsEsq = row.classId?.endsWith('ESQ');
+        if (!classEndsWithLetter && !classIsEsq) return [];
+        const disc = discMap[row.disciplineId] ?? { sigla: '?', nome: '?' };
         return [{
           id: row.id,
           date: row.date,
-          horario_inicio: row.horario_inicio,
-          horario_fim: row.horario_fim,
-          disciplina_sigla: row.disciplinas?.sigla ?? '',
-          disciplina_nome: row.disciplinas?.nome ?? '',
-          turma_nome: row.turmas?.nome ?? '',
-          turma_aula: secao,
+          horario_inicio: row.startTime,
+          horario_fim: row.endTime,
+          disciplina_sigla: disc.sigla,
+          disciplina_nome: disc.nome,
+          turma_nome: row.classId,
+          turma_aula: classIsEsq ? null : letter,
         }];
       });
       setAulas(aulasFiltradas);
