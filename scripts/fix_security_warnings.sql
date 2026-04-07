@@ -120,7 +120,9 @@ CREATE POLICY "auth_write" ON public.audit_log
 
 -- messages — qualquer autenticado pode enviar/ler (sistema de inbox)
 -- INSERT: qualquer um; UPDATE/DELETE: próprias mensagens ou admin
-DROP POLICY IF EXISTS "auth_write" ON public.messages;
+DROP POLICY IF EXISTS "auth_write"  ON public.messages;
+DROP POLICY IF EXISTS "auth_insert" ON public.messages;
+DROP POLICY IF EXISTS "auth_modify" ON public.messages;
 CREATE POLICY "auth_insert" ON public.messages
   FOR INSERT TO authenticated
   WITH CHECK ("senderId" = auth.uid());
