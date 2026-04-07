@@ -14,10 +14,21 @@ ALTER FUNCTION public.is_chefe_turma_ativo() SET search_path = public;
 ALTER FUNCTION public.get_chefe_turma_aula() SET search_path = public;
 ALTER FUNCTION public.is_admin_user()        SET search_path = public;
 ALTER FUNCTION public.update_updated_at()    SET search_path = public;
-ALTER FUNCTION public.gerar_numero_sap()     SET search_path = public;
 ALTER FUNCTION public.get_my_turma_id()      SET search_path = public;
-ALTER FUNCTION public.fn_audit_log()         SET search_path = public;
-ALTER FUNCTION public.detectar_conflitos()   SET search_path = public;
+
+-- gerar_numero_sap, fn_audit_log, detectar_conflitos podem ter parâmetros
+-- Alterar via pg_proc para não precisar conhecer a assinatura exata
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN
+    SELECT oid::regprocedure AS sig FROM pg_proc
+    WHERE proname IN ('gerar_numero_sap','fn_audit_log','detectar_conflitos')
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE format('ALTER FUNCTION %s SET search_path = public', r.sig);
+  END LOOP;
+END $$;
 
 -- ── 2. rls_policy_always_true — restringir writes a admins ───────────────────
 -- Tabelas com auth_write USING(true)/WITH CHECK(true) permitem que qualquer
