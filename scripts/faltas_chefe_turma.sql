@@ -160,25 +160,25 @@ SELECT
   c.quadro,
   c.cohort_id,
   f.aula_id,
-  pa.date                  AS data_aula,
+  pa.date                    AS data_aula,
   pa.horario_inicio,
   pa.horario_fim,
-  d.sigla                  AS disciplina_sigla,
-  d.nome                   AS disciplina_nome,
-  t.nome                   AS turma_nome,
-  ts.secao                 AS turma_aula,
+  d.sigla                    AS disciplina_sigla,
+  d.nome                     AS disciplina_nome,
+  t.nome                     AS turma_nome,
+  ts.secao                   AS turma_aula,
   f.motivo,
   f.observacao,
   f.chefe_cadet_id,
-  cc.nome_guerra           AS chefe_nome_guerra,
+  cc.nome_guerra             AS chefe_nome_guerra,
   f.created_at
 FROM public.faltas_cadetes f
 JOIN public.cadetes c             ON c.id  = f.cadet_id
 JOIN public.cadetes cc            ON cc.id = f.chefe_cadet_id
 JOIN public.programacao_aulas pa  ON pa.id = f.aula_id
-JOIN public.disciplinas d         ON d.id  = pa.disciplina_id
-JOIN public.turmas t              ON t.id  = pa.turma_id
-LEFT JOIN public.turma_secoes ts  ON ts.id = pa.secao_id;
+JOIN public.disciplinas d         ON d.id  = pa."disciplineId"
+JOIN public.turmas t              ON t.id  = pa."turmaId"
+LEFT JOIN public.turma_secoes ts  ON ts.id = pa."secaoId";
 
 -- ── 8. Policy em programacao_aulas para chefe ver aulas passadas
 DROP POLICY IF EXISTS "chefe_select_aulas_turma" ON public.programacao_aulas;
