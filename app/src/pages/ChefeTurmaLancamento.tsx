@@ -11,7 +11,7 @@ import {
 
 interface AulaPassada {
   id: string;
-  data: string;
+  date: string;
   horario_inicio: string;
   horario_fim: string;
   disciplina_sigla: string;
@@ -63,21 +63,21 @@ export const ChefeTurmaLancamento = () => {
       const { data: aulasData } = await supabase
         .from('programacao_aulas')
         .select(`
-          id, data, horario_inicio, horario_fim,
+          id, date, horario_inicio, horario_fim,
           disciplinas(sigla, nome),
           turmas(nome),
           turma_secoes(secao)
         `)
-        .lt('data', hoje)
-        .gte('data', limite)
-        .order('data', { ascending: false })
+        .lt('date', hoje)
+        .gte('date', limite)
+        .order('date', { ascending: false })
         .order('horario_inicio', { ascending: false });
 
       // Filtrar pelo turma_aula do chefe
       const letter = TURMA_LETTER[turmaAula] ?? turmaAula.replace('TURMA_', '');
       const aulasFiltradas: AulaPassada[] = ((aulasData ?? []) as unknown[]).flatMap((a) => {
         const row = a as {
-          id: string; data: string; horario_inicio: string; horario_fim: string;
+          id: string; date: string; horario_inicio: string; horario_fim: string;
           disciplinas: { sigla: string; nome: string } | null;
           turmas: { nome: string } | null;
           turma_secoes: { secao: string } | null;
@@ -87,7 +87,7 @@ export const ChefeTurmaLancamento = () => {
         if (secao !== null && secao !== letter) return [];
         return [{
           id: row.id,
-          data: row.data,
+          date: row.date,
           horario_inicio: row.horario_inicio,
           horario_fim: row.horario_fim,
           disciplina_sigla: row.disciplinas?.sigla ?? '',
@@ -261,7 +261,7 @@ export const ChefeTurmaLancamento = () => {
               >
                 <div className="font-semibold">{a.disciplina_sigla} — {a.disciplina_nome}</div>
                 <div className={`text-xs mt-0.5 ${lbl}`}>
-                  {fmtData(a.data)} · {a.horario_inicio.slice(0,5)}–{a.horario_fim.slice(0,5)}
+                  {fmtData(a.date)} · {a.horario_inicio.slice(0,5)}–{a.horario_fim.slice(0,5)}
                   {a.turma_aula && <span className="ml-2">· T. {a.turma_aula}</span>}
                 </div>
               </button>
@@ -276,7 +276,7 @@ export const ChefeTurmaLancamento = () => {
           <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
             <h2 className={`text-sm font-medium uppercase tracking-wide ${lbl}`}>
               <ClipboardList size={14} className="inline mr-1" />
-              2. Marque os faltosos — {aulaSelecionada.disciplina_sigla} · {fmtData(aulaSelecionada.data)}
+              2. Marque os faltosos — {aulaSelecionada.disciplina_sigla} · {fmtData(aulaSelecionada.date)}
             </h2>
             <div className="relative">
               <Search size={14} className={`absolute left-2 top-1/2 -translate-y-1/2 ${lbl}`} />

@@ -129,7 +129,7 @@ CREATE POLICY "chefe_insert_faltas" ON public.faltas_cadetes
     AND chefe_cadet_id = public.get_my_cadet_id()
     AND EXISTS (
       SELECT 1 FROM public.programacao_aulas pa
-      WHERE pa.id = aula_id AND pa.data < CURRENT_DATE
+      WHERE pa.id = aula_id AND pa.date < CURRENT_DATE
     )
   );
 
@@ -160,7 +160,7 @@ SELECT
   c.quadro,
   c.cohort_id,
   f.aula_id,
-  pa.data                  AS data_aula,
+  pa.date                  AS data_aula,
   pa.horario_inicio,
   pa.horario_fim,
   d.sigla                  AS disciplina_sigla,
@@ -187,7 +187,7 @@ CREATE POLICY "chefe_select_aulas_turma" ON public.programacao_aulas
   FOR SELECT TO authenticated
   USING (
     public.is_chefe_turma_ativo()
-    AND data < CURRENT_DATE
+    AND date < CURRENT_DATE
   );
 
 -- ── 9. Trigger de auditoria ──────────────────────────────────
