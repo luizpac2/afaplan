@@ -36,7 +36,7 @@ COMMENT ON TABLE public.chefes_turma IS
 -- ── 3. Tabela de Faltas lançadas pelo Chefe de Turma ────────
 CREATE TABLE IF NOT EXISTS public.faltas_cadetes (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  aula_id         uuid NOT NULL REFERENCES public.programacao_aulas(id) ON DELETE CASCADE,
+  aula_id         text NOT NULL REFERENCES public.programacao_aulas(id) ON DELETE CASCADE,
   cadet_id        text NOT NULL REFERENCES public.cadetes(id) ON DELETE CASCADE,
   motivo          text NOT NULL,       -- ver lista padronizada no frontend
   observacao      text,
@@ -98,62 +98,52 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE;
 -- ── 5. RLS para chefes_turma ─────────────────────────────────
 ALTER TABLE public.chefes_turma ENABLE ROW LEVEL SECURITY;
 
--- Admins: acesso total
+DROP POLICY IF EXISTS "admin_all_chefes"              ON public.chefes_turma;
+DROP POLICY IF EXISTS "cadete_select_proprio_chefia"  ON public.chefes_turma;
+
 CREATE POLICY "admin_all_chefes" ON public.chefes_turma
   FOR ALL TO authenticated
   USING (get_my_role() IN ('gestor', 'super_admin'))
   WITH CHECK (get_my_role() IN ('gestor', 'super_admin'));
 
--- Cadetes: veem apenas o próprio registro
 CREATE POLICY "cadete_select_proprio_chefia" ON public.chefes_turma
   FOR SELECT TO authenticated
-  USING (
-    cadet_id = get_my_cadet_id()
-  );
+  USING (cadet_id = get_my_cadet_id());
 
 -- ── 6. RLS para faltas_cadetes ───────────────────────────────
 ALTER TABLE public.faltas_cadetes ENABLE ROW LEVEL SECURITY;
 
--- Admins: acesso total
+DROP POLICY IF EXISTS "admin_all_faltas"              ON public.faltas_cadetes;
+DROP POLICY IF EXISTS "chefe_insert_faltas"           ON public.faltas_cadetes;
+DROP POLICY IF EXISTS "chefe_update_faltas"           ON public.faltas_cadetes;
+DROP POLICY IF EXISTS "chefe_delete_faltas"           ON public.faltas_cadetes;
+DROP POLICY IF EXISTS "cadete_select_proprias_faltas" ON public.faltas_cadetes;
+
 CREATE POLICY "admin_all_faltas" ON public.faltas_cadetes
   FOR ALL TO authenticated
   USING (get_my_role() IN ('gestor', 'super_admin'))
   WITH CHECK (get_my_role() IN ('gestor', 'super_admin'));
 
--- Chefe de turma ativo: INSERT/UPDATE/DELETE apenas na própria turma
 CREATE POLICY "chefe_insert_faltas" ON public.faltas_cadetes
   FOR INSERT TO authenticated
   WITH CHECK (
     is_chefe_turma_ativo()
     AND chefe_cadet_id = get_my_cadet_id()
     AND EXISTS (
-      -- A aula pertence à turma de aula que o chefe gerencia
       SELECT 1 FROM public.programacao_aulas pa
-      JOIN public.turma_secoes ts ON ts.id = pa.secao_id
-      WHERE pa.id = faltas_cadetes.aula_id
-        AND pa.data < CURRENT_DATE  -- apenas aulas passadas
+      WHERE pa.id = aula_id AND pa.data < CURRENT_DATE
     )
   );
 
 CREATE POLICY "chefe_update_faltas" ON public.faltas_cadetes
   FOR UPDATE TO authenticated
-  USING (
-    is_chefe_turma_ativo()
-    AND chefe_cadet_id = get_my_cadet_id()
-  )
-  WITH CHECK (
-    is_chefe_turma_ativo()
-    AND chefe_cadet_id = get_my_cadet_id()
-  );
+  USING  (is_chefe_turma_ativo() AND chefe_cadet_id = get_my_cadet_id())
+  WITH CHECK (is_chefe_turma_ativo() AND chefe_cadet_id = get_my_cadet_id());
 
 CREATE POLICY "chefe_delete_faltas" ON public.faltas_cadetes
   FOR DELETE TO authenticated
-  USING (
-    is_chefe_turma_ativo()
-    AND chefe_cadet_id = get_my_cadet_id()
-  );
+  USING (is_chefe_turma_ativo() AND chefe_cadet_id = get_my_cadet_id());
 
--- Cadetes: veem as próprias faltas
 CREATE POLICY "cadete_select_proprias_faltas" ON public.faltas_cadetes
   FOR SELECT TO authenticated
   USING (
@@ -192,8 +182,9 @@ JOIN public.disciplinas d      ON d.id = pa.disciplina_id
 JOIN public.turmas t           ON t.id = pa.turma_id
 LEFT JOIN public.turma_secoes ts ON ts.id = pa.secao_id;
 
--- ── 8. Permitir que cadetes leiam programacao_aulas da sua turma ─
--- (policy adicional: chefe de turma pode ver aulas passadas da sua turma para lançar faltas)
+-- ── 8. Policy adicional em programacao_aulas para chefe de turma ─
+DROP POLICY IF EXISTS "chefe_select_aulas_turma" ON public.programacao_aulas;
+
 CREATE POLICY "chefe_select_aulas_turma" ON public.programacao_aulas
   FOR SELECT TO authenticated
   USING (
@@ -201,7 +192,9 @@ CREATE POLICY "chefe_select_aulas_turma" ON public.programacao_aulas
     AND data < CURRENT_DATE
   );
 
--- ── 9. Índice de auditoria ───────────────────────────────────
+-- ── 9. Trigger de auditoria ───────────────────────────────────
+DROP TRIGGER IF EXISTS audit_faltas ON public.faltas_cadetes;
+
 CREATE TRIGGER audit_faltas
   AFTER INSERT OR UPDATE OR DELETE ON public.faltas_cadetes
   FOR EACH ROW EXECUTE FUNCTION public.fn_audit_log();
