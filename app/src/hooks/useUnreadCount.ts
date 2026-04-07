@@ -30,7 +30,7 @@ export const useUnreadCount = () => {
             const { data } = await supabase
                 .from('messages')
                 .select('*')
-                .overlaps('recipient_groups', userGroups)
+                .overlaps('recipientGroups', userGroups)
                 .order('created_at', { ascending: false })
                 .limit(50);
 

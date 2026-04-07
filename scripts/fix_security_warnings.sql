@@ -125,17 +125,17 @@ DROP POLICY IF EXISTS "auth_insert" ON public.messages;
 DROP POLICY IF EXISTS "auth_modify" ON public.messages;
 CREATE POLICY "auth_insert" ON public.messages
   FOR INSERT TO authenticated
-  WITH CHECK ("senderId" = auth.uid());
+  WITH CHECK ("senderId" = auth.uid()::text);
 CREATE POLICY "auth_modify" ON public.messages
   FOR ALL TO authenticated
   USING (
     public.is_admin_user()
-    OR "senderId" = auth.uid()
-    OR "recipientId" = auth.uid()
+    OR "senderId" = auth.uid()::text
+    OR "recipientId" = auth.uid()::text
   )
   WITH CHECK (
     public.is_admin_user()
-    OR "senderId" = auth.uid()
+    OR "senderId" = auth.uid()::text
   );
 
 -- schedule_change_requests — qualquer autenticado pode submeter e ler;

@@ -51,7 +51,7 @@ export const useMessages = () => {
                 const { data, error: fetchError } = await supabase
                     .from('messages')
                     .select('*')
-                    .overlaps('recipient_groups', userGroups)
+                    .overlaps('recipientGroups', userGroups)
                     .order('created_at', { ascending: false })
                     .limit(50);
 
@@ -76,14 +76,8 @@ export const useMessages = () => {
 
         void fetchMessages();
 
-        const channel = supabase
-            .channel('messages_realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
-                void fetchMessages();
-            })
-            .subscribe();
-
-        return () => { void supabase.removeChannel(channel); };
+        // Realtime não está habilitado neste projeto — sem subscription WebSocket
+        return () => {};
     }, [user, userProfile]);
 
     const sendMessage = async (subject: string, content: string, recipientGroups: MessageGroup[], recipientId?: string) => {
@@ -106,16 +100,16 @@ export const useMessages = () => {
         }
 
         await supabase.from('messages').insert({
-            sender_id: user.id,
-            sender_name: userProfile.displayName || 'Usuário',
-            sender_role: userProfile.role,
-            recipient_groups: recipientGroups,
-            recipient_id: recipientId ?? null,
+            senderId: user.id,
+            senderName: userProfile.displayName || 'Usuário',
+            senderRole: userProfile.role,
+            recipientGroups: recipientGroups,
+            recipientId: recipientId ?? null,
             subject,
             content,
-            created_at: new Date().toISOString(),
-            read_by: [],
-            sender_detail: senderDetail ?? null,
+            createdAt: new Date().toISOString(),
+            readBy: [],
+            senderDetail: senderDetail ?? null,
         });
     };
 
@@ -126,7 +120,7 @@ export const useMessages = () => {
         if (currentReadBy.includes(user.id)) return;
         await supabase
             .from('messages')
-            .update({ read_by: [...currentReadBy, user.id] })
+            .update({ readBy: [...currentReadBy, user.id] })
             .eq('id', messageId);
     };
 
