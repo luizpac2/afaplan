@@ -1,5 +1,4 @@
 import { CohortManager } from '../components/CohortManager';
-import { ClassStudentManager } from '../components/ClassStudentManager';
 import { useTheme } from '../contexts/ThemeContext';
 
 export const Turmas = () => {
@@ -11,7 +10,6 @@ export const Turmas = () => {
                 <p className={`mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Gerencie os Esquadrões e Turmas de aula.</p>
             </div>
 
-            <ClassStudentManager />
             <CohortManager />
         </div>
     );

@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import {
   Users, Search, Edit2, Save, X, ChevronDown,
-  AlertCircle, Info, Plus, Trash2,
+  AlertCircle, Plus, Trash2,
 } from 'lucide-react';
 import type { Cadet, CadetAlocacao, CadetQuadro, CadetTurma, CadetSituacao, Cohort } from '../types';
 
@@ -352,16 +352,6 @@ export const CadetManager = () => {
         </div>
       </div>
 
-      {/* Info banner */}
-      <div className={`flex items-start gap-2 text-xs p-3 rounded-lg mb-4 ${isDark ? 'bg-blue-900/20 border border-blue-800/40 text-blue-300' : 'bg-blue-50 border border-blue-100 text-blue-700'}`}>
-        <Info size={14} className="mt-0.5 shrink-0" />
-        <span>
-          <strong>Esquadrão</strong> (Drakon, Perseu…) é permanente.
-          A <strong>turma de aula</strong> (A–F) é anual — use o seletor de ano para ver dados de anos anteriores.
-          Cadetes sem alocação no ano selecionado exibem a turma mais recente disponível{' '}
-          <span className={isDark ? 'text-blue-400' : 'text-blue-600'}>(indicado com *)</span>.
-        </span>
-      </div>
 
       {/* Formulário de adição */}
       {showAddForm && canEdit && (
@@ -728,9 +718,6 @@ export const CadetManager = () => {
 
       <p className={`text-xs mt-3 ${muted}`}>
         {filtered.length} de {cadets.length} cadetes exibidos
-        {anosDisponiveis.length > 1 && (
-          <span> · <span className={isDark ? 'text-blue-400' : 'text-blue-500'}>* = turma de outro ano (sem alocação em {anoFiltro})</span></span>
-        )}
       </p>
     </div>
   );
