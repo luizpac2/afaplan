@@ -6,7 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts';
-import { Download, Search, ChevronDown, Users, FileText, Shield } from 'lucide-react';
+import { Download, Search, ChevronDown, Users, FileText, Shield, AlertTriangle, TrendingUp, User } from 'lucide-react';
 
 interface FaltaRow {
   id: string;
@@ -183,6 +183,47 @@ export const FaltasReport = () => {
           <Download size={14} /> Exportar CSV
         </button>
       </div>
+
+      {/* KPIs */}
+      {(() => {
+        const totalFaltas = faltas.length;
+        const cadetesUnicos = new Set(faltas.map((f) => f.cadet_id)).size;
+        const turmaCounts: Record<string, number> = {};
+        faltas.forEach((f) => { const k = f.turma_aula ?? 'sem turma'; turmaCounts[k] = (turmaCounts[k] ?? 0) + 1; });
+        const turmaTopEntry = Object.entries(turmaCounts).sort((a, b) => b[1] - a[1])[0];
+        const turmaTop = turmaTopEntry ? { turma: turmaTopEntry[0], total: turmaTopEntry[1] } : null;
+        const motivoTop = motivosUnicos
+          .map((m) => ({ m, n: faltas.filter((f) => f.motivo === m).length }))
+          .sort((a, b) => b.n - a.n)[0];
+        const cometidos = faltas.filter((f) => f.motivo === 'Falta Injustificada' || f.motivo?.toLowerCase().includes('injust')).length;
+        const kpis = [
+          { label: 'Total de Faltas', value: totalFaltas, icon: FileText, color: 'indigo' },
+          { label: 'Cadetes com Falta', value: cadetesUnicos, icon: User, color: 'blue' },
+          { label: 'Turma com Mais Faltas', value: turmaTop ? `${turmaTop.turma.replace('TURMA_','T.')} (${turmaTop.total})` : '—', icon: Users, color: 'amber' },
+          { label: 'Motivo Mais Frequente', value: motivoTop ? `${motivoTop.m} (${motivoTop.n})` : '—', icon: TrendingUp, color: 'purple' },
+          { label: 'Faltas Injustificadas', value: cometidos, icon: AlertTriangle, color: 'red' },
+        ];
+        const colorMap: Record<string, string> = {
+          indigo: dark ? 'bg-indigo-900/30 border-indigo-700/50 text-indigo-300' : 'bg-indigo-50 border-indigo-200 text-indigo-700',
+          blue:   dark ? 'bg-blue-900/30 border-blue-700/50 text-blue-300'     : 'bg-blue-50 border-blue-200 text-blue-700',
+          amber:  dark ? 'bg-amber-900/30 border-amber-700/50 text-amber-300'  : 'bg-amber-50 border-amber-200 text-amber-700',
+          purple: dark ? 'bg-purple-900/30 border-purple-700/50 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-700',
+          red:    dark ? 'bg-red-900/30 border-red-700/50 text-red-300'        : 'bg-red-50 border-red-200 text-red-700',
+        };
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {kpis.map(({ label, value, icon: Icon, color }) => (
+              <div key={label} className={`rounded-xl border p-4 ${colorMap[color]}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <Icon size={14} />
+                  <span className="text-xs font-medium uppercase tracking-wide opacity-80">{label}</span>
+                </div>
+                <div className="text-xl font-bold truncate">{value}</div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Filtros */}
       <div className={`${card} p-4 flex flex-wrap gap-3 items-center`}>
