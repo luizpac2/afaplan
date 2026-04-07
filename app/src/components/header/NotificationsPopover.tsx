@@ -54,21 +54,14 @@ export const NotificationsPopover = () => {
     const fetchPending = async () => {
       const { count } = await supabase
         .from("v_usuarios")
-        .select("uid", { count: "exact", head: true })
+        .select("user_id", { count: "exact", head: true })
         .or("role.is.null,role.eq.visitante");
       setPendingUsersCount(count ?? 0);
     };
 
     void fetchPending();
-
-    const channel = supabase
-      .channel("pending_users_watch")
-      .on("postgres_changes", { event: "*", schema: "public", table: "user_roles" }, () => {
-        void fetchPending();
-      })
-      .subscribe();
-
-    return () => { void supabase.removeChannel(channel); };
+    // Realtime não habilitado — sem subscription WebSocket
+    return () => {};
   }, [isAdmin]);
 
   // System Version Check (para TODOS os usuários autenticados)

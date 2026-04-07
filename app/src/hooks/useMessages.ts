@@ -51,7 +51,7 @@ export const useMessages = () => {
                 const { data, error: fetchError } = await supabase
                     .from('messages')
                     .select('*')
-                    .overlaps('recipientGroups', userGroups)
+                    .overlaps('recipient_groups', userGroups)
                     .order('created_at', { ascending: false })
                     .limit(50);
 
