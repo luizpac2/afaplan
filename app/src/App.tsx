@@ -42,6 +42,9 @@ const NoticeManager = lazy(() => import("./pages/admin/NoticeManager").then(m =>
 const VisualEditor = lazy(() => import("./pages/admin/VisualEditor").then(m => ({ default: m.VisualEditor })));
 const AcademicCalendar = lazy(() => import("./pages/admin/AcademicCalendar").then(m => ({ default: m.AcademicCalendar })));
 const ChangeRequestsPage = lazy(() => import("./pages/admin/ChangeRequestsPage").then(m => ({ default: m.ChangeRequestsPage })));
+const ChefeTurmaAdmin = lazy(() => import("./pages/admin/ChefeTurmaAdmin").then(m => ({ default: m.ChefeTurmaAdmin })));
+const ChefeTurmaLancamento = lazy(() => import("./pages/ChefeTurmaLancamento").then(m => ({ default: m.ChefeTurmaLancamento })));
+const FaltasReport = lazy(() => import("./pages/FaltasReport").then(m => ({ default: m.FaltasReport })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center h-64">
@@ -298,6 +301,32 @@ function App() {
                         allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
                       >
                         <Statistics />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* CHEFE DE TURMA */}
+                  <Route
+                    path="chefe-turma-lancamento"
+                    element={
+                      <ProtectedRoute allowedRoles={["CHEFE_TURMA"]}>
+                        <ChefeTurmaLancamento />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="faltas"
+                    element={
+                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                        <FaltasReport />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="chefe-turma-admin"
+                    element={
+                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                        <ChefeTurmaAdmin />
                       </ProtectedRoute>
                     }
                   />

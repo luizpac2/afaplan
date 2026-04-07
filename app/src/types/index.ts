@@ -4,6 +4,7 @@ export type UserRole =
   | "SUPER_ADMIN"
   | "ADMIN"
   | "CADETE"
+  | "CHEFE_TURMA"
   | "DOCENTE"
   | "VISITANTE_CADETE"
   | "VISITANTE_DOCENTE"
@@ -18,12 +19,74 @@ export interface UserProfile {
   role: UserRole;
   createdAt: string; // ISO Date
 
+  // Campos para cadetes
+  cadetId?: string;      // cadetes.id (ex: '26-001')
+  turmaAula?: string;    // 'TURMA_A'…'TURMA_F'
+  isChefeTurmaAtivo?: boolean; // true se estiver com mandato ativo hoje
+
   // Fields for Registration Request
   requestedRole?: "CADETE" | "DOCENTE";
   squadron?: string; // e.g. "1º Esquadrão"
   teachingDisciplines?: string[]; // List of Discipline IDs
   comments?: string;
   status?: "PENDING" | "APPROVED" | "REJECTED";
+}
+
+// Motivos padronizados de falta
+export const MOTIVOS_FALTA = [
+  'DESCONHECIDO',
+  'Adaptador',
+  'Adido',
+  'Aguarda Desligamento',
+  'Atleta',
+  'Consulta ES',
+  'Dispensa Médica',
+  'Disposição do Cmt do CCAer',
+  'Disposição do Cmt do Esquadrão',
+  'Emergência',
+  'Fisioterapia',
+  'Guia',
+  'Hospitalização',
+  'Instrução Salto de Emergência',
+  'Licenciado',
+  'Líder de Esquadrão/Esquadrilha',
+  'Odontoclínica',
+  'Ordem Superior',
+  'Representação',
+  'Serviço',
+  'Serviço SCAer',
+  'Viagem',
+  'Voo',
+  'Voo à vela',
+  'Outros',
+] as const;
+
+export type MotivoFalta = typeof MOTIVOS_FALTA[number];
+
+export interface ChefeTurma {
+  id: string;
+  cadet_id: string;
+  turma_aula: string;
+  cohort_id: string;
+  data_inicio: string;
+  data_fim: string;
+  nomeado_por?: string;
+  ativo: boolean;
+  created_at: string;
+  // join
+  nome_guerra?: string;
+  nome_completo?: string;
+}
+
+export interface FaltaCadete {
+  id: string;
+  aula_id: string;
+  cadet_id: string;
+  motivo: string;
+  observacao?: string;
+  chefe_cadet_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export type TrainingField =

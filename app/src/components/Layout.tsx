@@ -25,6 +25,7 @@ import {
   Search,
   Palette,
   FileEdit,
+  ClipboardList,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -47,6 +48,14 @@ interface MenuItem {
 }
 
 const MENU_ITEMS: MenuItem[] = [
+  {
+    title: "CHEFE DE TURMA",
+    icon: ClipboardList,
+    roles: ["CHEFE_TURMA"],
+    submenu: [
+      { title: "Lançar Faltas", path: "/chefe-turma-lancamento", icon: ClipboardList },
+    ],
+  },
   {
     title: "PROGRAMAÇÃO",
     icon: GraduationCap,
@@ -122,6 +131,7 @@ const MENU_ITEMS: MenuItem[] = [
           { title: "Esquadrões", path: "/turmas" },
           { title: "Cadetes", path: "/cadetes" },
           { title: "Dashboard Cadetes", path: "/cadet-dashboard" },
+          { title: "Chefes de Turma", path: "/chefe-turma-admin" },
         ],
       },
       {
@@ -143,6 +153,7 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "PPC", path: "/controle-ppc", icon: BarChart3 },
       { title: "Dados PPC", path: "/statistics", icon: PieChart },
       { title: "Conflitos", path: "/conflict-report", icon: AlertTriangle },
+      { title: "Faltas", path: "/faltas", icon: ClipboardList },
     ],
   },
   {
