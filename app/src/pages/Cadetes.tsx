@@ -189,13 +189,13 @@ export const Cadetes = () => {
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar dataKey="CFOAV" name="Aviação" stackId="a" fill={QUADRO_COLORS.CFOAV}>
-                    <LabelList dataKey="CFOAV" position="inside" style={{ fontSize: 10, fill: '#fff', fontWeight: 600 }} formatter={(v: number) => v > 0 ? v : ''} />
+                    <LabelList dataKey="CFOAV" position="inside" style={{ fontSize: 10, fill: '#fff', fontWeight: 600 }} formatter={(v: unknown) => ((v as number) > 0 ? String(v) : '') as string} />
                   </Bar>
                   <Bar dataKey="CFOINT" name="Intendência" stackId="a" fill={QUADRO_COLORS.CFOINT}>
-                    <LabelList dataKey="CFOINT" position="inside" style={{ fontSize: 10, fill: '#fff', fontWeight: 600 }} formatter={(v: number) => v > 0 ? v : ''} />
+                    <LabelList dataKey="CFOINT" position="inside" style={{ fontSize: 10, fill: '#fff', fontWeight: 600 }} formatter={(v: unknown) => ((v as number) > 0 ? String(v) : '') as string} />
                   </Bar>
                   <Bar dataKey="CFOINF" name="Infantaria" stackId="a" fill={QUADRO_COLORS.CFOINF} radius={[4, 4, 0, 0]}>
-                    <LabelList dataKey="CFOINF" position="inside" style={{ fontSize: 10, fill: '#fff', fontWeight: 600 }} formatter={(v: number) => v > 0 ? v : ''} />
+                    <LabelList dataKey="CFOINF" position="inside" style={{ fontSize: 10, fill: '#fff', fontWeight: 600 }} formatter={(v: unknown) => ((v as number) > 0 ? String(v) : '') as string} />
                     <LabelList content={StackedTotalLabel as never} />
                   </Bar>
                 </BarChart>
@@ -218,13 +218,13 @@ export const Cadetes = () => {
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar dataKey="CFOAV" name="Aviação" fill={QUADRO_COLORS.CFOAV} radius={[4, 4, 0, 0]}>
-                    <LabelList dataKey="CFOAV" position="top" style={{ fontSize: 10, fill: labelFill, fontWeight: 600 }} formatter={(v: number) => v > 0 ? v : ''} />
+                    <LabelList dataKey="CFOAV" position="top" style={{ fontSize: 10, fill: labelFill, fontWeight: 600 }} formatter={(v: unknown) => ((v as number) > 0 ? String(v) : '') as string} />
                   </Bar>
                   <Bar dataKey="CFOINT" name="Intendência" fill={QUADRO_COLORS.CFOINT} radius={[4, 4, 0, 0]}>
-                    <LabelList dataKey="CFOINT" position="top" style={{ fontSize: 10, fill: labelFill, fontWeight: 600 }} formatter={(v: number) => v > 0 ? v : ''} />
+                    <LabelList dataKey="CFOINT" position="top" style={{ fontSize: 10, fill: labelFill, fontWeight: 600 }} formatter={(v: unknown) => ((v as number) > 0 ? String(v) : '') as string} />
                   </Bar>
                   <Bar dataKey="CFOINF" name="Infantaria" fill={QUADRO_COLORS.CFOINF} radius={[4, 4, 0, 0]}>
-                    <LabelList dataKey="CFOINF" position="top" style={{ fontSize: 10, fill: labelFill, fontWeight: 600 }} formatter={(v: number) => v > 0 ? v : ''} />
+                    <LabelList dataKey="CFOINF" position="top" style={{ fontSize: 10, fill: labelFill, fontWeight: 600 }} formatter={(v: unknown) => ((v as number) > 0 ? String(v) : '') as string} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
