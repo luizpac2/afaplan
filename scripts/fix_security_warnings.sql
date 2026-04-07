@@ -123,7 +123,7 @@ CREATE POLICY "auth_write" ON public.audit_log
 DROP POLICY IF EXISTS "auth_write" ON public.messages;
 CREATE POLICY "auth_insert" ON public.messages
   FOR INSERT TO authenticated
-  WITH CHECK (true);
+  WITH CHECK ("senderId" = auth.uid());
 CREATE POLICY "auth_modify" ON public.messages
   FOR ALL TO authenticated
   USING (
@@ -143,7 +143,7 @@ DROP POLICY IF EXISTS "auth_insert_scr" ON public.schedule_change_requests;
 DROP POLICY IF EXISTS "auth_modify_scr" ON public.schedule_change_requests;
 CREATE POLICY "auth_insert_scr" ON public.schedule_change_requests
   FOR INSERT TO authenticated
-  WITH CHECK (true);
+  WITH CHECK (public.is_admin_user());
 CREATE POLICY "auth_modify_scr" ON public.schedule_change_requests
   FOR ALL TO authenticated
   USING     (public.is_admin_user())
