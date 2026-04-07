@@ -136,22 +136,18 @@ CREATE POLICY "auth_modify" ON public.messages
     OR "senderId" = auth.uid()
   );
 
--- schedule_change_requests — qualquer autenticado pode submeter pedidos;
--- somente admins podem aprovar/deletar pedidos de outros
-DROP POLICY IF EXISTS "auth_write" ON public.schedule_change_requests;
+-- schedule_change_requests — qualquer autenticado pode submeter e ler;
+-- somente admins podem modificar/deletar
+DROP POLICY IF EXISTS "auth_write"      ON public.schedule_change_requests;
+DROP POLICY IF EXISTS "auth_insert_scr" ON public.schedule_change_requests;
+DROP POLICY IF EXISTS "auth_modify_scr" ON public.schedule_change_requests;
 CREATE POLICY "auth_insert_scr" ON public.schedule_change_requests
   FOR INSERT TO authenticated
   WITH CHECK (true);
 CREATE POLICY "auth_modify_scr" ON public.schedule_change_requests
   FOR ALL TO authenticated
-  USING (
-    public.is_admin_user()
-    OR "createdBy" = auth.uid()
-  )
-  WITH CHECK (
-    public.is_admin_user()
-    OR "createdBy" = auth.uid()
-  );
+  USING     (public.is_admin_user())
+  WITH CHECK (public.is_admin_user());
 
 -- ── 3. auth_leaked_password_protection ───────────────────────────────────────
 -- Esta configuração NÃO pode ser feita via SQL.
