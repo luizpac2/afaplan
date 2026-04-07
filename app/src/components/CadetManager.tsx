@@ -556,8 +556,6 @@ export const CadetManager = () => {
               {filtered.map(c => {
                 const cohort    = cohortMap[c.cohort_id ?? ''];
                 const isEditing = editingId === c.id;
-                const isFallback = (c as typeof c & { turma_fallback?: boolean }).turma_fallback;
-                const turmaAno   = (c as typeof c & { turma_ano?: number }).turma_ano;
                 return (
                   <tr
                     key={c.id}
@@ -636,11 +634,6 @@ export const CadetManager = () => {
                           <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg font-semibold text-sm border ${isDark ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-slate-100 border-slate-200 text-slate-800'}`}>
                             {c.turma_aula.replace('TURMA_', '')}
                           </span>
-                          {isFallback && (
-                            <span className={`text-[10px] ${isDark ? 'text-blue-400' : 'text-blue-500'}`} title={`Dado de ${turmaAno}`}>
-                              *{turmaAno}
-                            </span>
-                          )}
                         </div>
                       ) : (
                         <span className={`text-xs italic ${muted}`}>—</span>

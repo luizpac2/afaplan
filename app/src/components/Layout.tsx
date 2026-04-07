@@ -121,6 +121,7 @@ const MENU_ITEMS: MenuItem[] = [
         submenu: [
           { title: "Esquadrões", path: "/turmas" },
           { title: "Cadetes", path: "/cadetes" },
+          { title: "Dashboard Cadetes", path: "/cadet-dashboard" },
         ],
       },
       {

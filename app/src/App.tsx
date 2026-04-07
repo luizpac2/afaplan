@@ -20,6 +20,7 @@ const Instructors = lazy(() => import("./pages/Instructors").then(m => ({ defaul
 const Cursos = lazy(() => import("./pages/Cursos").then(m => ({ default: m.Cursos })));
 const Turmas = lazy(() => import("./pages/Turmas").then(m => ({ default: m.Turmas })));
 const Cadetes = lazy(() => import("./pages/Cadetes").then(m => ({ default: m.Cadetes })));
+const CadetDashboard = lazy(() => import("./pages/CadetDashboard").then(m => ({ default: m.CadetDashboard })));
 const Reports = lazy(() => import("./pages/Reports").then(m => ({ default: m.Reports })));
 const SquadronProgramming = lazy(() => import("./pages/SquadronProgramming").then(m => ({ default: m.SquadronProgramming })));
 const AuditLog = lazy(() => import("./pages/AuditLog").then(m => ({ default: m.AuditLog })));
@@ -159,6 +160,16 @@ function App() {
                         allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
                       >
                         <Cadetes />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="cadet-dashboard"
+                    element={
+                      <ProtectedRoute
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                      >
+                        <CadetDashboard />
                       </ProtectedRoute>
                     }
                   />
