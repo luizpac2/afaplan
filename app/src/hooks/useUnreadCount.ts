@@ -30,15 +30,16 @@ export const useUnreadCount = () => {
             const { data } = await supabase
                 .from('messages')
                 .select('*')
-                .overlaps('recipient_groups', userGroups)
-                .order('created_at', { ascending: false })
-                .limit(50);
+                .order('createdAt', { ascending: false })
+                .limit(100);
 
             const count = (data ?? []).reduce((acc, row) => {
                 const msg = row as Message;
                 const isFromMe = msg.senderId === user.id;
                 const alreadyRead = msg.readBy?.includes(user.id) ?? false;
-                return (!isFromMe && !alreadyRead) ? acc + 1 : acc;
+                const groups = msg.recipientGroups || [];
+                const isRecipient = groups.some(g => userGroups.includes(g)) || msg.recipientId === user.id;
+                return (!isFromMe && !alreadyRead && isRecipient) ? acc + 1 : acc;
             }, 0);
 
             setUnreadCount(count);

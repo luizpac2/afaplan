@@ -54,7 +54,7 @@ export const NotificationsPopover = () => {
     const fetchPending = async () => {
       const { count } = await supabase
         .from("v_usuarios")
-        .select("user_id", { count: "exact", head: true })
+        .select("*", { count: "exact", head: true })
         .or("role.is.null,role.eq.visitante");
       setPendingUsersCount(count ?? 0);
     };
