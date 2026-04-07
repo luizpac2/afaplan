@@ -84,13 +84,15 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- Helper inline para verificar se é gestor/super_admin
 -- (substitui get_my_role() que não existe neste banco)
+-- Inclui fallback por email para super_admins sem linha em user_roles
 CREATE OR REPLACE FUNCTION public.is_admin_user()
 RETURNS bool AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.user_roles
     WHERE user_id = auth.uid()
       AND role IN ('gestor', 'super_admin')
-  );
+  )
+  OR (auth.jwt() ->> 'email') = 'pelicano307@gmail.com';
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- ── 5. RLS para chefes_turma ─────────────────────────────────
