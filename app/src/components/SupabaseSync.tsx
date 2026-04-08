@@ -138,8 +138,8 @@ export const SupabaseSync = () => {
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const mapped = (instructors.value as any[]).map((i) => {
-            // enabledDisciplines: prefere docente_disciplinas (mais confiável)
-            const rawDisciplines: string[] = ddMap[i.id] || i.data?.enabledDisciplines || i.enabledDisciplines || [];
+            // enabledDisciplines: docente_disciplinas usa trigram como docente_id
+            const rawDisciplines: string[] = ddMap[i.trigram] || ddMap[i.id] || i.data?.enabledDisciplines || i.enabledDisciplines || [];
             const normalizedDisciplines = rawDisciplines.map((ref: string) => {
               const byId = disciplinesList.find((d: any) => d.id === ref);
               if (byId) return ref;
