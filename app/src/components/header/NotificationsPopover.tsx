@@ -52,15 +52,11 @@ export const NotificationsPopover = () => {
     }
 
     const fetchPending = async () => {
-      try {
-        const { count } = await supabase
-          .from("user_roles")
-          .select("*", { count: "exact", head: true })
-          .eq("role", "visitante");
-        setPendingUsersCount(count ?? 0);
-      } catch {
-        setPendingUsersCount(0);
-      }
+      const { count, error } = await supabase
+        .from("user_roles")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "visitante");
+      if (!error) setPendingUsersCount(count ?? 0);
     };
 
     void fetchPending();
