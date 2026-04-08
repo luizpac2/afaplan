@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useTheme } from "../contexts/ThemeContext";
+import { useCourseStore } from "../store/useCourseStore";
 import type { ScheduleEvent, Discipline } from "../types";
 import { TIME_SLOTS } from "../utils/constants";
 
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export const GanttView = ({ date, events, disciplines, classes, onEventClick, eventCounts }: Props) => {
+  const { instructors } = useCourseStore();
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
@@ -79,6 +81,10 @@ export const GanttView = ({ date, events, disciplines, classes, onEventClick, ev
               const disc = ev ? disciplines.find((d) => d.id === ev.disciplineId) : null;
               const count = ev ? eventCounts?.[String(ev.id)] : null;
               const bgColor = disc?.color || "#3b82f6";
+              const trigram = ev ? (ev.instructorTrigram || disc?.instructorTrigram || "") : "";
+              const inst = trigram ? instructors.find((i) => i.trigram === trigram) : null;
+              const displayInstructor = inst?.warName || trigram;
+              const displayLocation = ev ? (ev.location || disc?.location || "") : "";
 
               return (
                 <div
@@ -89,7 +95,7 @@ export const GanttView = ({ date, events, disciplines, classes, onEventClick, ev
                   {ev ? (
                     <div
                       onClick={() => onEventClick?.(ev)}
-                      title={`${disc?.name || ev.disciplineId}${ev.instructorTrigram ? ` | ${ev.instructorTrigram}` : ""}${ev.location || disc?.location ? ` | ${ev.location || disc?.location}` : ""}${count ? ` | Aula ${count.current}/${count.total}` : ""}`}
+                      title={`${disc?.name || ev.disciplineId}${displayInstructor ? ` | ${displayInstructor}` : ""}${displayLocation ? ` | ${displayLocation}` : ""}${count ? ` | Aula ${count.current}/${count.total}` : ""}`}
                       className="h-full w-full rounded cursor-pointer hover:brightness-110 transition-all flex flex-col justify-between px-1.5 py-1 overflow-hidden"
                       style={{ backgroundColor: bgColor, border: "1px solid rgba(0,0,0,0.2)" }}
                     >
@@ -98,9 +104,9 @@ export const GanttView = ({ date, events, disciplines, classes, onEventClick, ev
                       </span>
                       <div className="flex items-end justify-between gap-1">
                         <span className="text-white/70 text-[8px] leading-none truncate">
-                          {ev.instructorTrigram || disc?.instructorTrigram || ""}
-                          {(ev.instructorTrigram || disc?.instructorTrigram) && (ev.location || disc?.location) ? " · " : ""}
-                          {ev.location || disc?.location || ""}
+                          {displayInstructor}
+                          {displayInstructor && displayLocation ? " · " : ""}
+                          {displayLocation}
                         </span>
                         {count && (
                           <span className="text-white/60 text-[8px] leading-none flex-shrink-0">
