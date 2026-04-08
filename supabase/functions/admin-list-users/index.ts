@@ -55,14 +55,17 @@ Deno.serve(async (req: Request) => {
     const { data: roles } = await adminClient.from("user_roles").select("*");
     const rolesMap = new Map((roles ?? []).map((r: { user_id: string; role: string; turma_id?: string }) => [r.user_id, r]));
 
+    const SUPER_ADMIN_EMAILS = new Set(["pelicano307@gmail.com"]);
+
     const result = users.map((u) => {
       const roleRow = rolesMap.get(u.id) as { role?: string; turma_id?: string } | undefined;
       const meta = (u.user_metadata ?? {}) as Record<string, string>;
+      const email = (u.email ?? "").trim().toLowerCase();
       return {
         uid: u.id,
         email: u.email ?? "",
         displayName: meta.nome ?? u.email ?? "",
-        role: mapRole(roleRow?.role ?? ""),
+        role: SUPER_ADMIN_EMAILS.has(email) ? "SUPER_ADMIN" : mapRole(roleRow?.role ?? ""),
         squadron: roleRow?.turma_id ?? null,
         createdAt: u.created_at,
         status: roleRow ? "APPROVED" : "NO_ROLE",
