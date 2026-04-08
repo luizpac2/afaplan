@@ -9,7 +9,6 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // Carregamento imediato — páginas críticas para a navegação inicial
 import { Login } from "./pages/Login";
-import { PendingApproval } from "./pages/PendingApproval";
 import { Dashboard } from "./pages/Dashboard";
 import { Inbox } from "./pages/Inbox";
 import { Profile } from "./pages/Profile";
@@ -64,7 +63,7 @@ function App() {
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/login" element={<Login />} />
-                <Route path="/pending-approval" element={<PendingApproval />} />
+                <Route path="/pending-approval" element={<Navigate to="/" replace />} />
                 <Route
                   path="/"
                   element={

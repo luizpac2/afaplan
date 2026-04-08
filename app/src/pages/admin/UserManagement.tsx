@@ -102,24 +102,24 @@ export const UserManagement = () => {
   const [passwordResult, setPasswordResult] = useState<{ name: string; email: string; password: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("v_usuarios")
-          .select("*")
-          .order("displayName");
-        if (error) throw error;
-        setUsers((data ?? []) as unknown as UserProfile[]);
-      } catch (error) {
-        console.error("Erro ao buscar usuários:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-list-users");
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      const sorted = (data as UserProfile[]).sort((a, b) =>
+        a.displayName.localeCompare(b.displayName, "pt-BR")
+      );
+      setUsers(sorted);
+    } catch (error) {
+      console.error("Erro ao buscar usuários:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    void fetchUsers();
-  }, []);
+  useEffect(() => { void fetchUsers(); }, []);
 
   const stats = useMemo(() => {
     return {
@@ -344,9 +344,7 @@ export const UserManagement = () => {
       setNewUserEmail("");
       setNewUserRole("DOCENTE");
       setPasswordResult({ name: data.name, email: data.email, password: data.password });
-      // Recarrega lista
-      const { data: updated } = await supabase.from("v_usuarios").select("*").order("displayName");
-      if (updated) setUsers(updated as unknown as UserProfile[]);
+      await fetchUsers();
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Erro ao criar usuário");
     } finally {
