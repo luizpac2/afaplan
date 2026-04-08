@@ -271,7 +271,7 @@ export const GanttProgramming = () => {
             <EventForm
               initialData={editingEvent}
               onSubmit={(data) => {
-                updateEvent({ ...data, id: editingEvent.id });
+                updateEvent(editingEvent.id, data);
                 setIsModalOpen(false);
                 setEditingEvent(undefined);
               }}
