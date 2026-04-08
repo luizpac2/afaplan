@@ -10,6 +10,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { subscribeToEventsByDateRange } from "../services/supabaseService";
 import { GanttView } from "../components/GanttView";
 import { EventForm } from "../components/EventForm";
+import { AcademicEventForm } from "../components/AcademicEventForm";
 import { NoticeForm } from "../components/NoticeForm";
 import { LinkChangeRequestModal } from "../components/LinkChangeRequestModal";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -76,9 +77,10 @@ export const GanttProgramming = () => {
   const [isLinkModalOpen, setIsLinkModalOpen]   = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
-  // ── Sidebar: notice / event creation ─────────────────────────────────────
-  const [noticeFormDate, setNoticeFormDate]   = useState<string | null>(null);
-  const [academicFormDate, setAcademicFormDate] = useState<string | null>(null);
+  // ── Sidebar: notice / event creation / editing ───────────────────────────
+  const [noticeFormDate, setNoticeFormDate]       = useState<string | null>(null);
+  const [academicFormDate, setAcademicFormDate]   = useState<string | null>(null);
+  const [editingAcademic, setEditingAcademic]     = useState<ScheduleEvent | null>(null);
 
   const startOfWeek = getStartOfWeek(currentDate);
   const weekDays    = getWeekDays(startOfWeek);
@@ -174,6 +176,17 @@ export const GanttProgramming = () => {
   const handleAcademicSubmit = (data: Omit<ScheduleEvent, "id">) => {
     addEvent({ ...data, id: crypto.randomUUID() });
     setAcademicFormDate(null);
+  };
+
+  const handleAcademicUpdate = (data: Omit<ScheduleEvent, "id">) => {
+    if (!editingAcademic) return;
+    updateEvent(editingAcademic.id, data);
+    setEditingAcademic(null);
+  };
+
+  const handleAcademicDelete = (id: string) => {
+    useCourseStore.getState().deleteEvent(id);
+    setEditingAcademic(null);
   };
 
   // ── Sidebar notices & academic events per day ─────────────────────────────
@@ -380,16 +393,27 @@ export const GanttProgramming = () => {
                     ) : (
                       <div className="flex flex-col gap-1">
                         {academic_.map((ev) => (
-                          <div key={ev.id}
-                            className="rounded-lg border border-purple-400/30 bg-purple-500/10 px-2 py-1.5 cursor-pointer hover:bg-purple-500/20 transition-colors"
-                            onClick={() => canEdit && (setEditingEvent(ev), setIsModalOpen(true))}>
-                            <p className="text-[10px] font-semibold text-purple-400 leading-tight truncate">
-                              {ev.description || ev.disciplineId}
+                          <div
+                            key={ev.id}
+                            className={`rounded-lg border border-purple-400/30 bg-purple-500/10 px-2 py-1.5 transition-colors ${canEdit ? "cursor-pointer hover:bg-purple-500/20 hover:border-purple-400/60" : ""}`}
+                            onClick={() => canEdit && setEditingAcademic(ev)}
+                            title={canEdit ? "Clique para editar" : undefined}
+                          >
+                            <p className="text-[10px] font-semibold text-purple-300 leading-tight">
+                              {ev.description || "Evento acadêmico"}
                             </p>
-                            {(ev.startTime || ev.location) && (
-                              <p className={`text-[9px] mt-0.5 ${muted}`}>
-                                {ev.startTime && `${ev.startTime} `}{ev.location}
+                            {ev.startTime && (
+                              <p className={`text-[9px] mt-0.5 flex items-center gap-0.5 ${muted}`}>
+                                🕐 {ev.startTime}{ev.endTime && ev.endTime !== ev.startTime ? ` – ${ev.endTime}` : ""}
                               </p>
+                            )}
+                            {ev.location && (
+                              <p className={`text-[9px] flex items-center gap-0.5 ${muted}`}>
+                                📍 {ev.location}
+                              </p>
+                            )}
+                            {canEdit && (
+                              <p className="text-[8px] text-purple-500/60 mt-0.5">toque para editar</p>
                             )}
                           </div>
                         ))}
@@ -464,18 +488,34 @@ export const GanttProgramming = () => {
       {academicFormDate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
           onClick={() => setAcademicFormDate(null)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
-            <EventForm
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md mx-4">
+            <AcademicEventForm
               initialData={{
                 date: academicFormDate,
-                type: "ACADEMIC",
+                type: "ACADEMIC" as any,
                 disciplineId: "ACADEMIC",
                 classId: `${currentSquadron}ESQ`,
                 targetSquadron: currentSquadron,
-                targetClass: "ALL",
+                startTime: "07:00",
+                endTime: "08:00",
               }}
               onSubmit={handleAcademicSubmit}
               onCancel={() => setAcademicFormDate(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Edição de evento acadêmico */}
+      {editingAcademic && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setEditingAcademic(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md mx-4">
+            <AcademicEventForm
+              initialData={editingAcademic}
+              onSubmit={handleAcademicUpdate}
+              onDelete={handleAcademicDelete}
+              onCancel={() => setEditingAcademic(null)}
             />
           </div>
         </div>
