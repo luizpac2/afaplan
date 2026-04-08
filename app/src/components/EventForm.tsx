@@ -28,8 +28,26 @@ export const EventForm = ({
   onCancel,
   isBatchMode = false,
 }: EventFormProps) => {
-  const { disciplines, swapEvents, instructors } = useCourseStore();
+  const { disciplines, swapEvents, instructors, classes } = useCourseStore();
   const { theme } = useTheme();
+
+  // Verifica se um docente está habilitado para uma turma.
+  // classId nos eventos é "1A", "2B" etc — o número é o ano do esquadrão.
+  // enabledClasses armazena UUIDs das turmas (cohorts), então comparamos por ano.
+  const isInstructorEnabledForClass = (inst: typeof instructors[0], classId: string): boolean => {
+    if (!inst.enabledClasses?.length) return true; // sem restrição = habilitado para tudo
+    const yearNum = parseInt(classId[0]);
+    if (isNaN(yearNum)) return true;
+    return inst.enabledClasses.some((enabledId) => {
+      const cls = classes.find((c) => c.id === enabledId);
+      return cls?.year === yearNum;
+    });
+  };
+
+  const isInstructorEnabledForDiscipline = (inst: typeof instructors[0], disciplineId: string): boolean => {
+    if (!inst.enabledDisciplines?.length) return true; // sem restrição = habilitado para tudo
+    return inst.enabledDisciplines.includes(disciplineId);
+  };
   const [showSwap, setShowSwap] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [swapData, setSwapData] = useState({
@@ -573,13 +591,11 @@ export const EventForm = ({
                         const isUnauthorizedClasses =
                           inst &&
                           !formData.classIds.every((cid) =>
-                            inst.enabledClasses?.includes(cid),
+                            isInstructorEnabledForClass(inst, cid),
                           );
                         const isUnauthorizedDisc =
                           inst &&
-                          !inst.enabledDisciplines?.includes(
-                            formData.disciplineId,
-                          );
+                          !isInstructorEnabledForDiscipline(inst, formData.disciplineId);
 
                         if (isUnauthorizedClasses || isUnauthorizedDisc) {
                           return (
@@ -610,14 +626,10 @@ export const EventForm = ({
                       </option>
                       {instructors
                         .filter((inst) => {
-                          const isEnabledForDisc =
-                            inst.enabledDisciplines?.includes(
-                              formData.disciplineId,
-                            );
-                          const isEnabledForClasses = formData.classIds.every(
-                            (cid) => inst.enabledClasses?.includes(cid),
+                          return (
+                            isInstructorEnabledForDiscipline(inst, formData.disciplineId) &&
+                            formData.classIds.every((cid) => isInstructorEnabledForClass(inst, cid))
                           );
-                          return isEnabledForDisc && isEnabledForClasses;
                         })
                         .map((inst) => (
                           <option key={inst.trigram} value={inst.trigram}>
@@ -636,13 +648,11 @@ export const EventForm = ({
                       const isUnauthorizedClasses =
                         inst &&
                         !formData.classIds.every((cid) =>
-                          inst.enabledClasses?.includes(cid),
+                          isInstructorEnabledForClass(inst, cid),
                         );
                       const isUnauthorizedDisc =
                         inst &&
-                        !inst.enabledDisciplines?.includes(
-                          formData.disciplineId,
-                        );
+                        !isInstructorEnabledForDiscipline(inst, formData.disciplineId);
 
                       if (isUnauthorizedClasses || isUnauthorizedDisc) {
                         return (

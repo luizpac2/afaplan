@@ -112,7 +112,10 @@ export const QuickAllocationModal = ({
                                                 const { instructors } = useCourseStore.getState();
                                                 const inst = instructors.find(i => i.trigram === trigram);
                                                 const classId = selectedClass === 'ALL' ? `${currentSquadron}A` : `${currentSquadron}${selectedClass}`;
-                                                const isUnauthorized = inst && !inst.enabledClasses?.includes(classId);
+                                                const yearNum = parseInt(classId[0]);
+                                                const { classes } = useCourseStore.getState();
+                                                const isUnauthorized = inst && inst.enabledClasses?.length > 0 &&
+                                                  !inst.enabledClasses.some(id => classes.find(c => c.id === id)?.year === yearNum);
 
                                                 if (isUnauthorized) {
                                                     return (
