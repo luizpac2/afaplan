@@ -174,18 +174,25 @@ export const GanttProgramming = () => {
   };
 
   const handleAcademicSubmit = (data: Omit<ScheduleEvent, "id">) => {
-    addEvent({ ...data, id: crypto.randomUUID() });
+    const newEvent = { ...data, id: crypto.randomUUID() };
+    addEvent(newEvent);
+    setWeekEvents((prev) => [...prev, newEvent]);
     setAcademicFormDate(null);
   };
 
   const handleAcademicUpdate = (data: Omit<ScheduleEvent, "id">) => {
     if (!editingAcademic) return;
     updateEvent(editingAcademic.id, data);
+    // Atualiza weekEvents localmente para refletir imediatamente sem aguardar realtime
+    setWeekEvents((prev) =>
+      prev.map((e) => e.id === editingAcademic.id ? { ...e, ...data } : e)
+    );
     setEditingAcademic(null);
   };
 
   const handleAcademicDelete = (id: string) => {
     useCourseStore.getState().deleteEvent(id);
+    setWeekEvents((prev) => prev.filter((e) => e.id !== id));
     setEditingAcademic(null);
   };
 
