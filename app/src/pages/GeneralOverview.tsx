@@ -62,7 +62,7 @@ export const GeneralOverview = () => {
   const { fetchYearlyEvents } = useCourseStore();
 
   useEffect(() => {
-    // Usa o cache da store (TTL 5 mins) para evitar reads Firebase repetidos
+    // Usa o cache da store (TTL 5 mins) para evitar reads Supabase repetidos
     const currentYear = new Date().getFullYear();
 
     fetchYearlyEvents(currentYear).then((all) => {

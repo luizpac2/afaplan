@@ -19,7 +19,7 @@ export const useAuditStore = create<ExtendedAuditLogState>((set, get) => ({
   hasMore: true,
 
   addLog: () => {
-    // Optimistic update handled by FirestoreSync for small collections
+    // Optimistic update handled by SupabaseSync for small collections
   },
 
   setLogs: (logs: AuditLogEntry[]) => set({ logs }),

@@ -20,7 +20,7 @@ import {
   batchSave,
   batchDelete,
   normalizeEvent,
-} from "../services/supabaseService"; // Import firestore service
+} from "../services/supabaseService";
 
 import { TIME_SLOTS } from "../utils/constants";
 
@@ -505,7 +505,7 @@ export const useCourseStore = create<CourseState>((set) => ({
         return { ...d, scheduling_criteria: newCriteria };
       });
 
-      // Sync with Firestore for each updated discipline
+      // Sync with Supabase for each updated discipline
       if (true) {
         batchSave("disciplines", updatedDisciplines).catch(err => 
           console.error("Failed to batch save disciplines:", err)
@@ -690,7 +690,7 @@ export const useCourseStore = create<CourseState>((set) => ({
 
     if (true) {
       batchDelete("programacao_aulas", ids).catch((err) => {
-        console.error("❌ Falha crítica ao deletar no Firestore:", err);
+        console.error("❌ Falha crítica ao deletar no Supabase:", err);
       });
     }
   },
@@ -816,7 +816,7 @@ export const useCourseStore = create<CourseState>((set) => ({
     // Invalida cache local
     invalidateEventsLocalCache();
 
-    // Sync with Firestore
+    // Sync with Supabase
     if (true) {
       updates.forEach((update) => {
         saveDocument("programacao_aulas", update.id, update).catch((err) => {
@@ -1204,9 +1204,9 @@ export const useCourseStore = create<CourseState>((set) => ({
       try {
         await saveDocument("occurrences", occurrence.id, occurrence);
         invalidateStaticCache("occurrences");
-        console.log(`✅ Ocorrência ${occurrence.id} salva no Firestore`);
+        console.log(`✅ Ocorrência ${occurrence.id} salva no Supabase`);
       } catch (err) {
-        console.error("❌ Falha ao salvar ocorrência no Firestore:", err);
+        console.error("❌ Falha ao salvar ocorrência no Supabase:", err);
         alert("Erro ao salvar ocorrência. Verifique sua conexão.");
       }
     }
@@ -1277,7 +1277,7 @@ export const useCourseStore = create<CourseState>((set) => ({
           };
           if (Date.now() - ts < 30 * 60 * 1000) {
             console.log(
-              `⚡ Cache localStorage para eventos de ${year} (0 reads Firebase)`,
+              `⚡ Cache localStorage para eventos de ${year} (0 reads Supabase)`,
             );
             set((s: CourseState) => ({
               yearEventsCache: { ...s.yearEventsCache, [year]: data },

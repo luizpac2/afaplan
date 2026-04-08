@@ -200,12 +200,12 @@ export const Automation = () => {
 
           if (eventsToReplace.length > 0) {
             deleteBatchEvents(eventsToReplace.map((e) => e.id));
-            // Small delay to ensure Firestore catches up with deletions before insertions
+            // Small delay to ensure Supabase catches up with deletions before insertions
             await new Promise((resolve) => setTimeout(resolve, 500));
           }
         }
 
-        // 3. Batch save to Firestore in chunks
+        // 3. Batch save to Supabase in chunks
         const BATCH_SIZE = 500;
         let importedCount = 0;
 
@@ -218,7 +218,7 @@ export const Automation = () => {
 
           importedCount += batchItems.length;
 
-          // Small delay to prevent UI freeze and Firebase rate limits
+          // Small delay to prevent UI freeze
           await new Promise((resolve) => setTimeout(resolve, 100));
         }
 

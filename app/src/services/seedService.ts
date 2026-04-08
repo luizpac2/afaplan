@@ -1,11 +1,11 @@
 import { batchSave } from './supabaseService';
 import { getInitialData } from '../utils/initialData';
 
-export const seedFirestore = async () => {
+export const seedSupabase = async () => {
     const { disciplines, classes, cohorts } = getInitialData();
 
     try {
-        console.log('Iniciando o envio de dados padrão para o Firestore...');
+        console.log('Iniciando o envio de dados padrão para o Supabase...');
 
         await batchSave('disciplines', disciplines);
         await batchSave('classes', classes);

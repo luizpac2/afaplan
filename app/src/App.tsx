@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { FirestoreSync } from "./components/FirestoreSync";
+import { SupabaseSync } from "./components/SupabaseSync";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -58,7 +58,7 @@ function App() {
       <BrowserRouter>
         <ThemeProvider>
           <AuthProvider>
-            <FirestoreSync />
+            <SupabaseSync />
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/login" element={<Login />} />

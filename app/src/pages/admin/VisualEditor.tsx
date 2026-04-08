@@ -158,11 +158,11 @@ export const VisualEditor = () => {
                 // Keep local edits if this item is dirty
                 if (dirtyIds.has(defaultCfg.id) && current) return current;
 
-                // Stored (Firestore) takes priority over defaults
+                // Stored (Supabase) takes priority over defaults
                 return stored ? { ...defaultCfg, ...stored } : defaultCfg;
             });
 
-            // Preserve any custom rules from Firestore not in defaults
+            // Preserve any custom rules from Supabase not in defaults
             const customRules = visualConfigs.filter(v => !DEFAULT_CONFIGS.some(d => d.id === v.id));
             const mergedCustoms = customRules.map(stored => {
                 const current = prev.find(v => v.id === stored.id);
