@@ -496,8 +496,9 @@ export const SquadronProgramming = () => {
     const counts: Record<string, { current: number; total: number }> = {};
     const groupings: Record<string, ScheduleEvent[]> = {};
 
-    // Use yearlyEvents instead of squadronEvents for global counting
-    yearlyEvents.forEach((event) => {
+    // Usa yearlyEvents para contagem global; fallback para squadronEvents se ainda não carregou
+    const source = yearlyEvents.length > 0 ? yearlyEvents : squadronEvents;
+    source.forEach((event) => {
       if (new Date(event.date).getFullYear() !== calendarYear) return;
       const key = `${event.disciplineId}|${event.classId}`;
       if (!groupings[key]) groupings[key] = [];
@@ -538,7 +539,7 @@ export const SquadronProgramming = () => {
         });
     });
     return counts;
-  }, [yearlyEvents, calendarYear, disciplines, classes]);
+  }, [yearlyEvents, squadronEvents, calendarYear, disciplines, classes]);
 
   return (
     <div className="p-4 md:p-6 flex flex-col max-w-7xl mx-auto">
