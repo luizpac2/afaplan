@@ -37,6 +37,7 @@ export const AcademicEventForm = ({
   const wasAllDay = !initialData?.startTime || initialData.startTime === ALL_DAY_SENTINEL;
 
   const [title, setTitle]         = useState(initialData?.description ?? "");
+  const [notes, setNotes]         = useState(initialData?.notes ?? "");
   const [date, setDate]           = useState(initialData?.date ?? new Date().toISOString().split("T")[0]);
   const [allDay, setAllDay]       = useState(wasAllDay);
   const [startTime, setStartTime] = useState(wasAllDay ? "07:00" : (initialData?.startTime ?? "07:00"));
@@ -63,6 +64,7 @@ export const AcademicEventForm = ({
       location:  location || undefined,
       type: "ACADEMIC" as any,
       description: title.trim(),
+      notes: notes.trim() || undefined,
       targetSquadron: squadron === "ALL" ? "ALL" : squadron,
       targetCourse: initialData?.targetCourse,
       color: initialData?.color,
@@ -121,6 +123,21 @@ export const AcademicEventForm = ({
               placeholder="Ex: Início do Voo Primário, Recesso, Formatura..."
               className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${inputCls}`}
               autoFocus
+            />
+          </div>
+
+          {/* Descrição */}
+          <div>
+            <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
+              <FileText size={12} className="text-purple-400" />
+              Descrição <span className={`font-normal ${muted}`}>(opcional)</span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Detalhes adicionais sobre o evento..."
+              rows={2}
+              className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors resize-none ${inputCls}`}
             />
           </div>
 

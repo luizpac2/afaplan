@@ -416,6 +416,11 @@ export const GanttProgramming = () => {
                             <p className="text-[10px] font-semibold text-purple-300 leading-tight">
                               {ev.description || "Evento acadêmico"}
                             </p>
+                            {(ev as any).notes && (
+                              <p className={`text-[9px] mt-0.5 leading-snug ${muted} opacity-80`}>
+                                {(ev as any).notes}
+                              </p>
+                            )}
                             {ev.startTime && (
                               <p className={`text-[9px] mt-0.5 flex items-center gap-0.5 ${muted}`}>
                                 🕐 {ev.startTime}{ev.endTime && ev.endTime !== ev.startTime ? ` – ${ev.endTime}` : ""}

@@ -201,6 +201,7 @@ export interface ScheduleEvent {
   targetCourse?: "AVIATION" | "INTENDANCY" | "INFANTRY" | "ALL" | null;
   targetClass?: string | "ALL" | null;
   description?: string;
+  notes?: string; // Texto livre adicional (usado em eventos acadêmicos)
   instructorTrigram?: string; // Override for a specific session
   changeRequestId?: string; // Link to ScheduleChangeRequest
 }
