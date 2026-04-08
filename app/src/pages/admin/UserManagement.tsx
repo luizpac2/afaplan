@@ -16,6 +16,10 @@ import {
   Edit,
   X,
   CheckCircle2,
+  PlusCircle,
+  KeyRound,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Badge } from "../../components/common/Badge";
 import type { BadgeVariant } from "../../components/common/Badge";
@@ -118,6 +122,18 @@ export const UserManagement = () => {
   const [editSquadron, setEditSquadron] = useState("");
   const [editDisciplines, setEditDisciplines] = useState<string[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Create User Modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserRole, setNewUserRole] = useState<UserRole>("DOCENTE");
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  // Password Result Modal
+  const [passwordResult, setPasswordResult] = useState<{ name: string; email: string; password: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -361,6 +377,56 @@ export const UserManagement = () => {
     );
   };
 
+  const handleCreateUser = async () => {
+    if (!newUserName.trim() || !newUserEmail.trim()) return;
+    setIsCreating(true);
+    setCreateError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-create-user", {
+        body: { email: newUserEmail.trim().toLowerCase(), name: newUserName.trim(), role: newUserRole },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      setShowCreateModal(false);
+      setNewUserName("");
+      setNewUserEmail("");
+      setNewUserRole("DOCENTE");
+      setPasswordResult({ name: data.name, email: data.email, password: data.password });
+      // Recarrega lista
+      const { data: updated } = await supabase.from("v_usuarios").select("*").order("displayName");
+      if (updated) setUsers(updated as unknown as UserProfile[]);
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Erro ao criar usuário");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleResetPassword = async (user: UserProfile) => {
+    if (!window.confirm(`Redefinir a senha de ${user.displayName}?\nUma nova senha aleatória será gerada.`)) return;
+    setUpdating(user.uid);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-reset-password", {
+        body: { userId: user.uid },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      setPasswordResult({ name: user.displayName, email: user.email, password: data.password });
+    } catch (err) {
+      alert("Erro ao redefinir senha: " + (err instanceof Error ? err.message : "Erro desconhecido"));
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const copyPassword = () => {
+    if (passwordResult) {
+      void navigator.clipboard.writeText(passwordResult.password);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   if (loading)
     return (
       <div className="p-8 text-center animate-pulse">
@@ -595,6 +661,15 @@ export const UserManagement = () => {
           Usuários Ativos
         </h2>
         <div className="flex flex-col gap-2 w-full md:w-auto">
+          {canEditAuth && (
+            <button
+              onClick={() => { setShowCreateModal(true); setCreateError(null); }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm self-end"
+            >
+              <PlusCircle size={16} />
+              Criar Usuário
+            </button>
+          )}
           <div className="relative">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -870,6 +945,17 @@ export const UserManagement = () => {
                           <Edit size={18} />
                         </button>
                       )}
+
+                      {canEditAuth && user.uid !== currentUser?.uid && (
+                        <button
+                          onClick={() => void handleResetPassword(user)}
+                          className={`ml-2 p-1 rounded-full transition-colors ${theme === "dark" ? "text-slate-400 hover:text-amber-400 hover:bg-amber-900/20" : "text-slate-400 hover:text-amber-600 hover:bg-amber-50"}`}
+                          title="Redefinir Senha"
+                          disabled={updating === user.uid}
+                        >
+                          <KeyRound size={18} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -887,6 +973,137 @@ export const UserManagement = () => {
           </table>
         </div>
       </div>
+
+      {/* Create User Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className={`rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200 border ${theme === "dark" ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
+            <div className={`px-6 py-4 border-b flex justify-between items-center ${theme === "dark" ? "bg-slate-800 border-slate-700" : "bg-slate-50 border-slate-100"}`}>
+              <h3 className={`font-semibold text-lg ${theme === "dark" ? "text-slate-100" : "text-slate-800"}`}>
+                Criar Novo Usuário
+              </h3>
+              <button onClick={() => setShowCreateModal(false)} className={`rounded-full p-1 transition-colors ${theme === "dark" ? "text-slate-400 hover:text-slate-200 hover:bg-slate-700" : "text-slate-400 hover:text-slate-600 hover:bg-slate-200"}`}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {createError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-100 dark:border-red-900/30">
+                  {createError}
+                </div>
+              )}
+
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>Nome completo</label>
+                <input
+                  type="text"
+                  value={newUserName}
+                  onChange={e => setNewUserName(e.target.value)}
+                  placeholder="Nome do usuário"
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${theme === "dark" ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400" : "bg-white border-slate-300 text-slate-900"}`}
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>Email</label>
+                <input
+                  type="email"
+                  value={newUserEmail}
+                  onChange={e => setNewUserEmail(e.target.value)}
+                  placeholder="email@exemplo.com"
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${theme === "dark" ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400" : "bg-white border-slate-300 text-slate-900"}`}
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>Perfil de Acesso</label>
+                <select
+                  value={newUserRole}
+                  onChange={e => setNewUserRole(e.target.value as UserRole)}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${theme === "dark" ? "bg-slate-700 border-slate-600 text-slate-100" : "bg-white border-slate-300 text-slate-900"}`}
+                >
+                  {ROLES.filter(r => r.value !== "SUPER_ADMIN").map(r => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <p className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                Uma senha aleatória será gerada automaticamente. Você precisará repassá-la ao usuário.
+              </p>
+            </div>
+
+            <div className={`px-6 py-4 border-t flex justify-end gap-3 ${theme === "dark" ? "border-slate-700" : "border-slate-100"}`}>
+              <button onClick={() => setShowCreateModal(false)} className={`px-4 py-2 text-sm rounded-lg transition-colors ${theme === "dark" ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-slate-100"}`}>
+                Cancelar
+              </button>
+              <button
+                onClick={() => void handleCreateUser()}
+                disabled={isCreating || !newUserName.trim() || !newUserEmail.trim()}
+                className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                {isCreating ? (
+                  <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Criando...</>
+                ) : (
+                  <><PlusCircle size={16} />Criar e Gerar Senha</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Password Result Modal */}
+      {passwordResult && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className={`rounded-xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200 border ${theme === "dark" ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
+            <div className="px-6 py-4 border-b border-green-200 dark:border-green-900/50 bg-green-50 dark:bg-green-950/50 flex items-center gap-3">
+              <CheckCircle2 size={20} className="text-green-600 dark:text-green-400" />
+              <h3 className="font-semibold text-green-800 dark:text-green-300">Acesso Gerado</h3>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className={`text-sm ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}>
+                Compartilhe as credenciais abaixo com <strong>{passwordResult.name}</strong>:
+              </p>
+
+              <div className={`rounded-lg p-4 space-y-2 border ${theme === "dark" ? "bg-slate-700/50 border-slate-600" : "bg-slate-50 border-slate-200"}`}>
+                <div>
+                  <span className={`text-xs font-medium uppercase ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>Email</span>
+                  <p className={`text-sm mt-0.5 ${theme === "dark" ? "text-slate-100" : "text-slate-800"}`}>{passwordResult.email}</p>
+                </div>
+                <div>
+                  <span className={`text-xs font-medium uppercase ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>Senha</span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className={`text-lg font-mono tracking-widest ${theme === "dark" ? "text-green-400" : "text-green-700"}`}>{passwordResult.password}</p>
+                    <button
+                      onClick={copyPassword}
+                      className={`p-1.5 rounded-lg transition-colors ${copied ? "bg-green-100 dark:bg-green-900/30 text-green-600" : theme === "dark" ? "hover:bg-slate-600 text-slate-400" : "hover:bg-slate-200 text-slate-500"}`}
+                      title="Copiar senha"
+                    >
+                      {copied ? <Check size={16} /> : <Copy size={16} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 p-3 rounded-lg border border-amber-200 dark:border-amber-900/30">
+                Anote esta senha agora. Por segurança, ela não será exibida novamente.
+              </p>
+            </div>
+
+            <div className={`px-6 py-4 border-t ${theme === "dark" ? "border-slate-700" : "border-slate-100"}`}>
+              <button
+                onClick={() => { setPasswordResult(null); setCopied(false); }}
+                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit User Modal */}
       {editingUser && (
