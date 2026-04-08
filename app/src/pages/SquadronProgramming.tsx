@@ -534,7 +534,7 @@ export const SquadronProgramming = () => {
             new Date(`${b.date}T${b.startTime}`).getTime(),
         )
         .forEach((ev, i) => {
-          counts[ev.id] = { current: i + 1, total };
+          counts[String(ev.id)] = { current: i + 1, total };
         });
     });
     return counts;

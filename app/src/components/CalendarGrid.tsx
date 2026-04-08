@@ -841,12 +841,12 @@ export const CalendarGrid = ({
                               );
                             })()}
 
-                            {eventCounts && eventCounts[event.id] && (
+                            {eventCounts && eventCounts[String(event.id)] && (
                               <div
                                 className="text-[8px] bg-black/10 px-1 rounded flex-shrink-0 text-center min-w-[24px]"
-                                title={`Aula ${eventCounts[event.id].current} de ${eventCounts[event.id].total} programadas`}
+                                title={`Aula ${eventCounts[String(event.id)].current} de ${eventCounts[String(event.id)].total} programadas`}
                               >
-                                {eventCounts[event.id].current}/{eventCounts[event.id].total}
+                                {eventCounts[String(event.id)].current}/{eventCounts[String(event.id)].total}
                               </div>
                             )}
                           </div>
