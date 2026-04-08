@@ -60,16 +60,7 @@ const MENU_ITEMS: MenuItem[] = [
   {
     title: "PROGRAMAÇÃO",
     icon: GraduationCap,
-    roles: [
-      "SUPER_ADMIN",
-      "ADMIN",
-      "CADETE",
-      "DOCENTE",
-      "VISITANTE_CADETE",
-      "VISITANTE_DOCENTE",
-      "VISITANTE_ADMIN",
-      "VISITANTE",
-    ],
+    roles: ["SUPER_ADMIN", "ADMIN", "CADETE", "DOCENTE", "CHEFE_TURMA"],
     submenu: [
       { title: "Início", path: "/", icon: Home },
       { title: "Calendário", path: "/panoramic-view", icon: CalendarIcon },
@@ -92,13 +83,7 @@ const MENU_ITEMS: MenuItem[] = [
   {
     title: "DOCENTE",
     icon: UserCheck,
-    roles: [
-      "SUPER_ADMIN",
-      "ADMIN",
-      "DOCENTE",
-      "VISITANTE_DOCENTE",
-      "VISITANTE_ADMIN",
-    ],
+    roles: ["SUPER_ADMIN", "ADMIN", "DOCENTE"],
     submenu: [
       { title: "Relatórios", path: "/instructor-report", icon: FileText },
     ],
@@ -106,7 +91,7 @@ const MENU_ITEMS: MenuItem[] = [
   {
     title: "PLANEJAMENTO",
     icon: Layers,
-    roles: ["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"],
+    roles: ["SUPER_ADMIN", "ADMIN"],
     submenu: [
       { title: "Visão Geral", path: "/general-overview", icon: PieChart },
       {
@@ -158,7 +143,7 @@ const MENU_ITEMS: MenuItem[] = [
   {
     title: "RELATÓRIOS",
     icon: BarChart3,
-    roles: ["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"],
+    roles: ["SUPER_ADMIN", "ADMIN"],
     submenu: [
       { title: "Gerais", path: "/reports", icon: FileText },
       { title: "Disciplinas", path: "/discipline-dashboard", icon: BarChart2 },

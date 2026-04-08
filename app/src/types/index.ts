@@ -5,11 +5,7 @@ export type UserRole =
   | "ADMIN"
   | "CADETE"
   | "CHEFE_TURMA"
-  | "DOCENTE"
-  | "VISITANTE_CADETE"
-  | "VISITANTE_DOCENTE"
-  | "VISITANTE_ADMIN"
-  | "VISITANTE";
+  | "DOCENTE";
 
 export interface UserProfile {
   uid: string;

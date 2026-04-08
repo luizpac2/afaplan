@@ -35,7 +35,7 @@ export const PendingApproval = () => {
     }
 
     // If already approved (SUPER_ADMIN, ADMIN, DOCENTE, etc), redirect to dashboard
-    if (userProfile?.status === 'APPROVED' && userProfile?.role !== 'VISITANTE') {
+    if (userProfile?.status === 'APPROVED') {
         return <Navigate to="/" replace />;
     }
 

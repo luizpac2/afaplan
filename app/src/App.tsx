@@ -86,7 +86,7 @@ function App() {
                   <Route
                     path="gantt/:squadronId"
                     element={
-                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}>
+                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", ]}>
                         <GanttProgramming />
                       </ProtectedRoute>
                     }
@@ -99,7 +99,7 @@ function App() {
                     path="panoramic"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <PanoramicCalendar />
                       </ProtectedRoute>
@@ -109,7 +109,7 @@ function App() {
                     path="general-overview"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <GeneralOverview />
                       </ProtectedRoute>
@@ -124,7 +124,7 @@ function App() {
                     path="disciplinas"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <Disciplinas />
                       </ProtectedRoute>
@@ -134,7 +134,7 @@ function App() {
                     path="instructors"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <Instructors />
                       </ProtectedRoute>
@@ -144,7 +144,7 @@ function App() {
                     path="instructor-occurrences"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <InstructorOccurrences />
                       </ProtectedRoute>
@@ -154,7 +154,7 @@ function App() {
                     path="cursos"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <Cursos />
                       </ProtectedRoute>
@@ -164,7 +164,7 @@ function App() {
                     path="turmas"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <Turmas />
                       </ProtectedRoute>
@@ -174,7 +174,7 @@ function App() {
                     path="cadetes"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <Cadetes />
                       </ProtectedRoute>
@@ -184,7 +184,7 @@ function App() {
                     path="cadet-dashboard"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <CadetDashboard />
                       </ProtectedRoute>
@@ -194,7 +194,7 @@ function App() {
                     path="academic-calendar"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <AcademicCalendar />
                       </ProtectedRoute>
@@ -204,7 +204,7 @@ function App() {
                     path="ficha-informativa"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <FichaInformativa />
                       </ProtectedRoute>
@@ -214,7 +214,7 @@ function App() {
                     path="automation"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <Automation />
                       </ProtectedRoute>
@@ -224,7 +224,7 @@ function App() {
                     path="monthly-optimization"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <MonthlyOptimization />
                       </ProtectedRoute>
@@ -234,7 +234,7 @@ function App() {
                     path="change-requests"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <ChangeRequestsPage />
                       </ProtectedRoute>
@@ -245,7 +245,7 @@ function App() {
                   <Route
                     path="discipline-dashboard"
                     element={
-                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}>
+                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", ]}>
                         <DisciplineDashboard />
                       </ProtectedRoute>
                     }
@@ -256,7 +256,7 @@ function App() {
                     path="reports"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <Reports />
                       </ProtectedRoute>
@@ -266,7 +266,7 @@ function App() {
                     path="controle-ppc"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <ControlePPC />
                       </ProtectedRoute>
@@ -276,7 +276,7 @@ function App() {
                     path="conflict-report"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <ConflictReport />
                       </ProtectedRoute>
@@ -292,8 +292,6 @@ function App() {
                           "SUPER_ADMIN",
                           "ADMIN",
                           "DOCENTE",
-                          "VISITANTE_DOCENTE",
-                          "VISITANTE_ADMIN",
                         ]}
                       >
                         <InstructorReport />
@@ -308,8 +306,6 @@ function App() {
                           "SUPER_ADMIN",
                           "ADMIN",
                           "DOCENTE",
-                          "VISITANTE_DOCENTE",
-                          "VISITANTE_ADMIN",
                         ]}
                       >
                         <DisciplineReport />
@@ -322,7 +318,7 @@ function App() {
                     path="statistics"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <Statistics />
                       </ProtectedRoute>
@@ -360,7 +356,7 @@ function App() {
                     path="users"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <UserManagement />
                       </ProtectedRoute>
@@ -388,7 +384,7 @@ function App() {
                     path="visual-editor"
                     element={
                       <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <VisualEditor />
                       </ProtectedRoute>

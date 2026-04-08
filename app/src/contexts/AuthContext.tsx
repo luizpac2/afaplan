@@ -13,7 +13,7 @@ const mapRole = (dbRole: string): UserRole => {
     case "gestor":      return "ADMIN";
     case "docente":     return "DOCENTE";
     case "cadete":      return "CADETE";
-    default:            return "VISITANTE";
+    default:            return "CADETE";
   }
 };
 

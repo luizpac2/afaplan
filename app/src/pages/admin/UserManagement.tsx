@@ -11,7 +11,6 @@ import {
   UserCheck,
   GraduationCap,
   BookOpen,
-  User,
   Trash2,
   Edit,
   X,
@@ -44,7 +43,7 @@ const ROLES: {
   },
   {
     value: "CADETE",
-    label: "Ensino",
+    label: "Cadete",
     color: "bg-blue-100 text-blue-800",
     icon: GraduationCap,
   },
@@ -53,30 +52,6 @@ const ROLES: {
     label: "Docente",
     color: "bg-green-100 text-green-800",
     icon: BookOpen,
-  },
-  {
-    value: "VISITANTE_CADETE",
-    label: "Vis. Cadete",
-    color: "bg-blue-50 text-blue-700",
-    icon: GraduationCap,
-  },
-  {
-    value: "VISITANTE_DOCENTE",
-    label: "Vis. Docente",
-    color: "bg-green-50 text-green-700",
-    icon: BookOpen,
-  },
-  {
-    value: "VISITANTE_ADMIN",
-    label: "Vis. Admin",
-    color: "bg-red-50 text-red-700",
-    icon: Shield,
-  },
-  {
-    value: "VISITANTE",
-    label: "Visitante (Esp)",
-    color: "bg-gray-100 text-gray-800",
-    icon: User,
   },
 ];
 
@@ -90,14 +65,6 @@ const getRoleVariant = (role: UserRole | undefined): BadgeVariant => {
       return "blue";
     case "DOCENTE":
       return "green";
-    case "VISITANTE_CADETE":
-      return "blue";
-    case "VISITANTE_DOCENTE":
-      return "green";
-    case "VISITANTE_ADMIN":
-      return "red";
-    case "VISITANTE":
-      return "slate";
     default:
       return "slate";
   }
@@ -161,12 +128,6 @@ export const UserManagement = () => {
       admin: users.filter((u) => u.role === "ADMIN").length,
       cadete: users.filter((u) => u.role === "CADETE").length,
       docente: users.filter((u) => u.role === "DOCENTE").length,
-      visitante_cadete: users.filter((u) => u.role === "VISITANTE_CADETE")
-        .length,
-      visitante_docente: users.filter((u) => u.role === "VISITANTE_DOCENTE")
-        .length,
-      visitante_admin: users.filter((u) => u.role === "VISITANTE_ADMIN").length,
-      visitante: users.filter((u) => u.role === "VISITANTE").length,
     };
   }, [users]);
 
@@ -248,15 +209,13 @@ export const UserManagement = () => {
 
     let matchesCohort = true;
     if (selectedCohort) {
-      matchesCohort =
-        (u.role === "CADETE" || u.role === "VISITANTE_CADETE") &&
-        u.squadron === selectedCohort;
+      matchesCohort = u.role === "CADETE" && u.squadron === selectedCohort;
     }
 
     let matchesDiscipline = true;
     if (selectedDiscipline) {
       matchesDiscipline =
-        (u.role === "DOCENTE" || u.role === "VISITANTE_DOCENTE") &&
+        u.role === "DOCENTE" &&
         (u.teachingDisciplines?.includes(selectedDiscipline) ?? false);
     }
 
@@ -318,15 +277,8 @@ export const UserManagement = () => {
     if (!editingUser) return;
     setIsSavingEdit(true);
     try {
-      const newSquadron =
-        editingUser.role === "CADETE" || editingUser.role === "VISITANTE_CADETE"
-          ? editSquadron
-          : null;
-      const newDisciplines =
-        editingUser.role === "DOCENTE" ||
-        editingUser.role === "VISITANTE_DOCENTE"
-          ? editDisciplines
-          : null;
+      const newSquadron = editingUser.role === "CADETE" ? editSquadron : null;
+      const newDisciplines = editingUser.role === "DOCENTE" ? editDisciplines : null;
 
       await supabase
         .from("user_roles")
@@ -719,9 +671,7 @@ export const UserManagement = () => {
           </select>
 
           {/* Show Cohort Filter only if relevant */}
-          {(selectedRole === "ALL" ||
-            selectedRole === "CADETE" ||
-            selectedRole === "VISITANTE_CADETE") && (
+          {(selectedRole === "ALL" || selectedRole === "CADETE") && (
             <select
               value={selectedCohort}
               onChange={(e) => setSelectedCohort(e.target.value)}
@@ -739,9 +689,7 @@ export const UserManagement = () => {
           )}
 
           {/* Show Discipline Filter only if relevant */}
-          {(selectedRole === "ALL" ||
-            selectedRole === "DOCENTE" ||
-            selectedRole === "VISITANTE_DOCENTE") && (
+          {(selectedRole === "ALL" || selectedRole === "DOCENTE") && (
             <select
               value={selectedDiscipline}
               onChange={(e) => setSelectedDiscipline(e.target.value)}
@@ -852,15 +800,13 @@ export const UserManagement = () => {
                       className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400"
                       onClick={() => handleEditClick(user)}
                     >
-                      {(user.role === "CADETE" ||
-                        user.role === "VISITANTE_CADETE") && (
+                      {user.role === "CADETE" && (
                         <span className="flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400">
                           <GraduationCap size={14} className="text-slate-400" />
                           {user.squadron || "-"}
                         </span>
                       )}
-                      {(user.role === "DOCENTE" ||
-                        user.role === "VISITANTE_DOCENTE") && (
+                      {user.role === "DOCENTE" && (
                         <div
                           className={`flex flex-col gap-1 cursor-pointer p-1 -m-1 rounded transition-colors ${theme === "dark" ? "hover:bg-slate-700/50" : "hover:bg-slate-50"}`}
                         >
@@ -889,10 +835,7 @@ export const UserManagement = () => {
                           </div>
                         </div>
                       )}
-                      {user.role !== "CADETE" &&
-                        user.role !== "VISITANTE_CADETE" &&
-                        user.role !== "DOCENTE" &&
-                        user.role !== "VISITANTE_DOCENTE" && (
+                      {user.role !== "CADETE" && user.role !== "DOCENTE" && (
                           <span className="text-slate-400">-</span>
                         )}
                     </td>
@@ -1154,8 +1097,7 @@ export const UserManagement = () => {
                 </div>
               </div>
 
-              {(editingUser.role === "CADETE" ||
-                editingUser.role === "VISITANTE_CADETE") && (
+              {editingUser.role === "CADETE" && (
                 <div>
                   <label
                     className={`block text-sm  mb-2 ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}
@@ -1188,8 +1130,7 @@ export const UserManagement = () => {
                 </div>
               )}
 
-              {(editingUser.role === "DOCENTE" ||
-                editingUser.role === "VISITANTE_DOCENTE") && (
+              {editingUser.role === "DOCENTE" && (
                 <div>
                   <label
                     className={`block text-sm  mb-2 ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}
@@ -1248,9 +1189,7 @@ export const UserManagement = () => {
               )}
 
               {editingUser.role !== "CADETE" &&
-                editingUser.role !== "VISITANTE_CADETE" &&
-                editingUser.role !== "DOCENTE" &&
-                editingUser.role !== "VISITANTE_DOCENTE" && (
+                editingUser.role !== "DOCENTE" && (
                   <p className="text-slate-500 italic text-center py-4">
                     Não há detalhes específicos configuráveis para este perfil.
                   </p>

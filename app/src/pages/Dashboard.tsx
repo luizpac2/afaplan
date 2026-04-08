@@ -63,8 +63,6 @@ export const Dashboard = () => {
   // Filtered data for display
   const { filteredAvisos, filteredCalendario } = useMemo(() => {
     if (!userProfile) return { filteredAvisos: [], filteredCalendario: [] };
-    if (userProfile.role === "VISITANTE")
-      return { filteredAvisos: [], filteredCalendario: [] };
 
     const isAdmin = ["SUPER_ADMIN", "ADMIN"].includes(userProfile.role);
     const next30Days = new Date();

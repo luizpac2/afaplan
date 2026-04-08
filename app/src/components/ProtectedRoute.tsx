@@ -36,14 +36,6 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
         return <>{children}</>;
     }
 
-    // Block VISITANTE (unless we are already on the pending approval page - which is not handled here but in App routes)
-    // Actually, we should redirect to /pending-approval if role is VISITANTE
-    // But we need to avoid infinite loop if the current route IS /pending-approval
-
-    if (userProfile.role === 'VISITANTE' && location.pathname !== '/pending-approval') {
-        return <Navigate to="/pending-approval" replace />;
-    }
-
     // Role-based access control
     if (allowedRoles && !allowedRoles.includes(userProfile.role)) {
         // User does not have permission
