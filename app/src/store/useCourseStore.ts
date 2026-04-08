@@ -1121,6 +1121,38 @@ export const useCourseStore = create<CourseState>((set) => ({
         await contentFn("update_instructor", { trigram, updates });
         invalidateStaticCache("instructors");
         console.log(`✅ Docente ${trigram} atualizado no DB`);
+
+        // Sincroniza o campo `instructor` (warName desnormalizado) em todas as
+        // disciplinas que referenciam este docente via instructorTrigram
+        if (before.warName !== after.warName) {
+          const { disciplines: currentDiscs } = useCourseStore.getState();
+          const affectedDiscs = currentDiscs.filter(
+            (d) => d.instructorTrigram === trigram
+          );
+          if (affectedDiscs.length > 0) {
+            // Atualiza store imediatamente (optimistic)
+            set((s) => ({
+              disciplines: s.disciplines.map((d) =>
+                d.instructorTrigram === trigram
+                  ? { ...d, instructor: after.warName }
+                  : d
+              ),
+            }));
+            // Persiste cada disciplina afetada
+            for (const d of affectedDiscs) {
+              try {
+                await contentFn("sync_discipline_instructor", {
+                  sigla: d.code,
+                  warName: after.warName,
+                });
+              } catch (e) {
+                console.warn("Falha ao sincronizar instructor em disciplina:", d.code, e);
+              }
+            }
+            invalidateStaticCache("disciplinas");
+            invalidateStaticCache("disciplines");
+          }
+        }
       } catch (err) {
         console.error("❌ Falha ao atualizar docente no Supabase:", err);
         alert("Erro ao atualizar docente. Verifique as restrições do banco.");

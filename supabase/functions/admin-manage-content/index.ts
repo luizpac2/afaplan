@@ -81,6 +81,36 @@ Deno.serve(async (req) => {
     return ok({ success: true });
   }
 
+  // ── sync_discipline_instructor ──────────────────────────────────────────────
+  // Atualiza o campo instructor (warName desnormalizado) em disciplinas e disciplines
+  if (action === "sync_discipline_instructor") {
+    const { sigla, warName } = body;
+    if (!sigla || !warName) return err("sigla and warName required");
+
+    // Atualiza tabela disciplinas (instructor no topo ou dentro de data)
+    const { data: row } = await adminClient
+      .from("disciplinas")
+      .select("data")
+      .eq("sigla", sigla)
+      .maybeSingle();
+
+    if (row) {
+      const newData = { ...(row.data || {}), instructor: warName };
+      await adminClient
+        .from("disciplinas")
+        .update({ data: newData })
+        .eq("sigla", sigla);
+    }
+
+    // Também tenta na tabela disciplines (se existir)
+    await adminClient
+      .from("disciplines")
+      .update({ instructor: warName })
+      .eq("code", sigla);
+
+    return ok({ success: true });
+  }
+
   // ── delete_discipline ───────────────────────────────────────────────────────
   if (action === "delete_discipline") {
     const { sigla } = body;
