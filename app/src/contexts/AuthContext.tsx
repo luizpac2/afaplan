@@ -1,25 +1,9 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../config/supabase";
-import type { UserProfile, UserRole } from "../types";
+import type { UserProfile } from "../types";
 
-// Tipos inferidos do cliente Supabase (evita import direto de @supabase/supabase-js)
 type SupabaseUser    = Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"];
 type SupabaseSession = Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"];
-
-// Mapeia roles do Supabase → roles internos do frontend
-const mapRole = (dbRole: string): UserRole => {
-  switch (dbRole) {
-    case "super_admin": return "SUPER_ADMIN";
-    case "gestor":      return "ADMIN";
-    case "docente":     return "DOCENTE";
-    case "cadete":      return "CADETE";
-    default:            return "CADETE";
-  }
-};
-
-const SUPER_ADMIN_EMAILS = new Set<string>([
-  "pelicano307@gmail.com",
-]);
 
 interface AuthContextType {
   user: SupabaseUser;
@@ -40,40 +24,22 @@ const AuthContext = createContext<AuthContextType>({
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);
 
-const buildProfile = async (user: NonNullable<SupabaseUser>): Promise<UserProfile | null> => {
-  const email = (user.email ?? "").trim().toLowerCase();
-  const meta = (user.user_metadata ?? {}) as Record<string, string>;
+const buildProfile = async (_user: NonNullable<SupabaseUser>): Promise<UserProfile | null> => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return null;
 
-  // Fallback: garante super-admin mesmo se `user_roles` estiver inconsistente/indisponível
-  if (SUPER_ADMIN_EMAILS.has(email)) {
-    return {
-      uid: user.id,
-      email: user.email ?? "",
-      displayName: meta.nome ?? user.email ?? "",
-      role: "SUPER_ADMIN",
-      createdAt: user.created_at,
-      status: "APPROVED",
-    };
+    const { data, error } = await supabase.functions.invoke("get-my-profile", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (error || !data || data.error) return null;
+
+    return data as UserProfile;
+  } catch {
+    return null;
   }
-
-  const { data, error } = await supabase
-    .from("user_roles")
-    .select("role, turma_id")
-    .eq("user_id", user.id)
-    .single();
-
-  if (error || !data) return null;
-
-  const baseRole = mapRole(data.role as string);
-
-  return {
-    uid: user.id,
-    email: user.email ?? "",
-    displayName: meta.nome ?? user.email ?? "",
-    role: baseRole,
-    createdAt: user.created_at,
-    status: "APPROVED",
-  };
 };
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
