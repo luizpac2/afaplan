@@ -222,14 +222,18 @@ export const GanttProgramming = () => {
       color:           data.color ?? null,
     };
 
-    // Atualiza estado local imediatamente
+    // Atualiza estado local imediatamente (sem chamar updateEvent que dispara seu próprio updateDocument)
+    const merged = { ...editingAcademic, ...data };
     setWeekEvents((prev) =>
-      prev.map((e) => e.id === editingAcademic.id ? { ...e, ...data } : e)
+      prev.map((e) => e.id === editingAcademic.id ? merged : e)
     );
-    updateEvent(editingAcademic.id, data); // store in-memory
+    useCourseStore.setState((s) => ({
+      events: s.events.map((e) => e.id === editingAcademic.id ? merged : e),
+    }));
 
-    // Persiste no banco diretamente com campos conhecidos
+    // Persiste no banco com payload controlado (uma única chamada)
     updateDocument("programacao_aulas", editingAcademic.id, dbPayload)
+      .then(() => console.log("[AcademicUpdate] salvo:", dbPayload))
       .catch((err) => console.error("[AcademicUpdate] DB error:", err));
 
     setEditingAcademic(null);
@@ -463,7 +467,7 @@ export const GanttProgramming = () => {
                             title={canEdit ? "Clique para editar" : undefined}
                           >
                             <p className={`text-[10px] font-semibold leading-tight ${col.title}`}>
-                              {ev.description || "Evento acadêmico"}
+                              {ev.description || ev.location || "Evento acadêmico"}
                             </p>
                             {(ev as any).notes && (
                               <p className={`text-[9px] mt-0.5 leading-snug ${col.sub}`}>

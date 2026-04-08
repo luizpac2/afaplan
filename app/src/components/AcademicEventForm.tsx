@@ -57,7 +57,8 @@ export const AcademicEventForm = ({
 
   const today = new Date().toISOString().split("T")[0];
 
-  const [title, setTitle]         = useState(initialData?.description ?? "");
+  // Compatibilidade com eventos antigos: título pode estar em description ou location
+  const [title, setTitle]         = useState(initialData?.description ?? initialData?.location ?? "");
   const [notes, setNotes]         = useState(initialData?.notes ?? "");
   const [startDate, setStartDate] = useState(initialData?.date ?? today);
   const [endDate, setEndDate]     = useState(initialData?.endDate ?? initialData?.date ?? today);
