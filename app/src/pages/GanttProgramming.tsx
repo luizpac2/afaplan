@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { subscribeToEventsByDateRange } from "../services/supabaseService";
@@ -14,7 +14,6 @@ import { getCohortColorTokens } from "../utils/cohortColors";
 import type { CohortColor } from "../types";
 
 const DAYS_SHORT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-const DAYS_FULL  = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
 
 export const GanttProgramming = () => {
   const { squadronId } = useParams<{ squadronId: string }>();
@@ -271,14 +270,13 @@ export const GanttProgramming = () => {
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
             <EventForm
               initialData={editingEvent}
-              onSubmit={async (data) => {
-                await updateEvent({ ...data, id: editingEvent.id });
+              onSubmit={(data) => {
+                updateEvent({ ...data, id: editingEvent.id });
                 setIsModalOpen(false);
                 setEditingEvent(undefined);
               }}
-              onDelete={async (id) => {
-                const { deleteEvent } = useCourseStore.getState();
-                await deleteEvent(id);
+              onDelete={(id) => {
+                useCourseStore.getState().deleteEvent(id);
                 setIsModalOpen(false);
                 setEditingEvent(undefined);
               }}
