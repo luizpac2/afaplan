@@ -327,6 +327,7 @@ export interface Cadet {
   quadro: CadetQuadro;
   cohort_id: string;      // permanente — Drakon='1', Perseu='2'…
   situacao: CadetSituacao;
+  email?: string;         // email de acesso ao sistema
   observacao?: string;
   created_at?: string;
   updated_at?: string;

@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import {
   Users, Search, Edit2, Save, X, ChevronDown,
-  AlertCircle, Plus, Trash2,
+  AlertCircle, Plus, Trash2, KeyRound, Copy, Check,
 } from 'lucide-react';
 import type { Cadet, CadetAlocacao, CadetQuadro, CadetTurma, CadetSituacao, Cohort } from '../types';
 
@@ -51,6 +51,7 @@ interface AddDraft {
   cohort_id: string;
   situacao: CadetSituacao;
   turma_aula: CadetTurma | '';
+  email: string;
 }
 
 const EMPTY_ADD: AddDraft = {
@@ -61,6 +62,7 @@ const EMPTY_ADD: AddDraft = {
   cohort_id: '',
   situacao: 'ATIVO',
   turma_aula: '',
+  email: '',
 };
 
 export const CadetManager = () => {
@@ -86,6 +88,10 @@ export const CadetManager = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [addDraft, setAddDraft]       = useState<AddDraft>(EMPTY_ADD);
   const [addSaving, setAddSaving]     = useState(false);
+
+  // Password result modal
+  const [passwordResult, setPasswordResult] = useState<{ name: string; email: string; password: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const canEdit = useMemo(
     () => ['SUPER_ADMIN', 'ADMIN'].includes(userProfile?.role ?? ''),
@@ -240,13 +246,17 @@ export const CadetManager = () => {
     }
     setAddSaving(true);
     try {
+      const cadetId = addDraft.id.trim();
+      const email   = addDraft.email.trim().toLowerCase();
+
       const { error: insertErr } = await supabase.from('cadetes').insert({
-        id:            addDraft.id.trim(),
+        id:            cadetId,
         nome_guerra:   addDraft.nome_guerra.trim(),
         nome_completo: addDraft.nome_completo.trim(),
         quadro:        addDraft.quadro,
         cohort_id:     addDraft.cohort_id || null,
         situacao:      addDraft.situacao,
+        email:         email || null,
         created_at:    new Date().toISOString(),
         updated_at:    new Date().toISOString(),
       });
@@ -254,20 +264,33 @@ export const CadetManager = () => {
 
       if (addDraft.turma_aula) {
         const { error: alocErr } = await supabase.from('cadete_alocacoes').upsert(
-          { cadet_id: addDraft.id.trim(), ano: anoFiltro, turma_aula: addDraft.turma_aula },
+          { cadet_id: cadetId, ano: anoFiltro, turma_aula: addDraft.turma_aula },
           { onConflict: 'cadet_id,ano' },
         );
         if (alocErr) throw alocErr;
-        setAlocacoes(prev => [...prev, { cadet_id: addDraft.id.trim(), ano: anoFiltro, turma_aula: addDraft.turma_aula as CadetTurma }]);
+        setAlocacoes(prev => [...prev, { cadet_id: cadetId, ano: anoFiltro, turma_aula: addDraft.turma_aula as CadetTurma }]);
+      }
+
+      // Cria usuário no sistema se email foi informado
+      if (email) {
+        const { data: userData, error: userErr } = await supabase.functions.invoke('admin-create-user', {
+          body: { email, name: addDraft.nome_guerra.trim(), role: 'CADETE', cadetId },
+        });
+        if (userErr || userData?.error) {
+          alert('Cadete criado, mas erro ao criar usuário: ' + (userData?.error ?? userErr?.message));
+        } else {
+          setPasswordResult({ name: addDraft.nome_guerra.trim(), email, password: userData.password });
+        }
       }
 
       const newCadet: Cadet = {
-        id:            addDraft.id.trim(),
+        id:            cadetId,
         nome_guerra:   addDraft.nome_guerra.trim(),
         nome_completo: addDraft.nome_completo.trim(),
         quadro:        addDraft.quadro,
         cohort_id:     addDraft.cohort_id || '',
         situacao:      addDraft.situacao,
+        email:         email || undefined,
       };
       setCadets(prev => [...prev, newCadet].sort((a, b) => a.id.localeCompare(b.id)));
       setAddDraft(EMPTY_ADD);
@@ -281,9 +304,21 @@ export const CadetManager = () => {
 
   // ── Delete ──────────────────────────────────────────────────
   const deleteCadet = async (id: string, nomeGuerra: string) => {
-    if (!window.confirm(`Excluir o cadete "${nomeGuerra}" (${id})?\n\nEsta ação também remove todas as alocações de turma.`)) return;
+    if (!window.confirm(`Excluir o cadete "${nomeGuerra}" (${id})?\n\nEsta ação também remove o acesso ao sistema e todas as alocações.`)) return;
     try {
-      // Remove alocações primeiro
+      // Remove usuário vinculado (via user_roles.cadet_id → admin-manage-user)
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('cadet_id', id)
+        .maybeSingle();
+
+      if (roleData?.user_id) {
+        await supabase.functions.invoke('admin-manage-user', {
+          body: { action: 'delete', userId: roleData.user_id },
+        });
+      }
+
       await supabase.from('cadete_alocacoes').delete().eq('cadet_id', id);
       const { error: delErr } = await supabase.from('cadetes').delete().eq('id', id);
       if (delErr) throw delErr;
@@ -292,6 +327,26 @@ export const CadetManager = () => {
     } catch (e: unknown) {
       alert('Erro ao excluir: ' + (e as Error).message);
     }
+  };
+
+  // ── Reset password ──────────────────────────────────────────
+  const resetCadetPassword = async (cadet: Cadet) => {
+    if (!cadet.email) { alert('Cadete sem email cadastrado.'); return; }
+    if (!window.confirm(`Redefinir a senha de ${cadet.nome_guerra}?`)) return;
+
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('cadet_id', cadet.id)
+      .maybeSingle();
+
+    if (!roleData?.user_id) { alert('Usuário de sistema não encontrado para este cadete.'); return; }
+
+    const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+      body: { userId: roleData.user_id },
+    });
+    if (error || data?.error) { alert('Erro: ' + (data?.error ?? error?.message)); return; }
+    setPasswordResult({ name: cadet.nome_guerra, email: cadet.email, password: data.password });
   };
 
   // ── Styles ──────────────────────────────────────────────────
@@ -432,6 +487,19 @@ export const CadetManager = () => {
               <ChevronDown size={11} className={`absolute right-1.5 bottom-2.5 pointer-events-none ${muted}`} />
             </div>
           </div>
+          {/* Email para acesso */}
+          <div className="mt-3">
+            <label className={`text-xs ${muted} block mb-1`}>Email de acesso ao sistema (opcional)</label>
+            <input
+              type="email"
+              value={addDraft.email}
+              onChange={e => setAddDraft(d => ({ ...d, email: e.target.value }))}
+              placeholder="email@afa.mil.br"
+              className={`w-full max-w-xs px-2 py-1.5 rounded-lg border text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 ${input}`}
+            />
+            <p className={`text-xs mt-1 ${muted}`}>Se informado, o cadete poderá acessar o sistema. Uma senha será gerada automaticamente.</p>
+          </div>
+
           <div className="flex gap-2 mt-3">
             <button
               onClick={saveAdd}
@@ -542,13 +610,14 @@ export const CadetManager = () => {
                   T. Aula <span className={`text-[10px] font-normal ${muted}`}>(anual)</span>
                 </th>
                 <th className="text-left px-3 py-2 font-medium w-28">Situação</th>
-                {canEdit && <th className="px-3 py-2 w-20" />}
+                <th className="text-left px-3 py-2 font-medium w-40">Email</th>
+                {canEdit && <th className="px-3 py-2 w-24" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={canEdit ? 8 : 7} className={`text-center py-8 ${muted}`}>
+                  <td colSpan={canEdit ? 9 : 8} className={`text-center py-8 ${muted}`}>
                     Nenhum cadete encontrado.
                   </td>
                 </tr>
@@ -660,6 +729,14 @@ export const CadetManager = () => {
                       )}
                     </td>
 
+                    {/* Email */}
+                    <td className={`px-3 py-2 text-xs ${muted}`}>
+                      {c.email
+                        ? <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" title="Tem acesso ao sistema" />{c.email}</span>
+                        : <span className="text-slate-300 dark:text-slate-600">—</span>
+                      }
+                    </td>
+
                     {/* Actions */}
                     {canEdit && (
                       <td className="px-3 py-2">
@@ -690,8 +767,17 @@ export const CadetManager = () => {
                             >
                               <Edit2 size={13} />
                             </button>
+                            {c.email && (
+                              <button
+                                onClick={() => void resetCadetPassword(c)}
+                                className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-amber-900/40' : 'hover:bg-amber-50'} ${muted} hover:text-amber-500 transition-colors`}
+                                title="Redefinir Senha"
+                              >
+                                <KeyRound size={13} />
+                              </button>
+                            )}
                             <button
-                              onClick={() => deleteCadet(c.id, c.nome_guerra)}
+                              onClick={() => void deleteCadet(c.id, c.nome_guerra)}
                               className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-red-900/40' : 'hover:bg-red-50'} ${muted} hover:text-red-500 transition-colors`}
                               title="Excluir"
                             >
@@ -712,6 +798,59 @@ export const CadetManager = () => {
       <p className={`text-xs mt-3 ${muted}`}>
         {filtered.length} de {cadets.length} cadetes exibidos
       </p>
+
+      {/* Password Result Modal */}
+      {passwordResult && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className={`rounded-xl shadow-xl w-full max-w-sm overflow-hidden border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <div className="px-6 py-4 border-b border-green-200 dark:border-green-900/50 bg-green-50 dark:bg-green-950/50 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
+                <KeyRound size={16} className="text-green-600 dark:text-green-400" />
+              </div>
+              <h3 className="font-semibold text-green-800 dark:text-green-300">Acesso Gerado</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                Compartilhe as credenciais com <strong>{passwordResult.name}</strong>:
+              </p>
+              <div className={`rounded-lg p-4 space-y-2 border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'}`}>
+                <div>
+                  <span className={`text-xs font-medium uppercase ${muted}`}>Email</span>
+                  <p className={`text-sm mt-0.5 ${text}`}>{passwordResult.email}</p>
+                </div>
+                <div>
+                  <span className={`text-xs font-medium uppercase ${muted}`}>Senha</span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className={`text-lg font-mono tracking-widest ${isDark ? 'text-green-400' : 'text-green-700'}`}>{passwordResult.password}</p>
+                    <button
+                      onClick={() => {
+                        void navigator.clipboard.writeText(passwordResult.password);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className={`p-1.5 rounded-lg transition-colors ${copied ? 'bg-green-100 dark:bg-green-900/30 text-green-600' : isDark ? 'hover:bg-slate-600 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}
+                      title="Copiar senha"
+                    >
+                      {copied ? <Check size={16} /> : <Copy size={16} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 p-3 rounded-lg border border-amber-200 dark:border-amber-900/30">
+                Anote esta senha agora. Ela não será exibida novamente.
+              </p>
+            </div>
+            <div className={`px-6 py-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+              <button
+                onClick={() => { setPasswordResult(null); setCopied(false); }}
+                className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

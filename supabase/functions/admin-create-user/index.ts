@@ -70,10 +70,11 @@ Deno.serve(async (req: Request) => {
     }
 
     // Lê o body
-    const { email, name, role } = await req.json() as {
+    const { email, name, role, cadetId } = await req.json() as {
       email: string;
       name: string;
       role: string;
+      cadetId?: string;
     };
 
     if (!email || !name || !role) {
@@ -99,10 +100,13 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Insere na tabela user_roles
+    // Insere na tabela user_roles (com cadet_id opcional)
+    const roleRow: Record<string, unknown> = { user_id: created.user.id, role: role.toLowerCase() };
+    if (cadetId) roleRow.cadet_id = cadetId;
+
     const { error: roleErr } = await adminClient
       .from("user_roles")
-      .insert({ user_id: created.user.id, role: role.toLowerCase() });
+      .insert(roleRow);
 
     if (roleErr) {
       // Tenta reverter criação do usuário
