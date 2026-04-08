@@ -13,6 +13,11 @@ interface Props {
   eventCounts?: Record<string, { current: number; total: number }>;
 }
 
+// Largura fixa de cada coluna de tempo (px) — define o quadrado
+const COL_W = 76;
+const ROW_H = COL_W; // quadrado perfeito
+const LABEL_W = 36;
+
 export const GanttView = ({ date, events, disciplines, classes, onEventClick, eventCounts }: Props) => {
   const { instructors } = useCourseStore();
   const { theme } = useTheme();
@@ -30,100 +35,130 @@ export const GanttView = ({ date, events, disciplines, classes, onEventClick, ev
 
   const squadronNum = classes[0]?.[0] ?? "1";
 
-  const text   = isDark ? "text-slate-100" : "text-slate-800";
-  const muted  = isDark ? "text-slate-400" : "text-slate-500";
   const border = isDark ? "border-slate-700" : "border-slate-200";
-  const rowBg  = isDark ? "bg-slate-700/50" : "bg-slate-100";
+  const labelBg = isDark ? "bg-slate-800" : "bg-slate-50";
+  const emptyBg = isDark ? "rgba(15,23,42,0.3)" : "rgba(248,250,252,0.9)";
+  const textMain = isDark ? "text-slate-100" : "text-slate-800";
+  const textMuted = isDark ? "text-slate-400" : "text-slate-500";
 
-  // Find which slot index an event maps to (by startTime)
   function slotIndex(startTime: string) {
     return TIME_SLOTS.findIndex((s) => s.start === startTime);
   }
 
+  const totalW = LABEL_W + COL_W * TIME_SLOTS.length;
+
   return (
-    <div className="w-full">
-      {/* ── Header row: slot labels ──────────────────────────────────── */}
-      <div className="flex">
-        {/* Label column spacer */}
-        <div className="flex-shrink-0 w-12" />
-        {TIME_SLOTS.map((slot, i) => (
-          <div
-            key={i}
-            className={`flex-1 text-center text-[9px] font-semibold ${muted} border-l ${border} pb-1`}
-          >
-            {slot.start}
-          </div>
-        ))}
-      </div>
+    <div className="overflow-x-auto">
+      <div style={{ width: totalW, minWidth: totalW }}>
 
-      {/* ── Rows per class ───────────────────────────────────────────── */}
-      {classLetters.map((letter) => {
-        const classId = `${squadronNum}${letter}`;
-        const rowEvents = dayEvents.filter((e) => e.classId === classId);
+        {/* ── Header ───────────────────────────────────────────────── */}
+        <div className={`flex border-b ${border}`}>
+          {/* Label spacer */}
+          <div style={{ width: LABEL_W, flexShrink: 0 }} className={`${labelBg} border-r ${border}`} />
 
-        // Build a slot → event map
-        const slotMap: Record<number, ScheduleEvent> = {};
-        rowEvents.forEach((ev) => {
-          const idx = slotIndex(ev.startTime || "");
-          if (idx >= 0) slotMap[idx] = ev;
-        });
-
-        return (
-          <div key={letter} className={`flex items-stretch border-b ${border}`}>
-            {/* Row label */}
-            <div className={`flex-shrink-0 w-12 flex items-center justify-center text-xs font-bold ${text} ${rowBg} border-r ${border}`}>
-              T{letter}
+          {TIME_SLOTS.map((slot, i) => (
+            <div
+              key={i}
+              style={{ width: COL_W, flexShrink: 0 }}
+              className={`flex flex-col items-center justify-center py-1 border-l ${border} ${i === 0 ? "border-l-0" : ""}`}
+            >
+              <span className={`text-[10px] font-bold leading-none ${textMain}`}>{slot.start}</span>
+              <span className={`text-[8px] leading-none mt-0.5 ${textMuted}`}>{slot.end}</span>
             </div>
+          ))}
+        </div>
 
-            {/* Slots */}
-            {TIME_SLOTS.map((_, i) => {
-              const ev = slotMap[i];
-              const disc = ev ? disciplines.find((d) => d.id === ev.disciplineId) : null;
-              const count = ev ? eventCounts?.[String(ev.id)] : null;
-              const bgColor = disc?.color || "#3b82f6";
-              const trigram = ev ? (ev.instructorTrigram || disc?.instructorTrigram || disc?.instructor || "") : "";
-              const inst = trigram ? instructors.find((i) => i.trigram === trigram) : null;
-              const displayInstructor = inst?.warName || trigram;
-              const displayLocation = ev ? (ev.location || disc?.location || "") : "";
+        {/* ── Rows ─────────────────────────────────────────────────── */}
+        {classLetters.map((letter) => {
+          const classId = `${squadronNum}${letter}`;
+          const rowEvents = dayEvents.filter((e) => e.classId === classId);
 
-              return (
-                <div
-                  key={i}
-                  className={`flex-1 border-l ${border} p-0.5 min-h-[52px]`}
-                  style={{ background: ev ? undefined : (isDark ? "rgba(15,23,42,0.3)" : "rgba(248,250,252,0.8)") }}
-                >
-                  {ev ? (
-                    <div
-                      onClick={() => onEventClick?.(ev)}
-                      title={`${disc?.name || ev.disciplineId}${displayInstructor ? ` | ${displayInstructor}` : ""}${displayLocation ? ` | ${displayLocation}` : ""}${count ? ` | Aula ${count.current}/${count.total}` : ""}`}
-                      className="h-full w-full rounded cursor-pointer hover:brightness-110 transition-all flex flex-col justify-between px-1.5 py-1 overflow-hidden"
-                      style={{ backgroundColor: bgColor, border: "1px solid rgba(0,0,0,0.2)" }}
-                    >
-                      <span className="text-white text-[10px] font-bold leading-tight truncate">
-                        {disc?.code || ev.disciplineId}
-                      </span>
-                      <div className="flex items-end justify-between gap-1">
-                        <span className="text-white/70 text-[8px] leading-none truncate">
+          const slotMap: Record<number, ScheduleEvent> = {};
+          rowEvents.forEach((ev) => {
+            const idx = slotIndex(ev.startTime || "");
+            if (idx >= 0) slotMap[idx] = ev;
+          });
+
+          return (
+            <div
+              key={letter}
+              className={`flex border-b ${border}`}
+              style={{ height: ROW_H }}
+            >
+              {/* Row label */}
+              <div
+                style={{ width: LABEL_W, flexShrink: 0 }}
+                className={`flex items-center justify-center text-[10px] font-bold ${textMain} ${labelBg} border-r ${border}`}
+              >
+                T{letter}
+              </div>
+
+              {/* Slots */}
+              {TIME_SLOTS.map((_, i) => {
+                const ev   = slotMap[i];
+                const disc = ev ? disciplines.find((d) => d.id === ev.disciplineId) : null;
+                const count = ev ? eventCounts?.[String(ev.id)] : null;
+
+                const bgColor = disc?.color || "#3b82f6";
+                const trigram = ev
+                  ? (ev.instructorTrigram || disc?.instructorTrigram || (disc as unknown as { data?: Record<string,string> })?.data?.instructor || "")
+                  : "";
+                const inst = trigram ? instructors.find((ins) => ins.trigram === trigram) : null;
+                const displayInstructor = inst?.warName || trigram || "—";
+                const displayLocation   = ev ? (ev.location || (disc as unknown as { data?: Record<string,string> })?.data?.location || "—") : "";
+                const code = disc?.code || ev?.disciplineId || "";
+
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      width: COL_W,
+                      height: ROW_H,
+                      flexShrink: 0,
+                      background: ev ? undefined : emptyBg,
+                    }}
+                    className={`border-l ${border} p-[3px]`}
+                  >
+                    {ev ? (
+                      <div
+                        onClick={() => onEventClick?.(ev)}
+                        title={`${disc?.name || ev.disciplineId} | ${displayInstructor} | ${displayLocation}${count ? ` | Aula ${count.current}/${count.total}` : ""}`}
+                        className="w-full h-full rounded cursor-pointer hover:brightness-110 transition-all flex flex-col justify-between px-[5px] py-[4px] overflow-hidden"
+                        style={{
+                          backgroundColor: bgColor,
+                          border: "1px solid rgba(0,0,0,0.15)",
+                        }}
+                      >
+                        {/* Linha 1 — código (maior) */}
+                        <span className="text-white text-[11px] font-extrabold leading-none truncate">
+                          {code}
+                        </span>
+
+                        {/* Linha 2 — docente */}
+                        <span className="text-white/80 text-[8px] leading-none truncate">
                           {displayInstructor}
-                          {displayInstructor && displayLocation ? " · " : ""}
+                        </span>
+
+                        {/* Linha 3 — local */}
+                        <span className="text-white/70 text-[8px] leading-none truncate">
                           {displayLocation}
                         </span>
-                        {count && (
-                          <span className="text-white/60 text-[8px] leading-none flex-shrink-0">
-                            {count.current}/{count.total}
-                          </span>
-                        )}
+
+                        {/* Linha 4 — contagem */}
+                        <span className="text-white/60 text-[8px] leading-none">
+                          {count ? `${count.current}/${count.total}` : ""}
+                        </span>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="h-full w-full" />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        );
-      })}
+                    ) : (
+                      <div className="w-full h-full" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
