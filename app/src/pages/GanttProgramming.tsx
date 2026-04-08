@@ -409,7 +409,7 @@ export const GanttProgramming = () => {
                     ) : (
                       <div className="flex flex-col gap-1">
                         {academic_.map((ev) => {
-                          const col = getAcademicColor(ev.targetSquadron);
+                          const col = getAcademicColor(ev.targetSquadron, isDark);
                           return (
                           <div
                             key={ev.id}

@@ -14,17 +14,27 @@ interface AcademicEventFormProps {
 
 const SQUADRONS = [1, 2, 3, 4] as const;
 
-export const ACADEMIC_COLORS: Record<string, { border: string; bg: string; title: string; sub: string; hover: string }> = {
-  ALL: { border: "border-purple-400/40", bg: "bg-purple-500/15", title: "text-purple-900 dark:text-purple-300", sub: "text-purple-800 dark:text-purple-400", hover: "hover:bg-purple-500/25" },
-  "1":  { border: "border-blue-400/40",   bg: "bg-blue-500/15",   title: "text-blue-900 dark:text-blue-300",   sub: "text-blue-800 dark:text-blue-400",   hover: "hover:bg-blue-500/25"   },
-  "2":  { border: "border-emerald-400/40",bg: "bg-emerald-500/15",title: "text-emerald-900 dark:text-emerald-300",sub: "text-emerald-800 dark:text-emerald-400",hover: "hover:bg-emerald-500/25"},
-  "3":  { border: "border-orange-400/40", bg: "bg-orange-500/15", title: "text-orange-900 dark:text-orange-300", sub: "text-orange-800 dark:text-orange-400", hover: "hover:bg-orange-500/25" },
-  "4":  { border: "border-red-400/40",    bg: "bg-red-500/15",    title: "text-red-900 dark:text-red-300",    sub: "text-red-800 dark:text-red-400",    hover: "hover:bg-red-500/25"    },
+type ColorSet = { border: string; bg: string; title: string; sub: string; hover: string };
+
+const COLORS_DARK: Record<string, ColorSet> = {
+  ALL: { border: "border-purple-400/40", bg: "bg-purple-500/15", title: "text-purple-300", sub: "text-purple-400", hover: "hover:bg-purple-500/25" },
+  "1": { border: "border-blue-400/40",   bg: "bg-blue-500/15",   title: "text-blue-300",   sub: "text-blue-400",   hover: "hover:bg-blue-500/25"   },
+  "2": { border: "border-emerald-400/40",bg: "bg-emerald-500/15",title: "text-emerald-300",sub: "text-emerald-400",hover: "hover:bg-emerald-500/25" },
+  "3": { border: "border-orange-400/40", bg: "bg-orange-500/15", title: "text-orange-300", sub: "text-orange-400", hover: "hover:bg-orange-500/25" },
+  "4": { border: "border-red-400/40",    bg: "bg-red-500/15",    title: "text-red-300",    sub: "text-red-400",    hover: "hover:bg-red-500/25"    },
 };
 
-export const getAcademicColor = (targetSquadron?: number | "ALL" | null) => {
-  if (targetSquadron === "ALL" || targetSquadron == null) return ACADEMIC_COLORS["ALL"];
-  return ACADEMIC_COLORS[String(targetSquadron)] ?? ACADEMIC_COLORS["ALL"];
+const COLORS_LIGHT: Record<string, ColorSet> = {
+  ALL: { border: "border-purple-500/50", bg: "bg-purple-100",   title: "text-purple-900", sub: "text-purple-800", hover: "hover:bg-purple-200"   },
+  "1": { border: "border-blue-500/50",   bg: "bg-blue-100",     title: "text-blue-900",   sub: "text-blue-800",   hover: "hover:bg-blue-200"     },
+  "2": { border: "border-emerald-500/50",bg: "bg-emerald-100",  title: "text-emerald-900",sub: "text-emerald-800",hover: "hover:bg-emerald-200"  },
+  "3": { border: "border-orange-500/50", bg: "bg-orange-100",   title: "text-orange-900", sub: "text-orange-800", hover: "hover:bg-orange-200"   },
+  "4": { border: "border-red-500/50",    bg: "bg-red-100",      title: "text-red-900",    sub: "text-red-800",    hover: "hover:bg-red-200"      },
+};
+
+export const getAcademicColor = (targetSquadron: number | "ALL" | null | undefined, isDark: boolean): ColorSet => {
+  const key = (targetSquadron === "ALL" || targetSquadron == null) ? "ALL" : String(targetSquadron);
+  return (isDark ? COLORS_DARK : COLORS_LIGHT)[key] ?? (isDark ? COLORS_DARK : COLORS_LIGHT)["ALL"];
 };
 
 export const AcademicEventForm = ({
@@ -88,7 +98,7 @@ export const AcademicEventForm = ({
 
   const sqBtn = (sq: number | "ALL", label: string) => {
     const active = squadron === sq;
-    const col = ACADEMIC_COLORS[sq === "ALL" ? "ALL" : String(sq)];
+    const col = getAcademicColor(sq === "ALL" ? "ALL" : sq, isDark);
     return (
       <button
         key={String(sq)}
