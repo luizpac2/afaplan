@@ -1266,27 +1266,7 @@ export const useCourseStore = create<CourseState>((set) => ({
     }
 
     const request = (async () => {
-      // 2. Cache no localStorage (sobrevive a reloads, TTL de 5 min)
-      const lsKey = `afa_events_${year}`;
-      try {
-        const raw = localStorage.getItem(lsKey);
-        if (raw) {
-          const { data, ts } = JSON.parse(raw) as {
-            data: ScheduleEvent[];
-            ts: number;
-          };
-          if (Date.now() - ts < 30 * 60 * 1000) {
-            set((s: CourseState) => ({
-              yearEventsCache: { ...s.yearEventsCache, [year]: data },
-            }));
-            return data;
-          }
-        }
-      } catch {
-        /* ignora erros de parse */
-      }
-
-      // 3. Busca no Supabase com paginação (limite do servidor é 1000 por request)
+      // 2. Busca no Supabase com paginação (limite do servidor é 1000 por request)
       const { supabase } = await import("../config/supabase");
 
       const start = `${year}-01-01`;
@@ -1310,16 +1290,10 @@ export const useCourseStore = create<CourseState>((set) => ({
 
       const events = allRows.map(normalizeEvent) as unknown as ScheduleEvent[];
 
-      // Salva em memória imediatamente
+      // Salva apenas em memória — localStorage causa jank com 2000+ eventos
       set((s: CourseState) => ({
         yearEventsCache: { ...s.yearEventsCache, [year]: events },
       }));
-      // Salva no localStorage de forma diferida para não bloquear a thread
-      setTimeout(() => {
-        try {
-          localStorage.setItem(lsKey, JSON.stringify({ data: events, ts: Date.now() }));
-        } catch { /* quota exceeded */ }
-      }, 0);
 
       return events;
     })();
