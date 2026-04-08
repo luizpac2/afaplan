@@ -137,8 +137,6 @@ export const UserManagement = () => {
 
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
     if (!userId) return;
-
-    // Prevent editing own role
     if (userId === currentUser?.uid) {
       alert("Você não pode alterar seu próprio papel.");
       return;
@@ -146,11 +144,11 @@ export const UserManagement = () => {
 
     setUpdating(userId);
     try {
-      const { error } = await supabase
-        .from("user_roles")
-        .update({ role: newRole.toLowerCase() })
-        .eq("user_id", userId);
-      if (error) throw error;
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "update_role", userId, role: newRole },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
       setUsers((prev) =>
         prev.map((u) => (u.uid === userId ? { ...u, role: newRole } : u)),
       );
@@ -175,30 +173,23 @@ export const UserManagement = () => {
     if (window.confirm(confirmMessage)) {
       setUpdating(userId);
       try {
-        const { error } = await supabase
-          .from("user_roles")
-          .delete()
-          .eq("user_id", userId);
-        if (error) throw error;
+        const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+          body: { action: "delete", userId },
+        });
+        if (error) throw new Error(error.message);
+        if (data?.error) throw new Error(data.error);
         setUsers((prev) => prev.filter((u) => u.uid !== userId));
         alert(`Usuário ${userName} removido com sucesso.`);
       } catch (error) {
         console.error("Error deleting user:", error);
-        alert("Erro ao excluir usuário.");
+        alert("Erro ao excluir usuário: " + (error instanceof Error ? error.message : ""));
       } finally {
         setUpdating(null);
       }
     }
   };
 
-  const pendingUsers = useMemo(
-    () => users.filter((u) => u.status === "PENDING"),
-    [users],
-  );
-  const activeUsers = useMemo(
-    () => users.filter((u) => u.status !== "PENDING"),
-    [users],
-  );
+  const activeUsers = users;
 
   const filteredActiveUsers = activeUsers.filter((u) => {
     const matchesSearch =
@@ -222,51 +213,6 @@ export const UserManagement = () => {
     return matchesSearch && matchesRole && matchesCohort && matchesDiscipline;
   });
 
-  const handleApproveUser = async (user: UserProfile) => {
-    if (!user.requestedRole) return;
-    setUpdating(user.uid);
-    try {
-      await supabase
-        .from("user_roles")
-        .update({ role: user.requestedRole.toLowerCase() })
-        .eq("user_id", user.uid);
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.uid === user.uid
-            ? { ...u, role: user.requestedRole!, status: "APPROVED" }
-            : u,
-        ),
-      );
-      alert(`Usuário ${user.displayName} aprovado como ${user.requestedRole}!`);
-    } catch (error) {
-      console.error("Error approving user:", error);
-      alert("Erro ao aprovar usuário.");
-    } finally {
-      setUpdating(null);
-    }
-  };
-
-  const handleRejectUser = async (user: UserProfile) => {
-    if (
-      !window.confirm(
-        `Tem certeza que deseja REJEITAR e EXCLUIR a solicitação de ${user.displayName}?`,
-      )
-    )
-      return;
-
-    setUpdating(user.uid);
-    try {
-      await supabase.from("user_roles").delete().eq("user_id", user.uid);
-      setUsers((prev) => prev.filter((u) => u.uid !== user.uid));
-      alert(`Solicitação de ${user.displayName} rejeitada.`);
-    } catch (error) {
-      console.error("Error rejecting user:", error);
-      alert("Erro ao rejeitar usuário.");
-    } finally {
-      setUpdating(null);
-    }
-  };
-
   const handleEditClick = (user: UserProfile) => {
     setEditingUser(user);
     setEditSquadron(user.squadron || "");
@@ -280,34 +226,24 @@ export const UserManagement = () => {
       const newSquadron = editingUser.role === "CADETE" ? editSquadron : null;
       const newDisciplines = editingUser.role === "DOCENTE" ? editDisciplines : null;
 
-      await supabase
-        .from("user_roles")
-        .update({ turma_id: newSquadron })
-        .eq("user_id", editingUser.uid);
-
-      if (newDisciplines !== null) {
-        await supabase
-          .from("docente_disciplinas")
-          .delete()
-          .eq("docente_id", editingUser.uid);
-        if (newDisciplines.length > 0) {
-          await supabase.from("docente_disciplinas").insert(
-            newDisciplines.map((d) => ({
-              docente_id: editingUser.uid,
-              disciplina_id: d,
-            })),
-          );
-        }
-      }
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: {
+          action: "update_details",
+          userId: editingUser.uid,
+          turmaId: newSquadron,
+          disciplines: newDisciplines,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
 
       setUsers((prev) =>
         prev.map((u) =>
           u.uid === editingUser.uid
             ? {
                 ...u,
-                squadron: newSquadron !== null ? newSquadron : undefined,
-                teachingDisciplines:
-                  newDisciplines !== null ? newDisciplines : undefined,
+                squadron: newSquadron ?? undefined,
+                teachingDisciplines: newDisciplines ?? undefined,
               }
             : u,
         ),
@@ -317,7 +253,7 @@ export const UserManagement = () => {
       setEditingUser(null);
     } catch (error) {
       console.error("Error updating user:", error);
-      alert("Erro ao atualizar dados.");
+      alert("Erro ao atualizar dados: " + (error instanceof Error ? error.message : ""));
     } finally {
       setIsSavingEdit(false);
     }
@@ -456,153 +392,6 @@ export const UserManagement = () => {
           );
         })}
       </div>
-
-      {/* PENDING REQUESTS SECTION */}
-      {pendingUsers.length > 0 && (
-        <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
-          <div className="bg-amber-100/50 dark:bg-amber-900/50 px-6 py-4 border-b border-amber-200 dark:border-amber-800 flex items-center gap-3">
-            <div className="p-2 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-400 rounded-lg">
-              <Shield size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg  text-amber-900 dark:text-amber-300">
-                Solicitações Pendentes ({pendingUsers.length})
-              </h2>
-              <p className="text-sm text-amber-700 dark:text-amber-400">
-                Novos usuários aguardando aprovação para acessar o sistema.
-              </p>
-            </div>
-          </div>
-
-          <div className="p-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {pendingUsers.map((user) => (
-              <div
-                key={user.uid}
-                className={`p-5 rounded-xl border shadow-sm flex flex-col gap-4 ${theme === "dark" ? "bg-slate-800 border-amber-900/50" : "bg-white border-amber-200"}`}
-              >
-                <div className="flex items-center gap-3">
-                  {user.photoURL ? (
-                    <img
-                      src={user.photoURL}
-                      alt=""
-                      className="w-10 h-10 rounded-full"
-                    />
-                  ) : (
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center  text-sm ${theme === "dark" ? "bg-slate-700 text-slate-300" : "bg-slate-200 text-slate-600"}`}
-                    >
-                      {user.displayName.charAt(0)}
-                    </div>
-                  )}
-                  <div>
-                    <p
-                      className={` ${theme === "dark" ? "text-slate-100" : "text-slate-900"}`}
-                    >
-                      {user.displayName}
-                    </p>
-                    <p
-                      className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}
-                    >
-                      {user.email}
-                    </p>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Criado em: {new Date(user.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-
-                <div
-                  className={`p-3 rounded-lg text-sm space-y-2 border ${theme === "dark" ? "bg-slate-700/50 border-slate-700" : "bg-slate-50 border-slate-100"}`}
-                >
-                  <p>
-                    <span
-                      className={` ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}
-                    >
-                      Perfil Solicitado:
-                    </span>{" "}
-                    <span
-                      className={` ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`}
-                    >
-                      {ROLES.find((r) => r.value === user.requestedRole)
-                        ?.label || user.requestedRole}
-                    </span>
-                  </p>
-
-                  {user.squadron && (
-                    <p>
-                      <span
-                        className={` ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}
-                      >
-                        Esquadrão:
-                      </span>{" "}
-                      <span
-                        className={`${theme === "dark" ? "text-slate-300" : ""}`}
-                      >
-                        {user.squadron}
-                      </span>
-                    </p>
-                  )}
-
-                  {user.teachingDisciplines &&
-                    user.teachingDisciplines.length > 0 && (
-                      <div>
-                        <p
-                          className={` mb-1 ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}
-                        >
-                          Disciplinas ({user.teachingDisciplines.length}):
-                        </p>
-                        <div className="flex flex-wrap gap-1">
-                          {user.teachingDisciplines.slice(0, 3).map((d) => (
-                            <Badge key={d} variant="slate">
-                              {d}
-                            </Badge>
-                          ))}
-                          {user.teachingDisciplines.length > 3 && (
-                            <span className="text-xs text-slate-400">
-                              +{user.teachingDisciplines.length - 3} mais
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                  {user.comments && (
-                    <div className="mt-2">
-                      <p
-                        className={` mb-1 ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}
-                      >
-                        Mensagem:
-                      </p>
-                      <p
-                        className={`text-sm italic p-2 rounded border ${theme === "dark" ? "text-slate-300 bg-amber-900/20 border-amber-900/30" : "text-slate-600 bg-amber-50/50 border-amber-100"}`}
-                      >
-                        "{user.comments}"
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-2 mt-auto pt-2">
-                  <button
-                    onClick={() => handleRejectUser(user)}
-                    disabled={updating === user.uid}
-                    className={`flex-1 px-3 py-2 rounded-lg text-sm  transition-colors border border-transparent ${theme === "dark" ? "text-red-400 bg-red-900/20 hover:bg-red-900/30 hover:border-red-900/50" : "text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-200"}`}
-                  >
-                    Rejeitar
-                  </button>
-                  <button
-                    onClick={() => handleApproveUser(user)}
-                    disabled={updating === user.uid}
-                    className={`flex-1 px-3 py-2 text-white rounded-lg text-sm  transition-colors shadow-sm hover:shadow ${theme === "dark" ? "bg-green-700 hover:bg-green-600" : "bg-green-600 hover:bg-green-700"}`}
-                  >
-                    Aprovar
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2
