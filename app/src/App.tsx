@@ -45,6 +45,7 @@ const ChangeRequestsPage = lazy(() => import("./pages/admin/ChangeRequestsPage")
 const ChefeTurmaAdmin = lazy(() => import("./pages/admin/ChefeTurmaAdmin").then(m => ({ default: m.ChefeTurmaAdmin })));
 const ChefeTurmaLancamento = lazy(() => import("./pages/ChefeTurmaLancamento").then(m => ({ default: m.ChefeTurmaLancamento })));
 const FaltasReport = lazy(() => import("./pages/FaltasReport").then(m => ({ default: m.FaltasReport })));
+const DisciplineDashboard = lazy(() => import("./pages/DisciplineDashboard").then(m => ({ default: m.DisciplineDashboard })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center h-64">
@@ -223,6 +224,16 @@ function App() {
                         allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
                       >
                         <ChangeRequestsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* DASHBOARD DISCIPLINAS */}
+                  <Route
+                    path="discipline-dashboard"
+                    element={
+                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}>
+                        <DisciplineDashboard />
                       </ProtectedRoute>
                     }
                   />

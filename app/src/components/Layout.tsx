@@ -8,6 +8,7 @@ import {
   BarChart as PieChart,
   History,
   BarChart3,
+  BarChart2,
   Zap,
   AlertTriangle,
   Settings,
@@ -150,6 +151,7 @@ const MENU_ITEMS: MenuItem[] = [
     roles: ["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"],
     submenu: [
       { title: "Gerais", path: "/reports", icon: FileText },
+      { title: "Disciplinas", path: "/discipline-dashboard", icon: BarChart2 },
       { title: "PPC", path: "/controle-ppc", icon: BarChart3 },
       { title: "Dados PPC", path: "/statistics", icon: PieChart },
       { title: "Conflitos", path: "/conflict-report", icon: AlertTriangle },
