@@ -1296,7 +1296,8 @@ export const useCourseStore = create<CourseState>((set) => ({
         .from("programacao_aulas")
         .select("*")
         .gte("date",start)
-        .lte("date",end);
+        .lte("date",end)
+        .limit(10000);
 
       if (error) throw error;
       const events = (data ?? []).map(normalizeEvent) as unknown as ScheduleEvent[];
