@@ -435,23 +435,28 @@ export const useCourseStore = create<CourseState>((set) => ({
       });
 
       try {
+        // Monta JSONB data com todos os campos extras (não colunas diretas)
+        const existingData = (after as any).data && typeof (after as any).data === "object"
+          ? (after as any).data : {};
         const dbUpdates: Record<string, unknown> = {
-          code: after.code,
           name: after.name,
-          load_hours: after.load_hours || 0,
+          load_hours: after.load_hours ?? 0,
           data: {
-            ...(after as any).data,
+            ...existingData,
             trainingField: after.trainingField !== "GERAL" ? after.trainingField : undefined,
-            instructor: after.instructor,
-            instructorTrigram: after.instructorTrigram,
+            instructor: after.instructor ?? null,
+            instructorTrigram: after.instructorTrigram ?? null,
+            color: after.color ?? null,
+            enabledCourses: after.enabledCourses ?? null,
+            enabledYears: after.enabledYears ?? null,
           },
         };
         await contentFn("update_discipline", { code: after.code, updates: dbUpdates });
         invalidateStaticCache("disciplines");
         console.log(`✅ Disciplina ${after.code} atualizada no DB`);
-      } catch (err) {
-        console.error("❌ Falha ao atualizar disciplina no Supabase:", err);
-        alert("Erro ao atualizar disciplina no banco.");
+      } catch (err: any) {
+        console.error("❌ Falha ao atualizar disciplina:", err?.message ?? err);
+        alert(`Erro ao atualizar disciplina no banco.\n${err?.message ?? ""}`);
       }
     }
   },

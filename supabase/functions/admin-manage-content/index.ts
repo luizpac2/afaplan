@@ -27,12 +27,12 @@ Deno.serve(async (req) => {
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
   if (authErr || !user) return err("Unauthorized", 401);
 
-  // Only ADMIN / SUPER_ADMIN can call this
   const adminClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
+  // Role check — aceita super_admin, gestor, SUPER_ADMIN, ADMIN (case insensitive)
   const { data: roleRow } = await adminClient
     .from("user_roles")
     .select("role")
@@ -40,25 +40,55 @@ Deno.serve(async (req) => {
     .maybeSingle();
 
   const isSuperAdmin = user.email === "pelicano307@gmail.com";
-  const role = roleRow?.role;
+  const role = (roleRow?.role ?? "").toLowerCase();
   if (!isSuperAdmin && role !== "gestor" && role !== "super_admin") {
-    return err("Forbidden", 403);
+    return err(`Forbidden (role=${role})`, 403);
   }
 
   const body = await req.json();
   const { action } = body;
 
-  // helper: grava em disciplines (tabela lida pelo app) e também em disciplinas (legado)
-  async function writeDiscipline(op: "upsert" | "update" | "delete", code: string, payload?: Record<string, unknown>) {
+  // ── helpers ─────────────────────────────────────────────────────────────────
+
+  // Tabela `disciplines` usa colunas em inglês (code, name, load_hours, data jsonb)
+  async function writeDisciplinesEN(op: "upsert" | "update" | "delete", code: string, payload?: Record<string, unknown>) {
     if (op === "upsert" && payload) {
-      await adminClient.from("disciplines").upsert({ ...payload, code }, { onConflict: "code" });
-      await adminClient.from("disciplinas").upsert({ ...payload, code }, { onConflict: "code" }).catch(() => {});
+      const { error } = await adminClient.from("disciplines").upsert({ ...payload, code }, { onConflict: "code" });
+      if (error) console.error("disciplines upsert error:", error.message);
     } else if (op === "update" && payload) {
-      await adminClient.from("disciplines").update(payload).eq("code", code);
-      await adminClient.from("disciplinas").update(payload).eq("code", code).catch(() => {});
+      // Filtra apenas colunas válidas para disciplines (inglês)
+      const { code: _c, sigla: _s, nome: _n, carga_horaria: _ch, ...rest } = payload as any;
+      const { error } = await adminClient.from("disciplines").update(rest).eq("code", code);
+      if (error) console.error("disciplines update error:", error.message, "payload:", JSON.stringify(rest));
     } else if (op === "delete") {
       await adminClient.from("disciplines").delete().eq("code", code);
-      await adminClient.from("disciplinas").delete().eq("code", code).catch(() => {});
+    }
+  }
+
+  // Tabela `disciplinas` usa colunas em português (sigla, nome, carga_horaria)
+  async function writeDisciplinasPT(op: "upsert" | "update" | "delete", code: string, payload?: Record<string, unknown>) {
+    try {
+      if (op === "upsert" && payload) {
+        const ptPayload = {
+          sigla: code,
+          nome: (payload.name as string) || (payload.nome as string) || code,
+          carga_horaria: (payload.load_hours as number) ?? (payload.carga_horaria as number) ?? 0,
+        };
+        await adminClient.from("disciplinas").upsert({ ...ptPayload, sigla: code }, { onConflict: "sigla" });
+      } else if (op === "update" && payload) {
+        const ptPayload: Record<string, unknown> = {};
+        if (payload.name !== undefined)       ptPayload.nome = payload.name;
+        if (payload.nome !== undefined)        ptPayload.nome = payload.nome;
+        if (payload.load_hours !== undefined)  ptPayload.carga_horaria = payload.load_hours;
+        if (payload.carga_horaria !== undefined) ptPayload.carga_horaria = payload.carga_horaria;
+        if (Object.keys(ptPayload).length > 0) {
+          await adminClient.from("disciplinas").update(ptPayload).eq("sigla", code);
+        }
+      } else if (op === "delete") {
+        await adminClient.from("disciplinas").delete().eq("sigla", code);
+      }
+    } catch (e: any) {
+      console.warn("disciplinas write (ignorado):", e.message);
     }
   }
 
@@ -67,7 +97,8 @@ Deno.serve(async (req) => {
     const { code, data: disciplineData } = body;
     if (!code || !disciplineData) return err("code and data required");
     try {
-      await writeDiscipline("upsert", code as string, disciplineData as Record<string, unknown>);
+      await writeDisciplinesEN("upsert", code as string, disciplineData as Record<string, unknown>);
+      await writeDisciplinasPT("upsert", code as string, disciplineData as Record<string, unknown>);
     } catch (e: any) { return err(e.message, 500); }
     return ok({ success: true });
   }
@@ -76,8 +107,10 @@ Deno.serve(async (req) => {
   if (action === "update_discipline") {
     const { code, updates } = body;
     if (!code || !updates) return err("code and updates required");
+    console.log("update_discipline code:", code, "keys:", Object.keys(updates));
     try {
-      await writeDiscipline("update", code as string, updates as Record<string, unknown>);
+      await writeDisciplinesEN("update", code as string, updates as Record<string, unknown>);
+      await writeDisciplinasPT("update", code as string, updates as Record<string, unknown>);
     } catch (e: any) { return err(e.message, 500); }
     return ok({ success: true });
   }
@@ -86,16 +119,9 @@ Deno.serve(async (req) => {
   if (action === "sync_discipline_instructor") {
     const { code, warName } = body;
     if (!code || !warName) return err("code and warName required");
-
-    // Busca data atual de disciplines (fonte primária)
-    const { data: row } = await adminClient
-      .from("disciplines")
-      .select("data")
-      .eq("code", code)
-      .maybeSingle();
-
+    const { data: row } = await adminClient.from("disciplines").select("data").eq("code", code).maybeSingle();
     const newData = { ...(row?.data || {}), instructor: warName };
-    await writeDiscipline("update", code as string, { data: newData });
+    await writeDisciplinesEN("update", code as string, { data: newData });
     return ok({ success: true });
   }
 
@@ -104,7 +130,8 @@ Deno.serve(async (req) => {
     const { code } = body;
     if (!code) return err("code required");
     try {
-      await writeDiscipline("delete", code as string);
+      await writeDisciplinesEN("delete", code as string);
+      await writeDisciplinasPT("delete", code as string);
     } catch (e: any) { return err(e.message, 500); }
     return ok({ success: true });
   }
@@ -113,15 +140,10 @@ Deno.serve(async (req) => {
   if (action === "upsert_instructor") {
     const { trigram, data: instData } = body;
     if (!trigram || !instData) return err("trigram and data required");
-
     const { error: upsertErr } = await adminClient
       .from("instructors")
       .upsert({ ...instData, trigram }, { onConflict: "trigram" });
-
-    if (upsertErr) {
-      console.error("upsert_instructor error:", upsertErr);
-      return err(upsertErr.message, 500);
-    }
+    if (upsertErr) return err(upsertErr.message, 500);
     return ok({ success: true });
   }
 
@@ -129,36 +151,24 @@ Deno.serve(async (req) => {
   if (action === "update_instructor") {
     const { trigram, updates } = body;
     if (!trigram || !updates) return err("trigram and updates required");
+    console.log("update_instructor trigram:", trigram, "keys:", Object.keys(updates));
 
-    console.log("update_instructor trigram:", trigram, "updates keys:", Object.keys(updates));
-
-    // Try by trigram column first
     const { data: updated, error: updateErr } = await adminClient
       .from("instructors")
       .update(updates)
       .eq("trigram", trigram)
       .select("trigram");
 
-    if (updateErr) {
-      console.error("update_instructor error:", updateErr);
-      return err(updateErr.message, 500);
-    }
+    if (updateErr) return err(updateErr.message, 500);
 
-    console.log("update_instructor rows updated:", updated?.length ?? 0);
-
-    // Fallback: try by id (JS trigram might be the DB uuid)
     if (!updated || updated.length === 0) {
+      // Fallback: try by id
       const { data: updated2, error: updateErr2 } = await adminClient
         .from("instructors")
         .update(updates)
         .eq("id", trigram)
         .select("trigram");
-
-      if (updateErr2) {
-        console.error("update_instructor fallback error:", updateErr2);
-        return err(updateErr2.message, 500);
-      }
-      console.log("update_instructor fallback by id rows updated:", updated2?.length ?? 0);
+      if (updateErr2) return err(updateErr2.message, 500);
       return ok({ success: true, updatedByTrigram: 0, updatedById: updated2?.length ?? 0 });
     }
 
@@ -169,16 +179,8 @@ Deno.serve(async (req) => {
   if (action === "delete_instructor") {
     const { trigram } = body;
     if (!trigram) return err("trigram required");
-
-    const { error: delErr } = await adminClient
-      .from("instructors")
-      .delete()
-      .eq("trigram", trigram);
-
-    if (delErr) {
-      console.error("delete_instructor error:", delErr);
-      return err(delErr.message, 500);
-    }
+    const { error: delErr } = await adminClient.from("instructors").delete().eq("trigram", trigram);
+    if (delErr) return err(delErr.message, 500);
     return ok({ success: true });
   }
 
