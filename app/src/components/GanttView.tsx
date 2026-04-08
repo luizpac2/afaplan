@@ -64,19 +64,22 @@ export const GanttView = ({
 
   return (
     <div className="flex flex-col gap-0 overflow-x-auto">
-      {/* ── Time ruler ────────────────────────────────────────────────── */}
-      <div className="flex" style={{ paddingLeft: "3.5rem" }}>
+      {/* ── Time ruler — posicionado em minutos reais ─────────────────── */}
+      <div className="relative h-4" style={{ marginLeft: "3.5rem" }}>
         {TIME_SLOTS.map((slot, i) => (
           <div
             key={i}
-            className={`flex-shrink-0 text-[9px] font-medium ${muted} border-l ${border} pl-1`}
-            style={{ width: `${100 / TIME_SLOTS.length}%` }}
+            className={`absolute text-[9px] font-medium ${muted} border-l ${border} pl-0.5`}
+            style={{ left: `${pct(slot.start)}%`, top: 0, bottom: 0 }}
           >
             {slot.start}
           </div>
         ))}
         {/* last tick */}
-        <div className={`flex-shrink-0 text-[9px] font-medium ${muted} border-l ${border} pl-1`}>
+        <div
+          className={`absolute text-[9px] font-medium ${muted} border-l ${border} pl-0.5`}
+          style={{ left: `100%`, top: 0, bottom: 0 }}
+        >
           {TIME_SLOTS[TIME_SLOTS.length - 1].end}
         </div>
       </div>
