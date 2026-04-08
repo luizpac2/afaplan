@@ -205,7 +205,14 @@ export const GanttProgramming = () => {
     });
 
   const dayAcademic = (dateStr: string) =>
-    weekEvents.filter((e) => e.date === dateStr && (e.type === "ACADEMIC" || e.disciplineId === "ACADEMIC"));
+    weekEvents.filter((e) => {
+      if (e.date !== dateStr) return false;
+      if (e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC") return false;
+      // Filtra por esquadrão: "ALL" ou null/undefined aparece em todos; número específico só no esquadrão correspondente
+      const ts = e.targetSquadron;
+      if (ts !== "ALL" && ts != null && Number(ts) !== currentSquadron) return false;
+      return true;
+    });
 
   const today  = formatDate(new Date());
   const card   = isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200 shadow-sm";
@@ -503,8 +510,8 @@ export const GanttProgramming = () => {
                 disciplineId: "ACADEMIC",
                 classId: `${currentSquadron}ESQ`,
                 targetSquadron: currentSquadron,
-                startTime: "07:00",
-                endTime: "08:00",
+                startTime: "",   // vazio = dia inteiro por padrão
+                endTime: "",
               }}
               onSubmit={handleAcademicSubmit}
               onCancel={() => setAcademicFormDate(null)}

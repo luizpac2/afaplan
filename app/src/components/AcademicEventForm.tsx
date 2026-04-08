@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Save, Trash2, Calendar, Clock, MapPin, FileText } from "lucide-react";
+import { X, Save, Trash2, Calendar, Clock, MapPin, FileText, Users } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { TIME_SLOTS, LOCATION_OPTIONS } from "../utils/constants";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -12,6 +12,11 @@ interface AcademicEventFormProps {
   onCancel: () => void;
 }
 
+const SQUADRONS = [1, 2, 3, 4] as const;
+
+// Sentinela para "dia inteiro" — startTime e endTime ficam vazios no card
+const ALL_DAY_SENTINEL = "";
+
 export const AcademicEventForm = ({
   initialData,
   onSubmit,
@@ -22,17 +27,27 @@ export const AcademicEventForm = ({
 
   const isDark = theme === "dark";
   const card = isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-200 text-gray-900";
-  const input = isDark
+  const inputCls = isDark
     ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500"
     : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-purple-500";
-  const label = isDark ? "text-gray-300" : "text-gray-600";
+  const labelCls = isDark ? "text-gray-300" : "text-gray-600";
   const muted = isDark ? "text-gray-400" : "text-gray-500";
 
-  const [title, setTitle] = useState(initialData?.description ?? "");
-  const [date, setDate] = useState(initialData?.date ?? new Date().toISOString().split("T")[0]);
-  const [startTime, setStartTime] = useState(initialData?.startTime ?? "07:00");
-  const [endTime, setEndTime] = useState(initialData?.endTime ?? "");
-  const [location, setLocation] = useState(initialData?.location ?? "");
+  // Detecta se o evento salvo era "dia inteiro" (startTime vazio)
+  const wasAllDay = !initialData?.startTime || initialData.startTime === ALL_DAY_SENTINEL;
+
+  const [title, setTitle]         = useState(initialData?.description ?? "");
+  const [date, setDate]           = useState(initialData?.date ?? new Date().toISOString().split("T")[0]);
+  const [allDay, setAllDay]       = useState(wasAllDay);
+  const [startTime, setStartTime] = useState(wasAllDay ? "07:00" : (initialData?.startTime ?? "07:00"));
+  const [endTime, setEndTime]     = useState(wasAllDay ? "" : (initialData?.endTime ?? ""));
+  const [location, setLocation]   = useState(initialData?.location ?? "");
+  // targetSquadron: null = "Todos (CCAer)", number = esquadrão específico
+  const [squadron, setSquadron]   = useState<number | "ALL">(
+    initialData?.targetSquadron === "ALL" || initialData?.targetSquadron == null
+      ? "ALL"
+      : Number(initialData.targetSquadron)
+  );
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   const isEditing = !!initialData?.id;
@@ -43,19 +58,38 @@ export const AcademicEventForm = ({
       disciplineId: "ACADEMIC",
       classId: initialData?.classId ?? "",
       date,
-      startTime,
-      endTime: endTime || startTime,
-      location: location || undefined,
+      startTime: allDay ? ALL_DAY_SENTINEL : startTime,
+      endTime:   allDay ? ALL_DAY_SENTINEL : (endTime || startTime),
+      location:  location || undefined,
       type: "ACADEMIC" as any,
       description: title.trim(),
-      targetSquadron: initialData?.targetSquadron,
+      targetSquadron: squadron === "ALL" ? "ALL" : squadron,
       targetCourse: initialData?.targetCourse,
       color: initialData?.color,
     });
   };
 
-  // Find slot that matches startTime for convenience
   const matchedSlot = TIME_SLOTS.find((s) => s.start === startTime);
+
+  const sqBtn = (sq: number | "ALL", label: string) => {
+    const active = squadron === sq;
+    return (
+      <button
+        key={String(sq)}
+        type="button"
+        onClick={() => setSquadron(sq)}
+        className={`px-3 py-1.5 text-xs rounded-lg border font-semibold transition-colors ${
+          active
+            ? "bg-purple-600 border-purple-500 text-white"
+            : isDark
+              ? "border-gray-600 text-gray-400 hover:border-purple-500 hover:text-purple-300"
+              : "border-gray-300 text-gray-500 hover:border-purple-400 hover:text-purple-600"
+        }`}
+      >
+        {label}
+      </button>
+    );
+  };
 
   return (
     <>
@@ -76,7 +110,7 @@ export const AcademicEventForm = ({
         <div className="px-5 py-4 flex flex-col gap-4">
           {/* Título */}
           <div>
-            <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${label}`}>
+            <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
               <FileText size={12} className="text-purple-400" />
               Título *
             </label>
@@ -85,14 +119,26 @@ export const AcademicEventForm = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ex: Início do Voo Primário, Recesso, Formatura..."
-              className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${input}`}
+              className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${inputCls}`}
               autoFocus
             />
           </div>
 
+          {/* Esquadrão */}
+          <div>
+            <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
+              <Users size={12} className="text-purple-400" />
+              Destinatário
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {sqBtn("ALL", "Todos (CCAer)")}
+              {SQUADRONS.map((n) => sqBtn(n, `${n}º Esq`))}
+            </div>
+          </div>
+
           {/* Data */}
           <div>
-            <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${label}`}>
+            <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
               <Calendar size={12} className="text-purple-400" />
               Data
             </label>
@@ -100,48 +146,64 @@ export const AcademicEventForm = ({
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${input}`}
+              className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${inputCls}`}
             />
           </div>
 
           {/* Horário */}
           <div>
-            <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${label}`}>
-              <Clock size={12} className="text-purple-400" />
-              Horário
-            </label>
-            <div className="flex gap-2 items-center">
-              {/* Slot pré-definido */}
-              <select
-                value={matchedSlot ? startTime : ""}
-                onChange={(e) => {
-                  const slot = TIME_SLOTS.find((s) => s.start === e.target.value);
-                  if (slot) { setStartTime(slot.start); setEndTime(slot.end); }
-                }}
-                className={`flex-1 rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${input}`}
-              >
-                <option value="">Horário livre</option>
-                {TIME_SLOTS.map((s) => (
-                  <option key={s.start} value={s.start}>{s.label}</option>
-                ))}
-              </select>
-              <span className={`text-xs ${muted} whitespace-nowrap`}>ou</span>
-              {/* Livre */}
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className={`w-28 rounded-lg border px-2 py-2 text-sm outline-none transition-colors ${input}`}
-              />
+            <div className="flex items-center justify-between mb-1.5">
+              <label className={`flex items-center gap-1.5 text-xs font-semibold ${labelCls}`}>
+                <Clock size={12} className="text-purple-400" />
+                Horário
+              </label>
+              <label className={`flex items-center gap-1.5 text-xs cursor-pointer select-none ${muted}`}>
+                <input
+                  type="checkbox"
+                  checked={allDay}
+                  onChange={(e) => setAllDay(e.target.checked)}
+                  className="accent-purple-500 w-3.5 h-3.5"
+                />
+                Dia inteiro
+              </label>
             </div>
-            {endTime && endTime !== startTime && (
+
+            {!allDay && (
+              <div className="flex gap-2 items-center">
+                <select
+                  value={matchedSlot ? startTime : ""}
+                  onChange={(e) => {
+                    const slot = TIME_SLOTS.find((s) => s.start === e.target.value);
+                    if (slot) { setStartTime(slot.start); setEndTime(slot.end); }
+                    else { setEndTime(""); }
+                  }}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${inputCls}`}
+                >
+                  <option value="">Horário livre</option>
+                  {TIME_SLOTS.map((s) => (
+                    <option key={s.start} value={s.start}>{s.label}</option>
+                  ))}
+                </select>
+                <span className={`text-xs ${muted} whitespace-nowrap`}>ou</span>
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => { setStartTime(e.target.value); setEndTime(""); }}
+                  className={`w-28 rounded-lg border px-2 py-2 text-sm outline-none transition-colors ${inputCls}`}
+                />
+              </div>
+            )}
+            {!allDay && endTime && endTime !== startTime && (
               <p className={`text-[10px] mt-1 ${muted}`}>Término: {endTime}</p>
+            )}
+            {allDay && (
+              <p className={`text-[10px] italic ${muted}`}>O horário não será exibido no card.</p>
             )}
           </div>
 
           {/* Local */}
           <div>
-            <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${label}`}>
+            <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
               <MapPin size={12} className="text-purple-400" />
               Local <span className={`font-normal ${muted}`}>(opcional)</span>
             </label>
@@ -151,7 +213,7 @@ export const AcademicEventForm = ({
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="Local do evento..."
-              className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${input}`}
+              className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${inputCls}`}
             />
             <datalist id="academic-locations">
               {LOCATION_OPTIONS.map((l) => (
@@ -191,17 +253,15 @@ export const AcademicEventForm = ({
         </div>
       </div>
 
-      {deleteConfirm && (
-        <ConfirmDialog
-          isOpen={deleteConfirm}
-          title="Excluir evento acadêmico?"
-          message={`"${title}" será removido permanentemente.`}
-          confirmText="Excluir"
-          cancelText="Cancelar"
-          onConfirm={() => { onDelete!(initialData!.id!); setDeleteConfirm(false); }}
-          onClose={() => setDeleteConfirm(false)}
-        />
-      )}
+      <ConfirmDialog
+        isOpen={deleteConfirm}
+        title="Excluir evento acadêmico?"
+        message={`"${title}" será removido permanentemente.`}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        onConfirm={() => { onDelete!(initialData!.id!); setDeleteConfirm(false); }}
+        onClose={() => setDeleteConfirm(false)}
+      />
     </>
   );
 };
