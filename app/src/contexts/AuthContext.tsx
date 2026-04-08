@@ -58,39 +58,19 @@ const buildProfile = async (user: NonNullable<SupabaseUser>): Promise<UserProfil
 
   const { data, error } = await supabase
     .from("user_roles")
-    .select("role, turma_id, cadet_id, turma_aula")
+    .select("role, turma_id")
     .eq("user_id", user.id)
     .single();
 
   if (error || !data) return null;
 
   const baseRole = mapRole(data.role as string);
-  const cadetId  = (data as Record<string, unknown>).cadet_id as string | undefined;
-  const turmaAula = (data as Record<string, unknown>).turma_aula as string | undefined;
-
-  // Se for cadete, verificar se tem mandato de chefe de turma ativo hoje
-  let isChefeTurmaAtivo = false;
-  if (baseRole === "CADETE" && cadetId) {
-    const today = new Date().toISOString().slice(0, 10);
-    const { data: chefia } = await supabase
-      .from("chefes_turma")
-      .select("id")
-      .eq("cadet_id", cadetId)
-      .eq("ativo", true)
-      .lte("data_inicio", today)
-      .gte("data_fim", today)
-      .maybeSingle();
-    isChefeTurmaAtivo = !!chefia;
-  }
 
   return {
     uid: user.id,
     email: user.email ?? "",
     displayName: meta.nome ?? user.email ?? "",
-    role: isChefeTurmaAtivo ? "CHEFE_TURMA" : baseRole,
-    cadetId: cadetId ?? undefined,
-    turmaAula: turmaAula ?? undefined,
-    isChefeTurmaAtivo,
+    role: baseRole,
     createdAt: user.created_at,
     status: "APPROVED",
   };
