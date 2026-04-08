@@ -89,18 +89,25 @@ export const GanttView = ({ date, events, disciplines, classes, onEventClick, ev
                   {ev ? (
                     <div
                       onClick={() => onEventClick?.(ev)}
-                      title={`${disc?.name || ev.disciplineId}${ev.instructorTrigram ? ` | ${ev.instructorTrigram}` : ""}${count ? ` | Aula ${count.current}/${count.total}` : ""}`}
+                      title={`${disc?.name || ev.disciplineId}${ev.instructorTrigram ? ` | ${ev.instructorTrigram}` : ""}${ev.location || disc?.location ? ` | ${ev.location || disc?.location}` : ""}${count ? ` | Aula ${count.current}/${count.total}` : ""}`}
                       className="h-full w-full rounded cursor-pointer hover:brightness-110 transition-all flex flex-col justify-between px-1.5 py-1 overflow-hidden"
                       style={{ backgroundColor: bgColor, border: "1px solid rgba(0,0,0,0.2)" }}
                     >
                       <span className="text-white text-[10px] font-bold leading-tight truncate">
                         {disc?.code || ev.disciplineId}
                       </span>
-                      {count && (
-                        <span className="text-white/60 text-[8px] leading-none text-right">
-                          {count.current}/{count.total}
+                      <div className="flex items-end justify-between gap-1">
+                        <span className="text-white/70 text-[8px] leading-none truncate">
+                          {ev.instructorTrigram || disc?.instructorTrigram || ""}
+                          {(ev.instructorTrigram || disc?.instructorTrigram) && (ev.location || disc?.location) ? " · " : ""}
+                          {ev.location || disc?.location || ""}
                         </span>
-                      )}
+                        {count && (
+                          <span className="text-white/60 text-[8px] leading-none flex-shrink-0">
+                            {count.current}/{count.total}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="h-full w-full" />
