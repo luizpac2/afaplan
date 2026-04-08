@@ -1286,21 +1286,29 @@ export const useCourseStore = create<CourseState>((set) => ({
         /* ignora erros de parse */
       }
 
-      // 3. Busca no Supabase (só quando cache expirou)
+      // 3. Busca no Supabase com paginação (limite do servidor é 1000 por request)
       const { supabase } = await import("../config/supabase");
 
       const start = `${year}-01-01`;
       const end = `${year}-12-31`;
+      const PAGE_SIZE = 1000;
+      let allRows: any[] = [];
+      let page = 0;
+      while (true) {
+        const { data: pageData, error } = await supabase
+          .from("programacao_aulas")
+          .select("*")
+          .gte("date", start)
+          .lte("date", end)
+          .order("date", { ascending: true })
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        if (error) throw error;
+        allRows = allRows.concat(pageData ?? []);
+        if ((pageData ?? []).length < PAGE_SIZE) break;
+        page++;
+      }
 
-      const { data, error } = await supabase
-        .from("programacao_aulas")
-        .select("*")
-        .gte("date",start)
-        .lte("date",end)
-        .limit(10000);
-
-      if (error) throw error;
-      const events = (data ?? []).map(normalizeEvent) as unknown as ScheduleEvent[];
+      const events = allRows.map(normalizeEvent) as unknown as ScheduleEvent[];
 
       // Salva nos dois caches
       set((s: CourseState) => ({
