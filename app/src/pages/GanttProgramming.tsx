@@ -1,14 +1,18 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, MousePointer2, Link2, Trash2, X } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
+import { useAuth } from "../contexts/AuthContext";
 import { subscribeToEventsByDateRange } from "../services/supabaseService";
 import { GanttView } from "../components/GanttView";
 import { EventForm } from "../components/EventForm";
+import { LinkChangeRequestModal } from "../components/LinkChangeRequestModal";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import {
   getStartOfWeek, addDays, formatDate, getWeekDays, formatDateForDisplay,
 } from "../utils/dateUtils";
+import { TIME_SLOTS } from "../utils/constants";
 import type { ScheduleEvent, CourseYear } from "../types";
 import { getCohortColorTokens } from "../utils/cohortColors";
 import type { CohortColor } from "../types";
@@ -20,10 +24,11 @@ export const GanttProgramming = () => {
   const [searchParams] = useSearchParams();
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const { userProfile } = useAuth();
 
   const {
     disciplines, classes, cohorts, notices,
-    updateEvent, dataReady,
+    updateEvent, deleteBatchEvents, dataReady,
     fetchYearlyEvents,
   } = useCourseStore();
 
@@ -31,6 +36,11 @@ export const GanttProgramming = () => {
     const id = parseInt(squadronId || "1");
     return (id >= 1 && id <= 4 ? id : 1) as CourseYear;
   }, [squadronId]);
+
+  const canEdit = useMemo(
+    () => ["SUPER_ADMIN", "ADMIN"].includes(userProfile?.role || ""),
+    [userProfile]
+  );
 
   const dateParam = searchParams.get("date");
   const [currentDate, setCurrentDate] = useState(() => {
@@ -46,6 +56,12 @@ export const GanttProgramming = () => {
   const [editingEvent, setEditingEvent] = useState<ScheduleEvent | undefined>();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [calendarYear] = useState(new Date().getFullYear());
+
+  // ── Selection / edit mode ────────────────────────────────────────────────────
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   const startOfWeek = getStartOfWeek(currentDate);
   const weekDays    = getWeekDays(startOfWeek);
@@ -95,12 +111,10 @@ export const GanttProgramming = () => {
   // ── Classes for this squadron ────────────────────────────────────────────────
   const squadronClasses = useMemo(() => {
     const prefix = String(currentSquadron);
-    // derive from events in the week (includes FÉRIAS etc. with classId like "1A")
     const fromEvents = [...new Set(weekEvents
       .filter((e) => e.classId?.startsWith(prefix))
       .map((e) => e.classId))].sort();
     if (fromEvents.length) return fromEvents;
-    // fallback: standard A-F
     return ["A","B","C","D","E","F"].map((l) => `${currentSquadron}${l}`);
   }, [weekEvents, currentSquadron]);
 
@@ -112,8 +126,33 @@ export const GanttProgramming = () => {
   }, [cohorts, calendarYear, currentSquadron]);
 
   const handleEventClick = (ev: ScheduleEvent) => {
+    if (!canEdit) return;
     setEditingEvent(ev);
     setIsModalOpen(true);
+  };
+
+  const handleSelectEvent = (eventId: string) => {
+    setSelectedEventIds((prev) =>
+      prev.includes(eventId) ? prev.filter((id) => id !== eventId) : [...prev, eventId]
+    );
+  };
+
+  const handleSlotDrop = (ev: ScheduleEvent, newSlotIndex: number) => {
+    const newSlot = TIME_SLOTS[newSlotIndex];
+    if (!newSlot) return;
+    updateEvent(ev.id, { startTime: newSlot.start, endTime: newSlot.end });
+  };
+
+  const handleBatchDelete = () => {
+    if (selectedEventIds.length) deleteBatchEvents(selectedEventIds);
+    setIsDeleteConfirmOpen(false);
+    setIsSelectionMode(false);
+    setSelectedEventIds([]);
+  };
+
+  const exitSelectionMode = () => {
+    setIsSelectionMode(false);
+    setSelectedEventIds([]);
   };
 
   const today = formatDate(new Date());
@@ -123,7 +162,7 @@ export const GanttProgramming = () => {
   const muted  = isDark ? "text-slate-400" : "text-slate-500";
   const border = isDark ? "border-slate-700" : "border-slate-200";
 
-  // ── Notices for the week (for display) ──────────────────────────────────────
+  // ── Notices for the week ─────────────────────────────────────────────────────
   const weekNotices = useMemo(() => {
     return notices.filter((n) => {
       return weekDays.some((d) => {
@@ -154,8 +193,48 @@ export const GanttProgramming = () => {
           </div>
         </div>
 
-        {/* Navigation */}
         <div className="flex items-center gap-2">
+          {/* Admin toolbar */}
+          {canEdit && !isSelectionMode && (
+            <button
+              onClick={() => setIsSelectionMode(true)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-blue-400 ${text}`}
+            >
+              <MousePointer2 size={13} />
+              Selecionar
+            </button>
+          )}
+
+          {canEdit && isSelectionMode && (
+            <div className="flex items-center gap-2">
+              <span className={`text-xs ${muted}`}>{selectedEventIds.length} selecionado(s)</span>
+              <button
+                onClick={() => setIsLinkModalOpen(true)}
+                disabled={selectedEventIds.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium text-blue-600 border-blue-400 hover:bg-blue-500/10 disabled:opacity-40 transition-colors"
+              >
+                <Link2 size={13} />
+                SAP
+              </button>
+              <button
+                onClick={() => setIsDeleteConfirmOpen(true)}
+                disabled={selectedEventIds.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium text-red-500 border-red-400 hover:bg-red-500/10 disabled:opacity-40 transition-colors"
+              >
+                <Trash2 size={13} />
+                Excluir
+              </button>
+              <button
+                onClick={exitSelectionMode}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-slate-400 ${muted}`}
+              >
+                <X size={13} />
+                Cancelar
+              </button>
+            </div>
+          )}
+
+          {/* Navigation */}
           <button
             onClick={() => setCurrentDate(addDays(currentDate, -7))}
             className={`p-2 rounded-lg border transition-colors ${card} hover:border-blue-400`}
@@ -186,7 +265,6 @@ export const GanttProgramming = () => {
         const dayNum = day.getDate();
         const monthShort = day.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
 
-        // notices for this day
         const dayNotices = weekNotices.filter(
           (n) => dateStr >= n.startDate && dateStr <= n.endDate
         );
@@ -238,6 +316,11 @@ export const GanttProgramming = () => {
                 classes={squadronClasses}
                 onEventClick={handleEventClick}
                 eventCounts={eventCounts}
+                canEdit={canEdit}
+                selectedEventIds={selectedEventIds}
+                onSelectEvent={handleSelectEvent}
+                isSelectionMode={isSelectionMode}
+                onSlotDrop={handleSlotDrop}
               />
             </div>
           </div>
@@ -264,7 +347,7 @@ export const GanttProgramming = () => {
         );
       })()}
 
-      {/* ── Event modal ─────────────────────────────────────────────────────── */}
+      {/* ── Event edit modal ─────────────────────────────────────────────────── */}
       {isModalOpen && editingEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setIsModalOpen(false); setEditingEvent(undefined); }}>
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
@@ -285,6 +368,25 @@ export const GanttProgramming = () => {
           </div>
         </div>
       )}
+
+      {/* ── SAP Link modal ───────────────────────────────────────────────────── */}
+      {isLinkModalOpen && (
+        <LinkChangeRequestModal
+          selectedEventIds={selectedEventIds}
+          onClose={() => setIsLinkModalOpen(false)}
+        />
+      )}
+
+      {/* ── Delete confirm ───────────────────────────────────────────────────── */}
+      <ConfirmDialog
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        title="Excluir aulas selecionadas"
+        message={`Deseja excluir ${selectedEventIds.length} aula(s) selecionada(s)? Esta ação não pode ser desfeita.`}
+        confirmText="Excluir"
+        onConfirm={handleBatchDelete}
+        type="danger"
+      />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
 import type { ScheduleEvent, Discipline } from "../types";
@@ -11,6 +11,11 @@ interface Props {
   classes: string[];
   onEventClick?: (event: ScheduleEvent) => void;
   eventCounts?: Record<string, { current: number; total: number }>;
+  canEdit?: boolean;
+  selectedEventIds?: string[];
+  onSelectEvent?: (eventId: string) => void;
+  isSelectionMode?: boolean;
+  onSlotDrop?: (event: ScheduleEvent, newSlotIndex: number) => void;
 }
 
 // Largura fixa de cada coluna de tempo (px) — define o quadrado
@@ -18,10 +23,23 @@ const COL_W = 76;
 const ROW_H = COL_W; // quadrado perfeito
 const LABEL_W = 36;
 
-export const GanttView = ({ date, events, disciplines, classes, onEventClick, eventCounts }: Props) => {
+export const GanttView = ({
+  date,
+  events,
+  disciplines,
+  classes,
+  onEventClick,
+  eventCounts,
+  canEdit = false,
+  selectedEventIds = [],
+  onSelectEvent,
+  isSelectionMode = false,
+  onSlotDrop,
+}: Props) => {
   const { instructors } = useCourseStore();
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const dragEventRef = useRef<ScheduleEvent | null>(null);
 
   const dayEvents = useMemo(
     () => events.filter((e) => e.date === date && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC"),
@@ -108,6 +126,40 @@ export const GanttView = ({ date, events, disciplines, classes, onEventClick, ev
                 const displayLocation   = ev ? (ev.location || (disc as unknown as { data?: Record<string,string> })?.data?.location || "—") : "";
                 const code = disc?.code || ev?.disciplineId || "";
 
+                const isSelected = ev ? selectedEventIds.includes(ev.id) : false;
+
+                const handleDragStart = (e: React.DragEvent) => {
+                  if (!canEdit || !ev) return;
+                  dragEventRef.current = ev;
+                  e.dataTransfer.effectAllowed = "move";
+                };
+
+                const handleDragOver = (e: React.DragEvent) => {
+                  if (!canEdit) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                };
+
+                const handleDrop = (e: React.DragEvent) => {
+                  e.preventDefault();
+                  if (!canEdit || !dragEventRef.current || !onSlotDrop) return;
+                  const dragged = dragEventRef.current;
+                  dragEventRef.current = null;
+                  // Only move if same row (classId) and different slot
+                  if (dragged.classId !== classId) return;
+                  if (slotIndex(dragged.startTime || "") === i) return;
+                  onSlotDrop(dragged, i);
+                };
+
+                const handleClick = () => {
+                  if (!ev) return;
+                  if (isSelectionMode && onSelectEvent) {
+                    onSelectEvent(ev.id);
+                  } else {
+                    onEventClick?.(ev);
+                  }
+                };
+
                 return (
                   <div
                     key={i}
@@ -117,16 +169,23 @@ export const GanttView = ({ date, events, disciplines, classes, onEventClick, ev
                       flexShrink: 0,
                       background: ev ? undefined : emptyBg,
                     }}
-                    className={`border-l ${border} p-[3px]`}
+                    className={`border-l ${border} p-[3px] ${canEdit && !ev ? "hover:bg-blue-500/5" : ""}`}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
                   >
                     {ev ? (
                       <div
-                        onClick={() => onEventClick?.(ev)}
+                        onClick={handleClick}
+                        draggable={canEdit}
+                        onDragStart={handleDragStart}
                         title={`${disc?.name || ev.disciplineId} | ${displayInstructor} | ${displayLocation}${count ? ` | Aula ${count.current}/${count.total}` : ""}`}
                         className="w-full h-full rounded cursor-pointer hover:brightness-110 transition-all flex flex-col justify-between px-[5px] py-[4px] overflow-hidden"
                         style={{
                           backgroundColor: bgColor,
-                          border: "1px solid rgba(0,0,0,0.15)",
+                          border: isSelected ? "2px solid white" : "1px solid rgba(0,0,0,0.15)",
+                          outline: isSelected ? "2px solid #3b82f6" : "none",
+                          outlineOffset: "1px",
+                          cursor: canEdit ? (isSelectionMode ? "pointer" : "grab") : "pointer",
                         }}
                       >
                         {/* Linha 1 — código (maior) */}
