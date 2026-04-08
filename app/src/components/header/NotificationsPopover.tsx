@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { Bell, Check, Clock, Info, AlertTriangle, Users } from "lucide-react";
+import { Bell, Check, Clock, Info, AlertTriangle } from "lucide-react";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
-import { supabase } from "../../config/supabase";
-import { useNavigate } from "react-router-dom";
 import packageJson from "../../../package.json";
 
 interface AppNotification {
@@ -19,11 +17,9 @@ interface AppNotification {
 export const NotificationsPopover = () => {
   const { theme } = useTheme();
   const { userProfile } = useAuth();
-  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  const [pendingUsersCount, setPendingUsersCount] = useState(0);
   const [systemVersionNotif, setSystemVersionNotif] =
     useState<AppNotification | null>(null);
 
@@ -40,29 +36,6 @@ export const NotificationsPopover = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const isAdmin =
-    userProfile?.role === "SUPER_ADMIN" || userProfile?.role === "ADMIN";
-
-  // Leitura única de usuários pendentes (getDocs — sem listener em tempo real)
-  useEffect(() => {
-    if (!isAdmin) {
-      setPendingUsersCount(0);
-      return;
-    }
-
-    const fetchPending = async () => {
-      const { count, error } = await supabase
-        .from("user_roles")
-        .select("*", { count: "exact", head: true })
-        .eq("role", "visitante");
-      if (!error) setPendingUsersCount(count ?? 0);
-    };
-
-    void fetchPending();
-    // Realtime não habilitado — sem subscription WebSocket
-    return () => {};
-  }, [isAdmin]);
 
   // System Version Check (para TODOS os usuários autenticados)
   useEffect(() => {
@@ -101,21 +74,6 @@ export const NotificationsPopover = () => {
 
   const notifications: AppNotification[] = [];
 
-  if (pendingUsersCount > 0) {
-    notifications.push({
-      id: "pending_users",
-      title: "Solicitações de Acesso",
-      message: `Há ${pendingUsersCount} usuário(s) aguardando aprovação.`,
-      type: "warning",
-      time: "Ação Necessária",
-      read: false,
-      onClick: () => {
-        setIsOpen(false);
-        navigate("/users");
-      },
-    });
-  }
-
   if (systemVersionNotif) {
     notifications.push(systemVersionNotif);
   }
@@ -128,8 +86,6 @@ export const NotificationsPopover = () => {
         return <Check size={14} className="text-white" />;
       case "warning":
         return <AlertTriangle size={14} className="text-white" />;
-      case "action":
-        return <Users size={14} className="text-white" />;
       default:
         return <Info size={14} className="text-white" />;
     }
