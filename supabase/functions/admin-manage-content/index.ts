@@ -119,16 +119,39 @@ Deno.serve(async (req) => {
     const { trigram, updates } = body;
     if (!trigram || !updates) return err("trigram and updates required");
 
-    const { error: updateErr } = await adminClient
+    console.log("update_instructor trigram:", trigram, "updates keys:", Object.keys(updates));
+
+    // Try by trigram column first
+    const { data: updated, error: updateErr } = await adminClient
       .from("instructors")
       .update(updates)
-      .eq("trigram", trigram);
+      .eq("trigram", trigram)
+      .select("trigram");
 
     if (updateErr) {
       console.error("update_instructor error:", updateErr);
       return err(updateErr.message, 500);
     }
-    return ok({ success: true });
+
+    console.log("update_instructor rows updated:", updated?.length ?? 0);
+
+    // Fallback: try by id (JS trigram might be the DB uuid)
+    if (!updated || updated.length === 0) {
+      const { data: updated2, error: updateErr2 } = await adminClient
+        .from("instructors")
+        .update(updates)
+        .eq("id", trigram)
+        .select("trigram");
+
+      if (updateErr2) {
+        console.error("update_instructor fallback error:", updateErr2);
+        return err(updateErr2.message, 500);
+      }
+      console.log("update_instructor fallback by id rows updated:", updated2?.length ?? 0);
+      return ok({ success: true, updatedByTrigram: 0, updatedById: updated2?.length ?? 0 });
+    }
+
+    return ok({ success: true, updatedByTrigram: updated.length });
   }
 
   // ── delete_instructor ───────────────────────────────────────────────────────

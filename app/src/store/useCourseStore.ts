@@ -32,6 +32,7 @@ async function contentFn(action: string, payload: Record<string, unknown>): Prom
   });
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
+  console.log(`[contentFn:${action}] result:`, data);
 }
 
 interface CourseState {
