@@ -21,7 +21,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
     useEffect(() => {
         const root = window.document.documentElement;
-        console.log('Context: syncing theme to DOM:', theme);
+
 
         const syncTheme = () => {
             if (theme === 'dark') {

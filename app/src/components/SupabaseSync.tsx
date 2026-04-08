@@ -41,8 +41,6 @@ export const SupabaseSync = () => {
   useEffect(() => {
     if (!user) return;
 
-    console.log("📥 Carregando dados estáticos (com cache TTL 4h)...");
-
     // Coleções estáticas: carregadas UMA VEZ ao login ou do localStorage se < 4h
     const loadStaticCollections = async () => {
       try {
@@ -197,7 +195,6 @@ export const SupabaseSync = () => {
         else
           console.warn("⚠️ Falha ao carregar schedule_change_requests:", changeRequests.reason);
 
-        console.log("✅ Dados estáticos carregados do Supabase.");
       } catch (err) {
         console.error("❌ Erro crítico ao carregar dados estáticos:", err);
       } finally {
@@ -207,15 +204,11 @@ export const SupabaseSync = () => {
 
     loadStaticCollections();
 
-    console.log("🔌 Inscrito para atualizações de notices...");
     const unsubNotices = subscribeToCollection("notices", (data) =>
       setNotices(data as SystemNotice[]),
     );
 
-    return () => {
-      console.log("🔌 Finalizando listener de notices...");
-      unsubNotices();
-    };
+    return () => { unsubNotices(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 

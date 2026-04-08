@@ -1276,9 +1276,6 @@ export const useCourseStore = create<CourseState>((set) => ({
             ts: number;
           };
           if (Date.now() - ts < 30 * 60 * 1000) {
-            console.log(
-              `⚡ Cache localStorage para eventos de ${year} (0 reads Supabase)`,
-            );
             set((s: CourseState) => ({
               yearEventsCache: { ...s.yearEventsCache, [year]: data },
             }));
@@ -1295,7 +1292,6 @@ export const useCourseStore = create<CourseState>((set) => ({
       const start = `${year}-01-01`;
       const end = `${year}-12-31`;
 
-      console.log(`📡 Buscando eventos de ${year} no Supabase...`);
       const { data, error } = await supabase
         .from("programacao_aulas")
         .select("*")
@@ -1359,7 +1355,6 @@ export const useCourseStore = create<CourseState>((set) => ({
 
     const cacheKey = `${startDay}-${squadronId}`;
     if (state.weeklyEventsCache[cacheKey]) {
-      console.log(`🚀 Usando cache SEMANAL para ${startDay} (0 reads)`);
       return state.weeklyEventsCache[cacheKey];
     }
 
@@ -1370,9 +1365,6 @@ export const useCourseStore = create<CourseState>((set) => ({
     const request = (async () => {
       const { supabase } = await import("../config/supabase");
 
-      console.log(
-        `📡 Buscando semana [${startDay} a ${endDay}] para ESQ ${squadronId} (Lazy Loading)...`,
-      );
       const { data: rawData, error: fetchError } = await supabase
         .from("programacao_aulas")
         .select("*")

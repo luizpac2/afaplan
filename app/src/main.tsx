@@ -4,8 +4,6 @@ import './index.css'
 import App from './App.tsx'
 import { supabase } from './config/supabase'
 
-// Log de versão
-console.log("🚀 AFA Planner v1.1.51 Carregado");
 (window as any).supabase = supabase;
 
 createRoot(document.getElementById('root')!).render(
