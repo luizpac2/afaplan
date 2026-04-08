@@ -48,19 +48,27 @@ Deno.serve(async (req) => {
   const body = await req.json();
   const { action } = body;
 
+  // helper: grava em disciplines (tabela lida pelo app) e também em disciplinas (legado)
+  async function writeDiscipline(op: "upsert" | "update" | "delete", code: string, payload?: Record<string, unknown>) {
+    if (op === "upsert" && payload) {
+      await adminClient.from("disciplines").upsert({ ...payload, code }, { onConflict: "code" });
+      await adminClient.from("disciplinas").upsert({ ...payload, code }, { onConflict: "code" }).catch(() => {});
+    } else if (op === "update" && payload) {
+      await adminClient.from("disciplines").update(payload).eq("code", code);
+      await adminClient.from("disciplinas").update(payload).eq("code", code).catch(() => {});
+    } else if (op === "delete") {
+      await adminClient.from("disciplines").delete().eq("code", code);
+      await adminClient.from("disciplinas").delete().eq("code", code).catch(() => {});
+    }
+  }
+
   // ── upsert_discipline ───────────────────────────────────────────────────────
   if (action === "upsert_discipline") {
     const { code, data: disciplineData } = body;
     if (!code || !disciplineData) return err("code and data required");
-
-    const { error: upsertErr } = await adminClient
-      .from("disciplinas")
-      .upsert({ ...disciplineData, code }, { onConflict: "code" });
-
-    if (upsertErr) {
-      console.error("upsert_discipline error:", upsertErr);
-      return err(upsertErr.message, 500);
-    }
+    try {
+      await writeDiscipline("upsert", code as string, disciplineData as Record<string, unknown>);
+    } catch (e: any) { return err(e.message, 500); }
     return ok({ success: true });
   }
 
@@ -68,30 +76,10 @@ Deno.serve(async (req) => {
   if (action === "update_discipline") {
     const { code, updates } = body;
     if (!code || !updates) return err("code and updates required");
-
-    console.log("update_discipline code:", code, "updates keys:", Object.keys(updates));
-
-    const { data: updated, error: updateErr } = await adminClient
-      .from("disciplinas")
-      .update(updates)
-      .eq("code", code)
-      .select("code");
-
-    if (updateErr) {
-      console.error("update_discipline error:", updateErr);
-      return err(updateErr.message, 500);
-    }
-
-    // Fallback: tenta por id se não achou por code
-    if (!updated || updated.length === 0) {
-      const { error: updateErr2 } = await adminClient
-        .from("disciplinas")
-        .update(updates)
-        .eq("id", code);
-      if (updateErr2) return err(updateErr2.message, 500);
-    }
-
-    return ok({ success: true, updated: updated?.length ?? 0 });
+    try {
+      await writeDiscipline("update", code as string, updates as Record<string, unknown>);
+    } catch (e: any) { return err(e.message, 500); }
+    return ok({ success: true });
   }
 
   // ── sync_discipline_instructor ──────────────────────────────────────────────
@@ -99,20 +87,15 @@ Deno.serve(async (req) => {
     const { code, warName } = body;
     if (!code || !warName) return err("code and warName required");
 
+    // Busca data atual de disciplines (fonte primária)
     const { data: row } = await adminClient
-      .from("disciplinas")
+      .from("disciplines")
       .select("data")
       .eq("code", code)
       .maybeSingle();
 
-    if (row) {
-      const newData = { ...(row.data || {}), instructor: warName };
-      await adminClient
-        .from("disciplinas")
-        .update({ data: newData })
-        .eq("code", code);
-    }
-
+    const newData = { ...(row?.data || {}), instructor: warName };
+    await writeDiscipline("update", code as string, { data: newData });
     return ok({ success: true });
   }
 
@@ -120,16 +103,9 @@ Deno.serve(async (req) => {
   if (action === "delete_discipline") {
     const { code } = body;
     if (!code) return err("code required");
-
-    const { error: delErr } = await adminClient
-      .from("disciplinas")
-      .delete()
-      .eq("code", code);
-
-    if (delErr) {
-      console.error("delete_discipline error:", delErr);
-      return err(delErr.message, 500);
-    }
+    try {
+      await writeDiscipline("delete", code as string);
+    } catch (e: any) { return err(e.message, 500); }
     return ok({ success: true });
   }
 

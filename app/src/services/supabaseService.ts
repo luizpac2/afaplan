@@ -1,6 +1,35 @@
 import { supabase } from "../config/supabase";
 
 // ---------------------------------------------------------------------------
+// Mapa canônico: tabela de escrita → tabela/chave de leitura (cache)
+// Usar sempre este mapa para invalidação — evita mismatches.
+// ---------------------------------------------------------------------------
+export const TABLE_READ: Record<string, string> = {
+  disciplines:             "disciplines",
+  disciplinas:             "disciplines",   // legado → cache da tabela de leitura
+  instructors:             "instructors",
+  cohorts:                 "cohorts",
+  classes:                 "cohorts",       // classes são derivadas dos cohorts
+  occurrences:             "occurrences",
+  semester_configs:        "semester_configs",
+  schedule_change_requests:"schedule_change_requests",
+  visual_configs:          "visual_configs",
+  visualConfigs:           "visual_configs", // legado
+  notices:                 "notices",
+};
+
+/** Invalida o cache da tabela de leitura correspondente */
+export const invalidateCache = (writeTable: string) => {
+  const readTable = TABLE_READ[writeTable] ?? writeTable;
+  const keys = [
+    `afa_cache_v3_${readTable}`,
+    `afa_cache_v2_${readTable}`,
+    `afa_cache_${readTable}`,
+  ];
+  try { keys.forEach((k) => localStorage.removeItem(k)); } catch { /* ignora */ }
+};
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

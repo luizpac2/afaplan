@@ -20,6 +20,7 @@ import {
   batchSave,
   batchDelete,
   normalizeEvent,
+  invalidateCache,
 } from "../services/supabaseService";
 import { supabase } from "../config/supabase";
 
@@ -159,15 +160,8 @@ const invalidateEventsLocalCache = () => {
 };
 
 // Invalida cache de coleções estáticas do fetchCollectionCached (ex: 'disciplines', 'instructors')
-const invalidateStaticCache = (collectionName: string) => {
-  try {
-    localStorage.removeItem(`afa_cache_${collectionName}`);
-    localStorage.removeItem(`afa_cache_v2_${collectionName}`);
-    localStorage.removeItem(`afa_cache_v3_${collectionName}`);
-  } catch {
-    /* ignora */
-  }
-};
+// Delega ao mapa canônico centralizado em supabaseService
+const invalidateStaticCache = (writeTable: string) => invalidateCache(writeTable);
 
 const ongoingYearlyRequests: Record<number, Promise<ScheduleEvent[]> | undefined> = {};
 const ongoingWeeklyRequests: Record<string, Promise<ScheduleEvent[]> | undefined> = {};
@@ -1038,8 +1032,8 @@ export const useCourseStore = create<CourseState>((set) => ({
           after: updated as unknown as Record<string, unknown>,
         });
         if (true) {
-          saveDocument("visualConfigs", id, updated);
-          invalidateStaticCache("visualConfigs");
+          saveDocument("visual_configs", id, updated);
+          invalidateStaticCache("visual_configs");
         }
       }
     } else {
@@ -1055,8 +1049,8 @@ export const useCourseStore = create<CourseState>((set) => ({
         entityName: newConfig.name,
       });
       if (true) {
-        saveDocument("visualConfigs", id, newConfig);
-        invalidateStaticCache("visualConfigs");
+        saveDocument("visual_configs", id, newConfig);
+        invalidateStaticCache("visual_configs");
       }
     }
   },
