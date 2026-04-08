@@ -104,15 +104,31 @@ export const subscribeToEventsByDateRange = (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   callback: (data: any[]) => void,
 ) => {
-  supabase
-    .from("programacao_aulas")
-    .select("*")
-    .gte("date", startDate)
-    .lte("date", endDate)
-    .then(({ data, error }) => {
-      if (!error) callback((data ?? []).map(normalizeEvent));
-      else callback([]);
+  // Busca eventos normais (date dentro da semana) + eventos acadêmicos multi-dia que
+  // se sobrepõem à semana (date <= weekEnd e endDate >= weekStart)
+  Promise.all([
+    supabase
+      .from("programacao_aulas")
+      .select("*")
+      .gte("date", startDate)
+      .lte("date", endDate),
+    supabase
+      .from("programacao_aulas")
+      .select("*")
+      .eq("type", "ACADEMIC")
+      .lte("date", endDate)
+      .gte("endDate", startDate)
+      .lt("date", startDate), // evita duplicatas (já buscados acima)
+  ]).then(([r1, r2]) => {
+    if (r1.error) { callback([]); return; }
+    const seen = new Set<string>();
+    const rows = [...(r1.data ?? []), ...(r2.data ?? [])].filter((r) => {
+      if (seen.has(r.id)) return false;
+      seen.add(r.id);
+      return true;
     });
+    callback(rows.map(normalizeEvent));
+  });
   return () => {};
 };
 
