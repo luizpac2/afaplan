@@ -3,7 +3,7 @@ import {
   BookOpen,
   FileText,
   Plane,
-  CalendarClock,
+
   Users,
   BarChart as PieChart,
   History,
@@ -64,20 +64,10 @@ const MENU_ITEMS: MenuItem[] = [
     submenu: [
       { title: "Início", path: "/", icon: Home },
       { title: "Calendário", path: "/panoramic-view", icon: CalendarIcon },
-      { title: "1º Esquadrão", path: "/programming/1", icon: CalendarClock },
-      { title: "2º Esquadrão", path: "/programming/2", icon: CalendarClock },
-      { title: "3º Esquadrão", path: "/programming/3", icon: CalendarClock },
-      { title: "4º Esquadrão", path: "/programming/4", icon: CalendarClock },
-      {
-        title: "Gantt",
-        icon: BarChart2,
-        submenu: [
-          { title: "1º Esquadrão", path: "/gantt/1" },
-          { title: "2º Esquadrão", path: "/gantt/2" },
-          { title: "3º Esquadrão", path: "/gantt/3" },
-          { title: "4º Esquadrão", path: "/gantt/4" },
-        ],
-      },
+      { title: "1º Esquadrão", path: "/gantt/1", icon: BarChart2 },
+      { title: "2º Esquadrão", path: "/gantt/2", icon: BarChart2 },
+      { title: "3º Esquadrão", path: "/gantt/3", icon: BarChart2 },
+      { title: "4º Esquadrão", path: "/gantt/4", icon: BarChart2 },
     ],
   },
   {
