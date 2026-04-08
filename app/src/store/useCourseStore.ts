@@ -27,12 +27,8 @@ import { TIME_SLOTS } from "../utils/constants";
 
 // ── Helper: chama admin-manage-content via edge function (service role) ───────
 async function contentFn(action: string, payload: Record<string, unknown>): Promise<void> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
-  if (!token) throw new Error("Sessão não encontrada");
   const { data, error } = await supabase.functions.invoke("admin-manage-content", {
     body: { action, ...payload },
-    headers: { Authorization: `Bearer ${token}` },
   });
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
