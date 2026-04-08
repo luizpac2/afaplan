@@ -161,9 +161,9 @@ const invalidateEventsLocalCache = () => {
 // Invalida cache de coleções estáticas do fetchCollectionCached (ex: 'disciplines', 'instructors')
 const invalidateStaticCache = (collectionName: string) => {
   try {
-    // compat: versões antigas (afa_cache_) e atual (afa_cache_v2_)
     localStorage.removeItem(`afa_cache_${collectionName}`);
     localStorage.removeItem(`afa_cache_v2_${collectionName}`);
+    localStorage.removeItem(`afa_cache_v3_${collectionName}`);
   } catch {
     /* ignora */
   }
