@@ -193,12 +193,13 @@ export const AcademicEventForm = ({
 
       {deleteConfirm && (
         <ConfirmDialog
+          isOpen={deleteConfirm}
           title="Excluir evento acadêmico?"
           message={`"${title}" será removido permanentemente.`}
           confirmText="Excluir"
           cancelText="Cancelar"
           onConfirm={() => { onDelete!(initialData!.id!); setDeleteConfirm(false); }}
-          onCancel={() => setDeleteConfirm(false)}
+          onClose={() => setDeleteConfirm(false)}
         />
       )}
     </>
