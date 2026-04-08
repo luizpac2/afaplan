@@ -18,14 +18,10 @@ export const GanttView = ({ date, events, disciplines, classes, onEventClick, ev
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const dayEvents = useMemo(() => {
-    const filtered = events.filter((e) => e.date === date && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC");
-    if (filtered.length > 0) {
-      const ev = filtered[0];
-      console.log('[GanttView] evento exemplo:', JSON.stringify({ id: ev.id, instructorTrigram: ev.instructorTrigram, classId: ev.classId, disciplineId: ev.disciplineId }));
-    }
-    return filtered;
-  }, [events, date]);
+  const dayEvents = useMemo(
+    () => events.filter((e) => e.date === date && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC"),
+    [events, date]
+  );
 
   const classLetters = useMemo(() => {
     const letters = new Set(classes.map((c) => c.slice(1)));
