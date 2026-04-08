@@ -81,7 +81,7 @@ export const GanttView = ({ date, events, disciplines, classes, onEventClick, ev
               const disc = ev ? disciplines.find((d) => d.id === ev.disciplineId) : null;
               const count = ev ? eventCounts?.[String(ev.id)] : null;
               const bgColor = disc?.color || "#3b82f6";
-              const trigram = ev ? (ev.instructorTrigram || disc?.instructorTrigram || "") : "";
+              const trigram = ev ? (ev.instructorTrigram || disc?.instructorTrigram || disc?.instructor || "") : "";
               const inst = trigram ? instructors.find((i) => i.trigram === trigram) : null;
               const displayInstructor = inst?.warName || trigram;
               const displayLocation = ev ? (ev.location || disc?.location || "") : "";
