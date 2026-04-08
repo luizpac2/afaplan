@@ -50,12 +50,12 @@ Deno.serve(async (req) => {
 
   // ── upsert_discipline ───────────────────────────────────────────────────────
   if (action === "upsert_discipline") {
-    const { sigla, data: disciplineData } = body;
-    if (!sigla || !disciplineData) return err("sigla and data required");
+    const { code, data: disciplineData } = body;
+    if (!code || !disciplineData) return err("code and data required");
 
     const { error: upsertErr } = await adminClient
       .from("disciplinas")
-      .upsert({ ...disciplineData, sigla }, { onConflict: "sigla" });
+      .upsert({ ...disciplineData, code }, { onConflict: "code" });
 
     if (upsertErr) {
       console.error("upsert_discipline error:", upsertErr);
@@ -66,32 +66,43 @@ Deno.serve(async (req) => {
 
   // ── update_discipline ───────────────────────────────────────────────────────
   if (action === "update_discipline") {
-    const { sigla, updates } = body;
-    if (!sigla || !updates) return err("sigla and updates required");
+    const { code, updates } = body;
+    if (!code || !updates) return err("code and updates required");
 
-    const { error: updateErr } = await adminClient
+    console.log("update_discipline code:", code, "updates keys:", Object.keys(updates));
+
+    const { data: updated, error: updateErr } = await adminClient
       .from("disciplinas")
       .update(updates)
-      .eq("sigla", sigla);
+      .eq("code", code)
+      .select("code");
 
     if (updateErr) {
       console.error("update_discipline error:", updateErr);
       return err(updateErr.message, 500);
     }
-    return ok({ success: true });
+
+    // Fallback: tenta por id se não achou por code
+    if (!updated || updated.length === 0) {
+      const { error: updateErr2 } = await adminClient
+        .from("disciplinas")
+        .update(updates)
+        .eq("id", code);
+      if (updateErr2) return err(updateErr2.message, 500);
+    }
+
+    return ok({ success: true, updated: updated?.length ?? 0 });
   }
 
   // ── sync_discipline_instructor ──────────────────────────────────────────────
-  // Atualiza o campo instructor (warName desnormalizado) em disciplinas e disciplines
   if (action === "sync_discipline_instructor") {
-    const { sigla, warName } = body;
-    if (!sigla || !warName) return err("sigla and warName required");
+    const { code, warName } = body;
+    if (!code || !warName) return err("code and warName required");
 
-    // Atualiza tabela disciplinas (instructor no topo ou dentro de data)
     const { data: row } = await adminClient
       .from("disciplinas")
       .select("data")
-      .eq("sigla", sigla)
+      .eq("code", code)
       .maybeSingle();
 
     if (row) {
@@ -99,27 +110,21 @@ Deno.serve(async (req) => {
       await adminClient
         .from("disciplinas")
         .update({ data: newData })
-        .eq("sigla", sigla);
+        .eq("code", code);
     }
-
-    // Também tenta na tabela disciplines (se existir)
-    await adminClient
-      .from("disciplines")
-      .update({ instructor: warName })
-      .eq("code", sigla);
 
     return ok({ success: true });
   }
 
   // ── delete_discipline ───────────────────────────────────────────────────────
   if (action === "delete_discipline") {
-    const { sigla } = body;
-    if (!sigla) return err("sigla required");
+    const { code } = body;
+    if (!code) return err("code required");
 
     const { error: delErr } = await adminClient
       .from("disciplinas")
       .delete()
-      .eq("sigla", sigla);
+      .eq("code", code);
 
     if (delErr) {
       console.error("delete_discipline error:", delErr);

@@ -392,14 +392,18 @@ export const useCourseStore = create<CourseState>((set) => ({
 
     try {
       const dbDiscipline = {
-        sigla: discipline.code,
-        nome: discipline.name,
-        categoria: "GERAL",
-        carga_horaria: discipline.load_hours || 0,
-        campo: discipline.trainingField === "GERAL" ? null : discipline.trainingField,
-        ativo: true,
+        code: discipline.code,
+        name: discipline.name,
+        category: "GERAL",
+        load_hours: discipline.load_hours || 0,
+        data: {
+          ...(discipline as any).data,
+          trainingField: discipline.trainingField !== "GERAL" ? discipline.trainingField : undefined,
+          instructor: discipline.instructor,
+          instructorTrigram: discipline.instructorTrigram,
+        },
       };
-      await contentFn("upsert_discipline", { sigla: discipline.code, data: dbDiscipline });
+      await contentFn("upsert_discipline", { code: discipline.code, data: dbDiscipline });
       invalidateStaticCache("disciplinas");
       console.log(`✅ Disciplina ${discipline.code} salva no DB`);
     } catch (err) {
@@ -437,15 +441,20 @@ export const useCourseStore = create<CourseState>((set) => ({
       });
 
       try {
-        const dbUpdates = {
-          sigla: after.code,
-          nome: after.name,
-          carga_horaria: after.load_hours || 0,
-          campo: after.trainingField === "GERAL" ? null : after.trainingField,
+        const dbUpdates: Record<string, unknown> = {
+          code: after.code,
+          name: after.name,
+          load_hours: after.load_hours || 0,
+          data: {
+            ...(after as any).data,
+            trainingField: after.trainingField !== "GERAL" ? after.trainingField : undefined,
+            instructor: after.instructor,
+            instructorTrigram: after.instructorTrigram,
+          },
         };
-        await contentFn("update_discipline", { sigla, updates: dbUpdates });
+        await contentFn("update_discipline", { code: after.code, updates: dbUpdates });
         invalidateStaticCache("disciplinas");
-        console.log(`✅ Disciplina ${sigla} atualizada no DB`);
+        console.log(`✅ Disciplina ${after.code} atualizada no DB`);
       } catch (err) {
         console.error("❌ Falha ao atualizar disciplina no Supabase:", err);
         alert("Erro ao atualizar disciplina no banco.");
@@ -480,12 +489,17 @@ export const useCourseStore = create<CourseState>((set) => ({
       try {
         for (const d of itemsToSave) {
           const dbUpdates = {
-            sigla: d.code,
-            nome: d.name,
-            carga_horaria: d.load_hours || 0,
-            campo: d.trainingField === "GERAL" ? null : d.trainingField,
+            code: d.code,
+            name: d.name,
+            load_hours: d.load_hours || 0,
+            data: {
+              ...(d as any).data,
+              trainingField: d.trainingField !== "GERAL" ? d.trainingField : undefined,
+              instructor: d.instructor,
+              instructorTrigram: d.instructorTrigram,
+            },
           };
-          await contentFn("update_discipline", { sigla: d.code, updates: dbUpdates });
+          await contentFn("update_discipline", { code: d.code, updates: dbUpdates });
         }
         invalidateStaticCache("disciplinas");
       } catch (err) {
@@ -1142,7 +1156,7 @@ export const useCourseStore = create<CourseState>((set) => ({
             for (const d of affectedDiscs) {
               try {
                 await contentFn("sync_discipline_instructor", {
-                  sigla: d.code,
+                  code: d.code,
                   warName: after.warName,
                 });
               } catch (e) {
@@ -1176,7 +1190,7 @@ export const useCourseStore = create<CourseState>((set) => ({
         entityName: discipline.name,
       });
       try {
-        await contentFn("delete_discipline", { sigla });
+        await contentFn("delete_discipline", { code: sigla });
         invalidateStaticCache("disciplinas");
       } catch (err) {
         console.error("❌ Falha ao deletar disciplina:", err);
@@ -1199,7 +1213,7 @@ export const useCourseStore = create<CourseState>((set) => ({
 
     try {
       for (const sigla of ids) {
-        await contentFn("delete_discipline", { sigla });
+        await contentFn("delete_discipline", { code: sigla });
       }
       invalidateStaticCache("disciplinas");
     } catch (err) {
