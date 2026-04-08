@@ -15,11 +15,11 @@ interface AcademicEventFormProps {
 const SQUADRONS = [1, 2, 3, 4] as const;
 
 export const ACADEMIC_COLORS: Record<string, { border: string; bg: string; title: string; sub: string; hover: string }> = {
-  ALL: { border: "border-purple-400/40", bg: "bg-purple-500/15", title: "text-purple-700 dark:text-purple-300", sub: "text-purple-600/70 dark:text-purple-400/70", hover: "hover:bg-purple-500/25" },
-  "1":  { border: "border-blue-400/40",   bg: "bg-blue-500/15",   title: "text-blue-700 dark:text-blue-300",   sub: "text-blue-600/70 dark:text-blue-400/70",   hover: "hover:bg-blue-500/25"   },
-  "2":  { border: "border-emerald-400/40",bg: "bg-emerald-500/15",title: "text-emerald-700 dark:text-emerald-300",sub: "text-emerald-600/70 dark:text-emerald-400/70",hover: "hover:bg-emerald-500/25"},
-  "3":  { border: "border-orange-400/40", bg: "bg-orange-500/15", title: "text-orange-700 dark:text-orange-300", sub: "text-orange-600/70 dark:text-orange-400/70", hover: "hover:bg-orange-500/25" },
-  "4":  { border: "border-red-400/40",    bg: "bg-red-500/15",    title: "text-red-700 dark:text-red-300",    sub: "text-red-600/70 dark:text-red-400/70",    hover: "hover:bg-red-500/25"    },
+  ALL: { border: "border-purple-400/40", bg: "bg-purple-500/15", title: "text-purple-900 dark:text-purple-300", sub: "text-purple-800 dark:text-purple-400", hover: "hover:bg-purple-500/25" },
+  "1":  { border: "border-blue-400/40",   bg: "bg-blue-500/15",   title: "text-blue-900 dark:text-blue-300",   sub: "text-blue-800 dark:text-blue-400",   hover: "hover:bg-blue-500/25"   },
+  "2":  { border: "border-emerald-400/40",bg: "bg-emerald-500/15",title: "text-emerald-900 dark:text-emerald-300",sub: "text-emerald-800 dark:text-emerald-400",hover: "hover:bg-emerald-500/25"},
+  "3":  { border: "border-orange-400/40", bg: "bg-orange-500/15", title: "text-orange-900 dark:text-orange-300", sub: "text-orange-800 dark:text-orange-400", hover: "hover:bg-orange-500/25" },
+  "4":  { border: "border-red-400/40",    bg: "bg-red-500/15",    title: "text-red-900 dark:text-red-300",    sub: "text-red-800 dark:text-red-400",    hover: "hover:bg-red-500/25"    },
 };
 
 export const getAcademicColor = (targetSquadron?: number | "ALL" | null) => {
