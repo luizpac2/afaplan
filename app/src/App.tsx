@@ -46,6 +46,7 @@ const ChefeTurmaAdmin = lazy(() => import("./pages/admin/ChefeTurmaAdmin").then(
 const ChefeTurmaLancamento = lazy(() => import("./pages/ChefeTurmaLancamento").then(m => ({ default: m.ChefeTurmaLancamento })));
 const FaltasReport = lazy(() => import("./pages/FaltasReport").then(m => ({ default: m.FaltasReport })));
 const DisciplineDashboard = lazy(() => import("./pages/DisciplineDashboard").then(m => ({ default: m.DisciplineDashboard })));
+const GanttProgramming = lazy(() => import("./pages/GanttProgramming").then(m => ({ default: m.GanttProgramming })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center h-64">
@@ -81,6 +82,18 @@ function App() {
                   <Route
                     path="programming"
                     element={<Navigate to="/programming/1" replace />}
+                  />
+                  <Route
+                    path="gantt/:squadronId"
+                    element={
+                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}>
+                        <GanttProgramming />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="gantt"
+                    element={<Navigate to="/gantt/1" replace />}
                   />
                   <Route
                     path="panoramic"

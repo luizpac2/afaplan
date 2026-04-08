@@ -77,6 +77,16 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "2º Esquadrão", path: "/programming/2", icon: CalendarClock },
       { title: "3º Esquadrão", path: "/programming/3", icon: CalendarClock },
       { title: "4º Esquadrão", path: "/programming/4", icon: CalendarClock },
+      {
+        title: "Gantt",
+        icon: BarChart2,
+        submenu: [
+          { title: "1º Esquadrão", path: "/gantt/1" },
+          { title: "2º Esquadrão", path: "/gantt/2" },
+          { title: "3º Esquadrão", path: "/gantt/3" },
+          { title: "4º Esquadrão", path: "/gantt/4" },
+        ],
+      },
     ],
   },
   {
