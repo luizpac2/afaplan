@@ -32,9 +32,6 @@ export const GanttView = ({ date, events, disciplines, classes, onEventClick, ev
   const muted  = isDark ? "text-slate-400" : "text-slate-500";
   const border = isDark ? "border-slate-700" : "border-slate-200";
   const rowBg  = isDark ? "bg-slate-700/50" : "bg-slate-100";
-  const cellBg = isDark ? "bg-slate-900/40" : "bg-white";
-
-  const slotCount = TIME_SLOTS.length;
 
   // Find which slot index an event maps to (by startTime)
   function slotIndex(startTime: string) {
