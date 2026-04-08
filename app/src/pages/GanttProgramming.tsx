@@ -7,7 +7,7 @@ import {
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { useAuth } from "../contexts/AuthContext";
-import { subscribeToEventsByDateRange } from "../services/supabaseService";
+import { subscribeToEventsByDateRange, updateDocument, saveDocument } from "../services/supabaseService";
 import { GanttView } from "../components/GanttView";
 import { EventForm } from "../components/EventForm";
 import { AcademicEventForm, getAcademicColor } from "../components/AcademicEventForm";
@@ -174,19 +174,64 @@ export const GanttProgramming = () => {
   };
 
   const handleAcademicSubmit = (data: Omit<ScheduleEvent, "id">) => {
-    const newEvent = { ...data, id: crypto.randomUUID() };
+    const id = crypto.randomUUID();
+    const newEvent = { ...data, id };
     addEvent(newEvent);
     setWeekEvents((prev) => [...prev, newEvent]);
+
+    // Persiste no banco com payload controlado
+    const dbPayload: Record<string, any> = {
+      id,
+      date:           data.date,
+      startTime:      data.startTime ?? null,
+      endTime:        data.endTime ?? null,
+      description:    data.description ?? null,
+      notes:          (data as any).notes ?? null,
+      endDate:        (data as any).endDate ?? null,
+      location:       data.location ?? null,
+      targetSquadron: data.targetSquadron != null ? String(data.targetSquadron) : null,
+      targetCourse:   data.targetCourse ?? null,
+      targetClass:    data.targetClass ?? null,
+      type:           data.type ?? null,
+      disciplineId:   data.disciplineId,
+      classId:        data.classId,
+      color:          data.color ?? null,
+    };
+    saveDocument("programacao_aulas", id, dbPayload)
+      .catch((err) => console.error("[AcademicSave] DB error:", err));
+
     setAcademicFormDate(null);
   };
 
   const handleAcademicUpdate = (data: Omit<ScheduleEvent, "id">) => {
     if (!editingAcademic) return;
-    updateEvent(editingAcademic.id, data);
-    // Atualiza weekEvents localmente para refletir imediatamente sem aguardar realtime
+
+    // Campos seguros conhecidos na tabela + novos campos acadêmicos
+    const dbPayload: Record<string, any> = {
+      date:            data.date,
+      startTime:       data.startTime ?? null,
+      endTime:         data.endTime ?? null,
+      description:     data.description ?? null,
+      notes:           (data as any).notes ?? null,
+      endDate:         (data as any).endDate ?? null,
+      location:        data.location ?? null,
+      targetSquadron:  data.targetSquadron != null ? String(data.targetSquadron) : null,
+      targetCourse:    data.targetCourse ?? null,
+      targetClass:     data.targetClass ?? null,
+      type:            data.type ?? null,
+      color:           data.color ?? null,
+    };
+
+    // Atualiza estado local imediatamente
     setWeekEvents((prev) =>
       prev.map((e) => e.id === editingAcademic.id ? { ...e, ...data } : e)
     );
+    updateEvent(editingAcademic.id, data); // store in-memory
+
+    // Persiste no banco diretamente com campos conhecidos
+    updateDocument("programacao_aulas", editingAcademic.id, dbPayload)
+      .catch((err) => console.error("[AcademicUpdate] DB error:", err));
+
     setEditingAcademic(null);
   };
 

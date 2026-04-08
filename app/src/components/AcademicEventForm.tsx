@@ -53,7 +53,7 @@ export const AcademicEventForm = ({
   const labelCls = isDark ? "text-gray-300" : "text-gray-600";
   const muted    = isDark ? "text-gray-400" : "text-gray-500";
 
-  const wasAllDay = !initialData?.startTime;
+  const wasAllDay = !initialData?.startTime || initialData.startTime === "";
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -82,8 +82,8 @@ export const AcademicEventForm = ({
       classId: initialData?.classId ?? "",
       date:    startDate,
       endDate: effectiveEnd,
-      startTime: allDay ? "" : startTime,
-      endTime:   allDay ? "" : (endTime || startTime),
+      startTime: allDay ? null as any : startTime,
+      endTime:   allDay ? null as any : (endTime || startTime),
       location:  location || undefined,
       type: "ACADEMIC" as any,
       description: title.trim(),
