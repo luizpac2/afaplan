@@ -809,13 +809,8 @@ export const CalendarGrid = ({
                             );
                           })()}
 
-                          {/* Line 2: Full discipline name (wraps) */}
-                          <div className="text-[9px] leading-tight drop-shadow-sm opacity-95 w-full ">
-                            {discipline?.name}
-                          </div>
-
-                          {/* Line 3: Instructor + Location + Counter */}
-                          <div className="flex items-end justify-between w-full pt-1 gap-0">
+                          {/* Line 2: Instructor trigram + counter */}
+                          <div className="flex items-center justify-between w-full gap-1">
                             {(() => {
                               const trigram =
                                 event.instructorTrigram ||
@@ -826,44 +821,21 @@ export const CalendarGrid = ({
                               const isUnauthorized =
                                 trigram &&
                                 inst &&
-                                (!inst.enabledClasses?.includes(
-                                  event.classId,
-                                ) ||
-                                  !inst.enabledDisciplines?.includes(
-                                    event.disciplineId,
-                                  ));
+                                (!inst.enabledClasses?.includes(event.classId) ||
+                                  !inst.enabledDisciplines?.includes(event.disciplineId));
                               const displayName =
                                 trigram ||
-                                (discipline?.noSpecificInstructor
-                                  ? "Sem Instr."
-                                  : discipline?.instructor
-                                    ? discipline.instructor.split(" ")[0]
-                                    : "???");
+                                (discipline?.noSpecificInstructor ? "—" : "???");
 
                               return (
-                                <div className="text-[8px] opacity-70 flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
+                                <div className="text-[8px] opacity-70 flex items-center gap-0.5 min-w-0 flex-1 overflow-hidden">
                                   {isUnauthorized && (
                                     <span title="Docente não habilitado para esta turma/disciplina">
-                                      <AlertCircle
-                                        size={8}
-                                        className="text-red-400 fill-red-400/20"
-                                      />
+                                      <AlertCircle size={8} className="text-red-400 fill-red-400/20" />
                                     </span>
                                   )}
-                                  {displayName && (
-                                    <span
-                                      className={`truncate flex-shrink-0 max-w-[45%] ${isUnauthorized ? "text-red-300 " : ""}`}
-                                    >
-                                      {displayName}
-                                    </span>
-                                  )}
-                                  {displayName && (
-                                    <span className="flex-shrink-0">•</span>
-                                  )}
-                                  <span className="truncate">
-                                    {event.type === "ACADEMIC"
-                                      ? event.location
-                                      : discipline?.location || "a definir"}
+                                  <span className={`truncate ${isUnauthorized ? "text-red-300" : ""}`}>
+                                    {displayName}
                                   </span>
                                 </div>
                               );
@@ -871,11 +843,10 @@ export const CalendarGrid = ({
 
                             {eventCounts && eventCounts[event.id] && (
                               <div
-                                className="text-[8px]  bg-black/10 px-1 rounded ml-auto flex-shrink-0 text-center min-w-[24px]"
+                                className="text-[8px] bg-black/10 px-1 rounded flex-shrink-0 text-center min-w-[24px]"
                                 title={`Aula ${eventCounts[event.id].current} de ${eventCounts[event.id].total} programadas`}
                               >
-                                {eventCounts[event.id].current}/
-                                {eventCounts[event.id].total}
+                                {eventCounts[event.id].current}/{eventCounts[event.id].total}
                               </div>
                             )}
                           </div>
