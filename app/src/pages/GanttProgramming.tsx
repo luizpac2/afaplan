@@ -10,7 +10,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { subscribeToEventsByDateRange } from "../services/supabaseService";
 import { GanttView } from "../components/GanttView";
 import { EventForm } from "../components/EventForm";
-import { AcademicEventForm } from "../components/AcademicEventForm";
+import { AcademicEventForm, getAcademicColor } from "../components/AcademicEventForm";
 import { NoticeForm } from "../components/NoticeForm";
 import { LinkChangeRequestModal } from "../components/LinkChangeRequestModal";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -206,9 +206,11 @@ export const GanttProgramming = () => {
 
   const dayAcademic = (dateStr: string) =>
     weekEvents.filter((e) => {
-      if (e.date !== dateStr) return false;
       if (e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC") return false;
-      // Filtra por esquadrão: "ALL" ou null/undefined aparece em todos; número específico só no esquadrão correspondente
+      // Verifica vigência: do date até endDate (inclusive)
+      const end = (e as any).endDate ?? e.date;
+      if (dateStr < e.date || dateStr > end) return false;
+      // Filtra por esquadrão
       const ts = e.targetSquadron;
       if (ts !== "ALL" && ts != null && Number(ts) !== currentSquadron) return false;
       return true;
@@ -406,36 +408,39 @@ export const GanttProgramming = () => {
                       <p className={`text-[10px] italic ${muted} opacity-60`}>Sem eventos</p>
                     ) : (
                       <div className="flex flex-col gap-1">
-                        {academic_.map((ev) => (
+                        {academic_.map((ev) => {
+                          const col = getAcademicColor(ev.targetSquadron);
+                          return (
                           <div
                             key={ev.id}
-                            className={`rounded-lg border border-purple-400/30 bg-purple-500/10 px-2 py-1.5 transition-colors ${canEdit ? "cursor-pointer hover:bg-purple-500/20 hover:border-purple-400/60" : ""}`}
+                            className={`rounded-lg border ${col.border} ${col.bg} px-2 py-1.5 transition-colors ${canEdit ? `cursor-pointer ${col.hover}` : ""}`}
                             onClick={() => canEdit && setEditingAcademic(ev)}
                             title={canEdit ? "Clique para editar" : undefined}
                           >
-                            <p className="text-[10px] font-semibold text-purple-300 leading-tight">
+                            <p className={`text-[10px] font-semibold leading-tight ${col.title}`}>
                               {ev.description || "Evento acadêmico"}
                             </p>
                             {(ev as any).notes && (
-                              <p className={`text-[9px] mt-0.5 leading-snug ${muted} opacity-80`}>
+                              <p className={`text-[9px] mt-0.5 leading-snug ${col.sub}`}>
                                 {(ev as any).notes}
                               </p>
                             )}
                             {ev.startTime && (
-                              <p className={`text-[9px] mt-0.5 flex items-center gap-0.5 ${muted}`}>
+                              <p className={`text-[9px] mt-0.5 ${col.sub}`}>
                                 🕐 {ev.startTime}{ev.endTime && ev.endTime !== ev.startTime ? ` – ${ev.endTime}` : ""}
                               </p>
                             )}
                             {ev.location && (
-                              <p className={`text-[9px] flex items-center gap-0.5 ${muted}`}>
+                              <p className={`text-[9px] ${col.sub}`}>
                                 📍 {ev.location}
                               </p>
                             )}
                             {canEdit && (
-                              <p className="text-[8px] text-purple-500/60 mt-0.5">toque para editar</p>
+                              <p className={`text-[8px] mt-0.5 opacity-50 ${col.title}`}>toque para editar</p>
                             )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

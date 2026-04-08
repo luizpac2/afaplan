@@ -14,8 +14,18 @@ interface AcademicEventFormProps {
 
 const SQUADRONS = [1, 2, 3, 4] as const;
 
-// Sentinela para "dia inteiro" — startTime e endTime ficam vazios no card
-const ALL_DAY_SENTINEL = "";
+export const ACADEMIC_COLORS: Record<string, { border: string; bg: string; title: string; sub: string; hover: string }> = {
+  ALL: { border: "border-purple-400/40", bg: "bg-purple-500/15", title: "text-purple-700 dark:text-purple-300", sub: "text-purple-600/70 dark:text-purple-400/70", hover: "hover:bg-purple-500/25" },
+  "1":  { border: "border-blue-400/40",   bg: "bg-blue-500/15",   title: "text-blue-700 dark:text-blue-300",   sub: "text-blue-600/70 dark:text-blue-400/70",   hover: "hover:bg-blue-500/25"   },
+  "2":  { border: "border-emerald-400/40",bg: "bg-emerald-500/15",title: "text-emerald-700 dark:text-emerald-300",sub: "text-emerald-600/70 dark:text-emerald-400/70",hover: "hover:bg-emerald-500/25"},
+  "3":  { border: "border-orange-400/40", bg: "bg-orange-500/15", title: "text-orange-700 dark:text-orange-300", sub: "text-orange-600/70 dark:text-orange-400/70", hover: "hover:bg-orange-500/25" },
+  "4":  { border: "border-red-400/40",    bg: "bg-red-500/15",    title: "text-red-700 dark:text-red-300",    sub: "text-red-600/70 dark:text-red-400/70",    hover: "hover:bg-red-500/25"    },
+};
+
+export const getAcademicColor = (targetSquadron?: number | "ALL" | null) => {
+  if (targetSquadron === "ALL" || targetSquadron == null) return ACADEMIC_COLORS["ALL"];
+  return ACADEMIC_COLORS[String(targetSquadron)] ?? ACADEMIC_COLORS["ALL"];
+};
 
 export const AcademicEventForm = ({
   initialData,
@@ -24,26 +34,27 @@ export const AcademicEventForm = ({
   onCancel,
 }: AcademicEventFormProps) => {
   const { theme } = useTheme();
-
   const isDark = theme === "dark";
-  const card = isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-200 text-gray-900";
+
+  const card     = isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-200 text-gray-900";
   const inputCls = isDark
     ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500"
     : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-purple-500";
   const labelCls = isDark ? "text-gray-300" : "text-gray-600";
-  const muted = isDark ? "text-gray-400" : "text-gray-500";
+  const muted    = isDark ? "text-gray-400" : "text-gray-500";
 
-  // Detecta se o evento salvo era "dia inteiro" (startTime vazio)
-  const wasAllDay = !initialData?.startTime || initialData.startTime === ALL_DAY_SENTINEL;
+  const wasAllDay = !initialData?.startTime;
+
+  const today = new Date().toISOString().split("T")[0];
 
   const [title, setTitle]         = useState(initialData?.description ?? "");
   const [notes, setNotes]         = useState(initialData?.notes ?? "");
-  const [date, setDate]           = useState(initialData?.date ?? new Date().toISOString().split("T")[0]);
+  const [startDate, setStartDate] = useState(initialData?.date ?? today);
+  const [endDate, setEndDate]     = useState(initialData?.endDate ?? initialData?.date ?? today);
   const [allDay, setAllDay]       = useState(wasAllDay);
   const [startTime, setStartTime] = useState(wasAllDay ? "07:00" : (initialData?.startTime ?? "07:00"));
   const [endTime, setEndTime]     = useState(wasAllDay ? "" : (initialData?.endTime ?? ""));
   const [location, setLocation]   = useState(initialData?.location ?? "");
-  // targetSquadron: null = "Todos (CCAer)", number = esquadrão específico
   const [squadron, setSquadron]   = useState<number | "ALL">(
     initialData?.targetSquadron === "ALL" || initialData?.targetSquadron == null
       ? "ALL"
@@ -55,12 +66,14 @@ export const AcademicEventForm = ({
 
   const handleSubmit = () => {
     if (!title.trim()) return;
+    const effectiveEnd = endDate < startDate ? startDate : endDate;
     onSubmit({
       disciplineId: "ACADEMIC",
       classId: initialData?.classId ?? "",
-      date,
-      startTime: allDay ? ALL_DAY_SENTINEL : startTime,
-      endTime:   allDay ? ALL_DAY_SENTINEL : (endTime || startTime),
+      date:    startDate,
+      endDate: effectiveEnd,
+      startTime: allDay ? "" : startTime,
+      endTime:   allDay ? "" : (endTime || startTime),
       location:  location || undefined,
       type: "ACADEMIC" as any,
       description: title.trim(),
@@ -75,6 +88,7 @@ export const AcademicEventForm = ({
 
   const sqBtn = (sq: number | "ALL", label: string) => {
     const active = squadron === sq;
+    const col = ACADEMIC_COLORS[sq === "ALL" ? "ALL" : String(sq)];
     return (
       <button
         key={String(sq)}
@@ -82,10 +96,10 @@ export const AcademicEventForm = ({
         onClick={() => setSquadron(sq)}
         className={`px-3 py-1.5 text-xs rounded-lg border font-semibold transition-colors ${
           active
-            ? "bg-purple-600 border-purple-500 text-white"
+            ? `${col.bg} ${col.border} ${col.title}`
             : isDark
-              ? "border-gray-600 text-gray-400 hover:border-purple-500 hover:text-purple-300"
-              : "border-gray-300 text-gray-500 hover:border-purple-400 hover:text-purple-600"
+              ? "border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-300"
+              : "border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700"
         }`}
       >
         {label}
@@ -141,7 +155,7 @@ export const AcademicEventForm = ({
             />
           </div>
 
-          {/* Esquadrão */}
+          {/* Destinatário */}
           <div>
             <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
               <Users size={12} className="text-purple-400" />
@@ -153,18 +167,37 @@ export const AcademicEventForm = ({
             </div>
           </div>
 
-          {/* Data */}
+          {/* Período */}
           <div>
             <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
               <Calendar size={12} className="text-purple-400" />
-              Data
+              Período
             </label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${inputCls}`}
-            />
+            <div className="flex gap-2 items-center">
+              <div className="flex-1">
+                <p className={`text-[10px] mb-1 ${muted}`}>Início</p>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    if (e.target.value > endDate) setEndDate(e.target.value);
+                  }}
+                  className={`w-full rounded-lg border px-2 py-2 text-sm outline-none transition-colors ${inputCls}`}
+                />
+              </div>
+              <span className={`text-xs ${muted} mt-4`}>→</span>
+              <div className="flex-1">
+                <p className={`text-[10px] mb-1 ${muted}`}>Término</p>
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className={`w-full rounded-lg border px-2 py-2 text-sm outline-none transition-colors ${inputCls}`}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Horário */}
@@ -212,9 +245,6 @@ export const AcademicEventForm = ({
             )}
             {!allDay && endTime && endTime !== startTime && (
               <p className={`text-[10px] mt-1 ${muted}`}>Término: {endTime}</p>
-            )}
-            {allDay && (
-              <p className={`text-[10px] italic ${muted}`}>O horário não será exibido no card.</p>
             )}
           </div>
 

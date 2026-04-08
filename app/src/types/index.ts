@@ -202,6 +202,7 @@ export interface ScheduleEvent {
   targetClass?: string | "ALL" | null;
   description?: string;
   notes?: string; // Texto livre adicional (usado em eventos acadêmicos)
+  endDate?: string; // Para eventos com duração > 1 dia (ex: eventos acadêmicos)
   instructorTrigram?: string; // Override for a specific session
   changeRequestId?: string; // Link to ScheduleChangeRequest
 }
