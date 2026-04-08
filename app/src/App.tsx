@@ -85,7 +85,7 @@ function App() {
                   <Route
                     path="gantt/:squadronId"
                     element={
-                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", ]}>
+                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "CADETE", "DOCENTE", "CHEFE_TURMA"]}>
                         <GanttProgramming />
                       </ProtectedRoute>
                     }
