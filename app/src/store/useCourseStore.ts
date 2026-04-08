@@ -1310,18 +1310,16 @@ export const useCourseStore = create<CourseState>((set) => ({
 
       const events = allRows.map(normalizeEvent) as unknown as ScheduleEvent[];
 
-      // Salva nos dois caches
+      // Salva em memória imediatamente
       set((s: CourseState) => ({
         yearEventsCache: { ...s.yearEventsCache, [year]: events },
       }));
-      try {
-        localStorage.setItem(
-          lsKey,
-          JSON.stringify({ data: events, ts: Date.now() }),
-        );
-      } catch {
-        /* quota exceeded etc */
-      }
+      // Salva no localStorage de forma diferida para não bloquear a thread
+      setTimeout(() => {
+        try {
+          localStorage.setItem(lsKey, JSON.stringify({ data: events, ts: Date.now() }));
+        } catch { /* quota exceeded */ }
+      }, 0);
 
       return events;
     })();
