@@ -50,18 +50,40 @@ Deno.serve(async (req) => {
 
   // ── helpers ─────────────────────────────────────────────────────────────────
 
-  // Tabela `disciplines` usa colunas em inglês (code, name, load_hours, data jsonb)
+  // Tabela `disciplines` usa colunas em inglês (code/sigla, name, load_hours, data jsonb)
   async function writeDisciplinesEN(op: "upsert" | "update" | "delete", code: string, payload?: Record<string, unknown>) {
     if (op === "upsert" && payload) {
-      const { error } = await adminClient.from("disciplines").upsert({ ...payload, code }, { onConflict: "code" });
-      if (error) console.error("disciplines upsert error:", error.message);
+      // Tenta upsert por code, depois por sigla
+      const { error: e1 } = await adminClient.from("disciplines")
+        .upsert({ ...payload, code }, { onConflict: "code" });
+      if (e1) {
+        const { error: e2 } = await adminClient.from("disciplines")
+          .upsert({ ...payload, sigla: code }, { onConflict: "sigla" });
+        if (e2) console.error("disciplines upsert error:", e2.message);
+      }
     } else if (op === "update" && payload) {
-      // Filtra apenas colunas válidas para disciplines (inglês)
+      // Remove colunas que não pertencem à tabela disciplines
       const { code: _c, sigla: _s, nome: _n, carga_horaria: _ch, ...rest } = payload as any;
-      const { error } = await adminClient.from("disciplines").update(rest).eq("code", code);
-      if (error) console.error("disciplines update error:", error.message, "payload:", JSON.stringify(rest));
+      console.log("disciplines update payload:", JSON.stringify(rest), "lookup code:", code);
+
+      // Tenta por 'code' primeiro
+      const { data: r1, error: e1 } = await adminClient.from("disciplines")
+        .update(rest).eq("code", code).select("id");
+      console.log("update by code — rows:", r1?.length ?? 0, "error:", e1?.message ?? "none");
+
+      if (!e1 && (!r1 || r1.length === 0)) {
+        // Fallback: tenta por 'sigla'
+        const { data: r2, error: e2 } = await adminClient.from("disciplines")
+          .update(rest).eq("sigla", code).select("id");
+        console.log("update by sigla — rows:", r2?.length ?? 0, "error:", e2?.message ?? "none");
+        if (e2) throw new Error(`disciplines update failed: ${e2.message}`);
+        if (!r2 || r2.length === 0) throw new Error(`disciplines: nenhuma linha encontrada para code/sigla="${code}"`);
+      } else if (e1) {
+        throw new Error(`disciplines update error: ${e1.message}`);
+      }
     } else if (op === "delete") {
       await adminClient.from("disciplines").delete().eq("code", code);
+      await adminClient.from("disciplines").delete().eq("sigla", code);
     }
   }
 
