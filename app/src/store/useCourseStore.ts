@@ -404,7 +404,7 @@ export const useCourseStore = create<CourseState>((set) => ({
         },
       };
       await contentFn("upsert_discipline", { code: discipline.code, data: dbDiscipline });
-      invalidateStaticCache("disciplinas");
+      invalidateStaticCache("disciplines");
       console.log(`✅ Disciplina ${discipline.code} salva no DB`);
     } catch (err) {
       console.error("❌ Falha ao salvar disciplina no Supabase:", err);
@@ -453,7 +453,7 @@ export const useCourseStore = create<CourseState>((set) => ({
           },
         };
         await contentFn("update_discipline", { code: after.code, updates: dbUpdates });
-        invalidateStaticCache("disciplinas");
+        invalidateStaticCache("disciplines");
         console.log(`✅ Disciplina ${after.code} atualizada no DB`);
       } catch (err) {
         console.error("❌ Falha ao atualizar disciplina no Supabase:", err);
@@ -501,7 +501,7 @@ export const useCourseStore = create<CourseState>((set) => ({
           };
           await contentFn("update_discipline", { code: d.code, updates: dbUpdates });
         }
-        invalidateStaticCache("disciplinas");
+        invalidateStaticCache("disciplines");
       } catch (err) {
         console.error("❌ Falha no batch save de disciplinas:", err);
       }
@@ -1163,7 +1163,7 @@ export const useCourseStore = create<CourseState>((set) => ({
                 console.warn("Falha ao sincronizar instructor em disciplina:", d.code, e);
               }
             }
-            invalidateStaticCache("disciplinas");
+            invalidateStaticCache("disciplines");
             invalidateStaticCache("disciplines");
           }
         }
@@ -1191,7 +1191,7 @@ export const useCourseStore = create<CourseState>((set) => ({
       });
       try {
         await contentFn("delete_discipline", { code: sigla });
-        invalidateStaticCache("disciplinas");
+        invalidateStaticCache("disciplines");
       } catch (err) {
         console.error("❌ Falha ao deletar disciplina:", err);
       }
@@ -1215,7 +1215,7 @@ export const useCourseStore = create<CourseState>((set) => ({
       for (const sigla of ids) {
         await contentFn("delete_discipline", { code: sigla });
       }
-      invalidateStaticCache("disciplinas");
+      invalidateStaticCache("disciplines");
     } catch (err) {
       console.error("❌ Falha no batch delete de disciplinas:", err);
     }
