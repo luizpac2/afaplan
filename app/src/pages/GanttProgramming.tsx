@@ -1,23 +1,36 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, MousePointer2, Link2, Trash2, X } from "lucide-react";
+import {
+  ChevronLeft, ChevronRight, MousePointer2, Link2, Trash2, X,
+  Plus, Bell, CalendarDays, AlertTriangle, Info, Zap, BookOpen,
+} from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { useAuth } from "../contexts/AuthContext";
 import { subscribeToEventsByDateRange } from "../services/supabaseService";
 import { GanttView } from "../components/GanttView";
 import { EventForm } from "../components/EventForm";
+import { NoticeForm } from "../components/NoticeForm";
 import { LinkChangeRequestModal } from "../components/LinkChangeRequestModal";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import {
   getStartOfWeek, addDays, formatDate, getWeekDays, formatDateForDisplay,
 } from "../utils/dateUtils";
 import { TIME_SLOTS } from "../utils/constants";
-import type { ScheduleEvent, CourseYear } from "../types";
+import type { ScheduleEvent, CourseYear, SystemNotice } from "../types";
 import { getCohortColorTokens } from "../utils/cohortColors";
 import type { CohortColor } from "../types";
 
 const DAYS_SHORT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+
+const NOTICE_STYLES: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
+  URGENT:     { bg: "bg-red-500/15 border-red-400/40",    text: "text-red-400",    icon: <AlertTriangle size={11} /> },
+  WARNING:    { bg: "bg-amber-500/15 border-amber-400/40", text: "text-amber-400",  icon: <AlertTriangle size={11} /> },
+  INFO:       { bg: "bg-blue-500/15 border-blue-400/40",   text: "text-blue-400",   icon: <Info size={11} /> },
+  EVENT:      { bg: "bg-purple-500/15 border-purple-400/40",text: "text-purple-400",icon: <CalendarDays size={11} /> },
+  EVALUATION: { bg: "bg-orange-500/15 border-orange-400/40",text: "text-orange-400",icon: <Zap size={11} /> },
+  GENERAL:    { bg: "bg-slate-500/15 border-slate-400/40", text: "text-slate-400",  icon: <Info size={11} /> },
+};
 
 export const GanttProgramming = () => {
   const { squadronId } = useParams<{ squadronId: string }>();
@@ -28,7 +41,7 @@ export const GanttProgramming = () => {
 
   const {
     disciplines, classes, cohorts, notices,
-    updateEvent, deleteBatchEvents, dataReady,
+    updateEvent, deleteBatchEvents, addNotice, addEvent, dataReady,
     fetchYearlyEvents,
   } = useCourseStore();
 
@@ -51,17 +64,21 @@ export const GanttProgramming = () => {
     return new Date();
   });
 
-  const [weekEvents, setWeekEvents] = useState<ScheduleEvent[]>([]);
+  const [weekEvents, setWeekEvents]   = useState<ScheduleEvent[]>([]);
   const [yearlyEvents, setYearlyEvents] = useState<ScheduleEvent[]>([]);
   const [editingEvent, setEditingEvent] = useState<ScheduleEvent | undefined>();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [calendarYear] = useState(new Date().getFullYear());
 
-  // ── Selection / edit mode ────────────────────────────────────────────────────
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  // ── Selection mode ────────────────────────────────────────────────────────
+  const [isSelectionMode, setIsSelectionMode]   = useState(false);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
-  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const [isLinkModalOpen, setIsLinkModalOpen]   = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+
+  // ── Sidebar: notice / event creation ─────────────────────────────────────
+  const [noticeFormDate, setNoticeFormDate]   = useState<string | null>(null);
+  const [academicFormDate, setAcademicFormDate] = useState<string | null>(null);
 
   const startOfWeek = getStartOfWeek(currentDate);
   const weekDays    = getWeekDays(startOfWeek);
@@ -81,7 +98,7 @@ export const GanttProgramming = () => {
     fetchYearlyEvents(calendarYear).then(setYearlyEvents);
   }, [dataReady, calendarYear, fetchYearlyEvents]);
 
-  // ── eventCounts ──────────────────────────────────────────────────────────────
+  // ── eventCounts ───────────────────────────────────────────────────────────
   const eventCounts = useMemo(() => {
     const counts: Record<string, { current: number; total: number }> = {};
     const source = yearlyEvents.length > 0 ? yearlyEvents : weekEvents;
@@ -97,10 +114,7 @@ export const GanttProgramming = () => {
       const disc = disciplines.find((d) => d.id === group[0].disciplineId);
       const cls  = classes.find((c) => c.id === group[0].classId);
       const pkKey = cls ? `${cls.type}_${cls.year}` : "";
-      const total =
-        (disc?.ppcLoads && pkKey && disc.ppcLoads[pkKey]) ||
-        disc?.load_hours ||
-        group.length;
+      const total = (disc?.ppcLoads && pkKey && disc.ppcLoads[pkKey]) || disc?.load_hours || group.length;
       group
         .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`))
         .forEach((ev, i) => { counts[String(ev.id)] = { current: i + 1, total }; });
@@ -108,23 +122,20 @@ export const GanttProgramming = () => {
     return counts;
   }, [yearlyEvents, weekEvents, calendarYear, disciplines, classes]);
 
-  // ── Classes for this squadron ────────────────────────────────────────────────
   const squadronClasses = useMemo(() => {
     const prefix = String(currentSquadron);
-    const fromEvents = [...new Set(weekEvents
-      .filter((e) => e.classId?.startsWith(prefix))
-      .map((e) => e.classId))].sort();
+    const fromEvents = [...new Set(weekEvents.filter((e) => e.classId?.startsWith(prefix)).map((e) => e.classId))].sort();
     if (fromEvents.length) return fromEvents;
     return ["A","B","C","D","E","F"].map((l) => `${currentSquadron}${l}`);
   }, [weekEvents, currentSquadron]);
 
-  // ── Cohort color ─────────────────────────────────────────────────────────────
   const cohortColorTokens = useMemo(() => {
     const targetEntryYear = calendarYear - currentSquadron + 1;
     const cohort = cohorts.find((c) => Number(c.entryYear) === targetEntryYear);
     return getCohortColorTokens((cohort?.color || "blue") as CohortColor);
   }, [cohorts, calendarYear, currentSquadron]);
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const handleEventClick = (ev: ScheduleEvent) => {
     if (!canEdit) return;
     setEditingEvent(ev);
@@ -150,43 +161,48 @@ export const GanttProgramming = () => {
     setSelectedEventIds([]);
   };
 
-  const exitSelectionMode = () => {
-    setIsSelectionMode(false);
-    setSelectedEventIds([]);
+  const handleNoticeSubmit = (data: Partial<SystemNotice>) => {
+    addNotice({
+      ...data,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      createdBy: userProfile?.uid || "system",
+    } as SystemNotice);
+    setNoticeFormDate(null);
   };
 
-  const today = formatDate(new Date());
+  const handleAcademicSubmit = (data: Omit<ScheduleEvent, "id">) => {
+    addEvent({ ...data, id: crypto.randomUUID() });
+    setAcademicFormDate(null);
+  };
 
+  // ── Sidebar notices & academic events per day ─────────────────────────────
+  const dayNotices = (dateStr: string) =>
+    notices.filter((n) => {
+      if (dateStr < n.startDate || dateStr > n.endDate) return false;
+      if (n.targetSquadron && Number(n.targetSquadron) !== currentSquadron) return false;
+      return true;
+    });
+
+  const dayAcademic = (dateStr: string) =>
+    weekEvents.filter((e) => e.date === dateStr && (e.type === "ACADEMIC" || e.disciplineId === "ACADEMIC"));
+
+  const today  = formatDate(new Date());
   const card   = isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200 shadow-sm";
   const text   = isDark ? "text-slate-100" : "text-slate-800";
   const muted  = isDark ? "text-slate-400" : "text-slate-500";
   const border = isDark ? "border-slate-700" : "border-slate-200";
-
-  // ── Notices for the week ─────────────────────────────────────────────────────
-  const weekNotices = useMemo(() => {
-    return notices.filter((n) => {
-      return weekDays.some((d) => {
-        if (!d) return false;
-        const ds = formatDate(d);
-        return ds >= n.startDate && ds <= n.endDate;
-      });
-    });
-  }, [notices, weekDays]);
+  const sidebarBg = isDark ? "bg-slate-900/60" : "bg-slate-50/80";
 
   return (
-    <div className="p-4 md:p-6 flex flex-col gap-4 max-w-[1400px] mx-auto">
+    <div className="p-4 md:p-6 flex flex-col gap-4 max-w-[1600px] mx-auto">
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      {/* ── Header ────────────────────────────────────────────────────────── */}
       <div className={`flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl border ${card}`}>
         <div className="flex items-center gap-3">
-          <div
-            className="w-1 h-8 rounded-full"
-            style={{ backgroundColor: cohortColorTokens.primary }}
-          />
+          <div className="w-1 h-8 rounded-full" style={{ backgroundColor: cohortColorTokens.primary }} />
           <div>
-            <h1 className={`text-base font-bold ${text}`}>
-              {currentSquadron}º Esquadrão — Gantt Semanal
-            </h1>
+            <h1 className={`text-base font-bold ${text}`}>{currentSquadron}º Esquadrão — Gantt Semanal</h1>
             <p className={`text-xs ${muted}`}>
               {formatDateForDisplay(formatDate(startOfWeek))} – {formatDateForDisplay(formatDate(addDays(startOfWeek, 4)))}
             </p>
@@ -194,112 +210,74 @@ export const GanttProgramming = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Admin toolbar */}
           {canEdit && !isSelectionMode && (
             <button
               onClick={() => setIsSelectionMode(true)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-blue-400 ${text}`}
             >
-              <MousePointer2 size={13} />
-              Selecionar
+              <MousePointer2 size={13} /> Selecionar
             </button>
           )}
-
           {canEdit && isSelectionMode && (
             <div className="flex items-center gap-2">
               <span className={`text-xs ${muted}`}>{selectedEventIds.length} selecionado(s)</span>
-              <button
-                onClick={() => setIsLinkModalOpen(true)}
-                disabled={selectedEventIds.length === 0}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium text-blue-600 border-blue-400 hover:bg-blue-500/10 disabled:opacity-40 transition-colors"
-              >
-                <Link2 size={13} />
-                SAP
+              <button onClick={() => setIsLinkModalOpen(true)} disabled={selectedEventIds.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium text-blue-600 border-blue-400 hover:bg-blue-500/10 disabled:opacity-40 transition-colors">
+                <Link2 size={13} /> SAP
               </button>
-              <button
-                onClick={() => setIsDeleteConfirmOpen(true)}
-                disabled={selectedEventIds.length === 0}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium text-red-500 border-red-400 hover:bg-red-500/10 disabled:opacity-40 transition-colors"
-              >
-                <Trash2 size={13} />
-                Excluir
+              <button onClick={() => setIsDeleteConfirmOpen(true)} disabled={selectedEventIds.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium text-red-500 border-red-400 hover:bg-red-500/10 disabled:opacity-40 transition-colors">
+                <Trash2 size={13} /> Excluir
               </button>
-              <button
-                onClick={exitSelectionMode}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-slate-400 ${muted}`}
-              >
-                <X size={13} />
-                Cancelar
+              <button onClick={() => { setIsSelectionMode(false); setSelectedEventIds([]); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-slate-400 ${muted}`}>
+                <X size={13} /> Cancelar
               </button>
             </div>
           )}
-
-          {/* Navigation */}
-          <button
-            onClick={() => setCurrentDate(addDays(currentDate, -7))}
-            className={`p-2 rounded-lg border transition-colors ${card} hover:border-blue-400`}
-          >
+          <button onClick={() => setCurrentDate(addDays(currentDate, -7))}
+            className={`p-2 rounded-lg border transition-colors ${card} hover:border-blue-400`}>
             <ChevronLeft size={16} className={muted} />
           </button>
-          <button
-            onClick={() => setCurrentDate(new Date())}
-            className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-blue-400 ${text}`}
-          >
+          <button onClick={() => setCurrentDate(new Date())}
+            className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-blue-400 ${text}`}>
             Hoje
           </button>
-          <button
-            onClick={() => setCurrentDate(addDays(currentDate, 7))}
-            className={`p-2 rounded-lg border transition-colors ${card} hover:border-blue-400`}
-          >
+          <button onClick={() => setCurrentDate(addDays(currentDate, 7))}
+            className={`p-2 rounded-lg border transition-colors ${card} hover:border-blue-400`}>
             <ChevronRight size={16} className={muted} />
           </button>
         </div>
       </div>
 
-      {/* ── One Gantt per work day ──────────────────────────────────────────── */}
+      {/* ── One card per work day ──────────────────────────────────────────── */}
       {weekDays.slice(0, 5).map((day, i) => {
         if (!day) return null;
-        const dateStr = formatDate(day);
-        const isToday = dateStr === today;
-        const dayEvents = weekEvents.filter((e) => e.date === dateStr);
-        const dayNum = day.getDate();
+        const dateStr  = formatDate(day);
+        const isToday  = dateStr === today;
+        const dayNum   = day.getDate();
         const monthShort = day.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
-
-        const dayNotices = weekNotices.filter(
-          (n) => dateStr >= n.startDate && dateStr <= n.endDate
-        );
+        const notices_  = dayNotices(dateStr);
+        const academic_ = dayAcademic(dateStr);
+        const hasSidebar = notices_.length > 0 || academic_.length > 0 || canEdit;
 
         return (
-          <div
-            key={dateStr}
-            className={`rounded-xl border overflow-hidden ${card} ${isToday ? "ring-2 ring-blue-500/40" : ""}`}
-          >
+          <div key={dateStr}
+            className={`rounded-xl border overflow-hidden ${card} ${isToday ? "ring-2 ring-blue-500/40" : ""}`}>
+
             {/* Day header */}
             <div className={`flex items-center gap-3 px-4 py-2 border-b ${border} ${isToday ? (isDark ? "bg-blue-900/20" : "bg-blue-50/50") : ""}`}>
-              <div className="flex items-center gap-2">
-                <span className={`text-xs font-semibold uppercase ${isToday ? "text-blue-500" : muted}`}>
-                  {DAYS_SHORT[i]}
-                </span>
-                <span className={`text-sm font-bold ${isToday ? "text-blue-500" : text}`}>
-                  {dayNum} {monthShort}.
-                </span>
-                {isToday && (
-                  <span className="text-[9px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-full">
-                    HOJE
-                  </span>
-                )}
-              </div>
+              <span className={`text-xs font-semibold uppercase ${isToday ? "text-blue-500" : muted}`}>{DAYS_SHORT[i]}</span>
+              <span className={`text-sm font-bold ${isToday ? "text-blue-500" : text}`}>{dayNum} {monthShort}.</span>
+              {isToday && <span className="text-[9px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-full">HOJE</span>}
               <span className={`text-xs ${muted}`}>
-                {dayEvents.filter(e => e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC").length} aula(s)
+                {weekEvents.filter(e => e.date === dateStr && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC").length} aula(s)
               </span>
-              {dayNotices.length > 0 && (
+              {notices_.length > 0 && (
                 <div className="flex gap-1 ml-auto">
-                  {dayNotices.map((n) => (
-                    <span
-                      key={n.id}
-                      title={n.description}
-                      className="text-[9px] bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-400/30 px-1.5 py-0.5 rounded-full truncate max-w-[120px]"
-                    >
+                  {notices_.slice(0, 3).map((n) => (
+                    <span key={n.id} title={n.description}
+                      className="text-[9px] bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-400/30 px-1.5 py-0.5 rounded-full truncate max-w-[120px]">
                       {n.title}
                     </span>
                   ))}
@@ -307,21 +285,120 @@ export const GanttProgramming = () => {
               )}
             </div>
 
-            {/* Gantt */}
-            <div className="px-3 py-2">
-              <GanttView
-                date={dateStr}
-                events={weekEvents}
-                disciplines={disciplines}
-                classes={squadronClasses}
-                onEventClick={handleEventClick}
-                eventCounts={eventCounts}
-                canEdit={canEdit}
-                selectedEventIds={selectedEventIds}
-                onSelectEvent={handleSelectEvent}
-                isSelectionMode={isSelectionMode}
-                onSlotDrop={handleSlotDrop}
-              />
+            {/* Body: Gantt + Sidebar */}
+            <div className="flex">
+              {/* Gantt */}
+              <div className="flex-1 overflow-hidden px-3 py-2">
+                <GanttView
+                  date={dateStr}
+                  events={weekEvents}
+                  disciplines={disciplines}
+                  classes={squadronClasses}
+                  onEventClick={handleEventClick}
+                  eventCounts={eventCounts}
+                  canEdit={canEdit}
+                  selectedEventIds={selectedEventIds}
+                  onSelectEvent={handleSelectEvent}
+                  isSelectionMode={isSelectionMode}
+                  onSlotDrop={handleSlotDrop}
+                />
+              </div>
+
+              {/* Sidebar */}
+              {hasSidebar && (
+                <div className={`w-52 flex-shrink-0 border-l ${border} ${sidebarBg} flex flex-col gap-0`}>
+
+                  {/* Avisos */}
+                  <div className="px-3 pt-3 pb-2">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${muted}`}>
+                        <Bell size={10} /> Avisos
+                      </span>
+                      {canEdit && (
+                        <button
+                          onClick={() => setNoticeFormDate(dateStr)}
+                          className="text-[10px] text-blue-500 hover:text-blue-400 flex items-center gap-0.5 transition-colors"
+                          title="Criar aviso"
+                        >
+                          <Plus size={10} /> Novo
+                        </button>
+                      )}
+                    </div>
+
+                    {notices_.length === 0 ? (
+                      <p className={`text-[10px] italic ${muted} opacity-60`}>Sem avisos</p>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        {notices_.map((n) => {
+                          const style = NOTICE_STYLES[n.type] || NOTICE_STYLES.GENERAL;
+                          return (
+                            <div key={n.id}
+                              className={`rounded-lg border px-2 py-1.5 ${style.bg}`}>
+                              <div className={`flex items-center gap-1 ${style.text} font-semibold text-[10px] leading-tight`}>
+                                {style.icon}
+                                <span className="truncate">{n.title}</span>
+                              </div>
+                              {n.description && (
+                                <p className={`text-[9px] leading-tight mt-0.5 ${muted} line-clamp-2`}>
+                                  {n.description}
+                                </p>
+                              )}
+                              {n.startDate !== n.endDate && (
+                                <p className={`text-[8px] mt-0.5 ${muted} opacity-70`}>
+                                  até {n.endDate}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Divider */}
+                  <div className={`mx-3 border-t ${border}`} />
+
+                  {/* Eventos do dia (ACADEMIC) */}
+                  <div className="px-3 pt-2 pb-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${muted}`}>
+                        <BookOpen size={10} /> Eventos
+                      </span>
+                      {canEdit && (
+                        <button
+                          onClick={() => setAcademicFormDate(dateStr)}
+                          className="text-[10px] text-purple-500 hover:text-purple-400 flex items-center gap-0.5 transition-colors"
+                          title="Criar evento acadêmico"
+                        >
+                          <Plus size={10} /> Novo
+                        </button>
+                      )}
+                    </div>
+
+                    {academic_.length === 0 ? (
+                      <p className={`text-[10px] italic ${muted} opacity-60`}>Sem eventos</p>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        {academic_.map((ev) => (
+                          <div key={ev.id}
+                            className="rounded-lg border border-purple-400/30 bg-purple-500/10 px-2 py-1.5 cursor-pointer hover:bg-purple-500/20 transition-colors"
+                            onClick={() => canEdit && (setEditingEvent(ev), setIsModalOpen(true))}>
+                            <p className="text-[10px] font-semibold text-purple-400 leading-tight truncate">
+                              {ev.description || ev.disciplineId}
+                            </p>
+                            {(ev.startTime || ev.location) && (
+                              <p className={`text-[9px] mt-0.5 ${muted}`}>
+                                {ev.startTime && `${ev.startTime} `}{ev.location}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              )}
             </div>
           </div>
         );
@@ -329,7 +406,7 @@ export const GanttProgramming = () => {
 
       {/* ── Legend ──────────────────────────────────────────────────────────── */}
       {disciplines.length > 0 && (() => {
-        const usedIds = new Set(weekEvents.map((e) => e.disciplineId));
+        const usedIds   = new Set(weekEvents.map((e) => e.disciplineId));
         const usedDiscs = disciplines.filter((d) => usedIds.has(d.id));
         if (!usedDiscs.length) return null;
         return (
@@ -347,37 +424,69 @@ export const GanttProgramming = () => {
         );
       })()}
 
-      {/* ── Event edit modal ─────────────────────────────────────────────────── */}
+      {/* ── Modals ──────────────────────────────────────────────────────────── */}
+
+      {/* Edição de aula */}
       {isModalOpen && editingEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setIsModalOpen(false); setEditingEvent(undefined); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => { setIsModalOpen(false); setEditingEvent(undefined); }}>
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
             <EventForm
               initialData={editingEvent}
-              onSubmit={(data) => {
-                updateEvent(editingEvent.id, data);
-                setIsModalOpen(false);
-                setEditingEvent(undefined);
-              }}
-              onDelete={(id) => {
-                useCourseStore.getState().deleteEvent(id);
-                setIsModalOpen(false);
-                setEditingEvent(undefined);
-              }}
+              onSubmit={(data) => { updateEvent(editingEvent.id, data); setIsModalOpen(false); setEditingEvent(undefined); }}
+              onDelete={(id) => { useCourseStore.getState().deleteEvent(id); setIsModalOpen(false); setEditingEvent(undefined); }}
               onCancel={() => { setIsModalOpen(false); setEditingEvent(undefined); }}
             />
           </div>
         </div>
       )}
 
-      {/* ── SAP Link modal ───────────────────────────────────────────────────── */}
-      {isLinkModalOpen && (
-        <LinkChangeRequestModal
-          selectedEventIds={selectedEventIds}
-          onClose={() => setIsLinkModalOpen(false)}
-        />
+      {/* Criação de aviso */}
+      {noticeFormDate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setNoticeFormDate(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
+            <NoticeForm
+              initialData={{
+                startDate: noticeFormDate,
+                endDate: noticeFormDate,
+                targetSquadron: currentSquadron,
+                targetRoles: ["CADETE", "DOCENTE", "ADMIN", "SUPER_ADMIN"] as any,
+              }}
+              onSubmit={handleNoticeSubmit}
+              onCancel={() => setNoticeFormDate(null)}
+            />
+          </div>
+        </div>
       )}
 
-      {/* ── Delete confirm ───────────────────────────────────────────────────── */}
+      {/* Criação de evento acadêmico */}
+      {academicFormDate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setAcademicFormDate(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
+            <EventForm
+              initialData={{
+                date: academicFormDate,
+                type: "ACADEMIC",
+                disciplineId: "ACADEMIC",
+                classId: `${currentSquadron}ESQ`,
+                targetSquadron: currentSquadron,
+                targetClass: "ALL",
+              }}
+              onSubmit={handleAcademicSubmit}
+              onCancel={() => setAcademicFormDate(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* SAP Link */}
+      {isLinkModalOpen && (
+        <LinkChangeRequestModal selectedEventIds={selectedEventIds} onClose={() => setIsLinkModalOpen(false)} />
+      )}
+
+      {/* Delete confirm */}
       <ConfirmDialog
         isOpen={isDeleteConfirmOpen}
         onClose={() => setIsDeleteConfirmOpen(false)}
