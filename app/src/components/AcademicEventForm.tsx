@@ -195,11 +195,10 @@ export const AcademicEventForm = ({
         <ConfirmDialog
           title="Excluir evento acadêmico?"
           message={`"${title}" será removido permanentemente.`}
-          confirmLabel="Excluir"
-          cancelLabel="Cancelar"
+          confirmText="Excluir"
+          cancelText="Cancelar"
           onConfirm={() => { onDelete!(initialData!.id!); setDeleteConfirm(false); }}
           onCancel={() => setDeleteConfirm(false)}
-          variant="danger"
         />
       )}
     </>
