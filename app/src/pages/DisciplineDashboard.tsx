@@ -1,9 +1,9 @@
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  BookOpen, CheckCircle, Clock, AlertTriangle, TrendingUp,
+  BookOpen, CheckCircle, AlertTriangle, TrendingUp,
   TrendingDown, Filter, Search, ChevronDown, ChevronUp,
-  BarChart2, Target, Calendar, Layers
+  Target, Calendar, Layers
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
