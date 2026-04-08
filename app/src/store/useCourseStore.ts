@@ -21,8 +21,22 @@ import {
   batchDelete,
   normalizeEvent,
 } from "../services/supabaseService";
+import { supabase } from "../config/supabase";
 
 import { TIME_SLOTS } from "../utils/constants";
+
+// ── Helper: chama admin-manage-content via edge function (service role) ───────
+async function contentFn(action: string, payload: Record<string, unknown>): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error("Sessão não encontrada");
+  const { data, error } = await supabase.functions.invoke("admin-manage-content", {
+    body: { action, ...payload },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+}
 
 interface CourseState {
   disciplines: Discipline[];
@@ -383,13 +397,12 @@ export const useCourseStore = create<CourseState>((set) => ({
       const dbDiscipline = {
         sigla: discipline.code,
         nome: discipline.name,
-        categoria: "GERAL", // Default mapping for now
+        categoria: "GERAL",
         carga_horaria: discipline.load_hours || 0,
         campo: discipline.trainingField === "GERAL" ? null : discipline.trainingField,
-        ativo: true
+        ativo: true,
       };
-      
-      await saveDocument("disciplinas", discipline.code, dbDiscipline, "sigla");
+      await contentFn("upsert_discipline", { sigla: discipline.code, data: dbDiscipline });
       invalidateStaticCache("disciplinas");
       console.log(`✅ Disciplina ${discipline.code} salva no DB`);
     } catch (err) {
@@ -427,14 +440,13 @@ export const useCourseStore = create<CourseState>((set) => ({
       });
 
       try {
-        const dbUpdates: any = {
+        const dbUpdates = {
           sigla: after.code,
           nome: after.name,
           carga_horaria: after.load_hours || 0,
           campo: after.trainingField === "GERAL" ? null : after.trainingField,
         };
-        
-        await saveDocument("disciplinas", sigla, dbUpdates, "sigla");
+        await contentFn("update_discipline", { sigla, updates: dbUpdates });
         invalidateStaticCache("disciplinas");
         console.log(`✅ Disciplina ${sigla} atualizada no DB`);
       } catch (err) {
@@ -469,13 +481,15 @@ export const useCourseStore = create<CourseState>((set) => ({
       });
 
       try {
-        const dbItems = itemsToSave.map(d => ({
-          sigla: d.code,
-          nome: d.name,
-          carga_horaria: d.load_hours || 0,
-          campo: d.trainingField === "GERAL" ? null : d.trainingField,
-        }));
-        await batchSave("disciplinas", dbItems);
+        for (const d of itemsToSave) {
+          const dbUpdates = {
+            sigla: d.code,
+            nome: d.name,
+            carga_horaria: d.load_hours || 0,
+            campo: d.trainingField === "GERAL" ? null : d.trainingField,
+          };
+          await contentFn("update_discipline", { sigla: d.code, updates: dbUpdates });
+        }
         invalidateStaticCache("disciplinas");
       } catch (err) {
         console.error("❌ Falha no batch save de disciplinas:", err);
@@ -1062,13 +1076,11 @@ export const useCourseStore = create<CourseState>((set) => ({
           enabledClasses: instructor.enabledClasses,
         },
       };
-
-      await saveDocument("instructors", instructor.trigram, dbInstructor, "trigram");
+      await contentFn("upsert_instructor", { trigram: instructor.trigram, data: dbInstructor });
       invalidateStaticCache("instructors");
-      console.log(`✅ Docente ${instructor.trigram} salvo no DB (tabela instructors)`);
+      console.log(`✅ Docente ${instructor.trigram} salvo no DB`);
     } catch (err) {
       console.error("❌ Falha ao salvar docente no Supabase:", err);
-      // Revert optimistic update here if needed (optional)
       alert("Erro ao salvar docente no banco de dados. Verifique os campos.");
     }
   },
@@ -1098,7 +1110,7 @@ export const useCourseStore = create<CourseState>((set) => ({
       });
 
       try {
-        const mappedAfter = {
+        const updates = {
           warName: after.warName,
           name: after.fullName,
           specialty: after.rank,
@@ -1109,10 +1121,9 @@ export const useCourseStore = create<CourseState>((set) => ({
             enabledClasses: after.enabledClasses,
           },
         };
-
-        await updateDocument("instructors", trigram, mappedAfter, "trigram");
+        await contentFn("update_instructor", { trigram, updates });
         invalidateStaticCache("instructors");
-        console.log(`✅ Docente ${trigram} atualizado no DB (tabela instructors)`);
+        console.log(`✅ Docente ${trigram} atualizado no DB`);
       } catch (err) {
         console.error("❌ Falha ao atualizar docente no Supabase:", err);
         alert("Erro ao atualizar docente. Verifique as restrições do banco.");
@@ -1136,7 +1147,7 @@ export const useCourseStore = create<CourseState>((set) => ({
         entityName: discipline.name,
       });
       try {
-        await deleteDocument("disciplinas", sigla, "sigla");
+        await contentFn("delete_discipline", { sigla });
         invalidateStaticCache("disciplinas");
       } catch (err) {
         console.error("❌ Falha ao deletar disciplina:", err);
@@ -1158,7 +1169,9 @@ export const useCourseStore = create<CourseState>((set) => ({
     });
 
     try {
-      await batchDelete("disciplinas", ids, "sigla");
+      for (const sigla of ids) {
+        await contentFn("delete_discipline", { sigla });
+      }
       invalidateStaticCache("disciplinas");
     } catch (err) {
       console.error("❌ Falha no batch delete de disciplinas:", err);
@@ -1182,7 +1195,7 @@ export const useCourseStore = create<CourseState>((set) => ({
         entityName: instructor.warName,
       });
       try {
-        await deleteDocument("instructors", trigram, "trigram");
+        await contentFn("delete_instructor", { trigram });
         invalidateStaticCache("instructors");
       } catch (err) {
         console.error("❌ Falha ao deletar docente:", err);
