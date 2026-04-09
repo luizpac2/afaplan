@@ -110,7 +110,7 @@ export const GanttView = ({
                 style={{ width: LABEL_W, flexShrink: 0 }}
                 className={`flex items-center justify-center text-[10px] font-bold ${textMain} ${labelBg} border-r ${border}`}
               >
-                T{letter}
+                {squadronNum}{letter}
               </div>
 
               {/* Slots */}
