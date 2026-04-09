@@ -208,6 +208,15 @@ export const Dashboard = () => {
                 >
                   {sq}º ESQ
                 </span>
+                {(() => {
+                  const entryYear = calendarYear - sq + 1;
+                  const cohort = cohorts.find((c) => Number(c.entryYear) === entryYear);
+                  return cohort ? (
+                    <span className="text-[11px] font-semibold" style={{ color: tokens.primary }}>
+                      {cohort.name}
+                    </span>
+                  ) : null;
+                })()}
               </div>
 
               {/* Corpo: Gantt + Sidebar */}
