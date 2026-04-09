@@ -43,7 +43,6 @@ async function contentFn(action: string, payload: Record<string, unknown>): Prom
     throw error;
   }
   if (data?.error) throw new Error(data.error);
-  if (data?.debugError) console.error(`[contentFn:${action}] DEBUG ERROR:`, JSON.stringify(data.debugError));
   console.log(`[contentFn:${action}] result:`, data);
 }
 
@@ -622,7 +621,7 @@ export const useCourseStore = create<CourseState>((set) => ({
       description:    event.description ?? null,
       notes:          (event as any).notes ?? null,
       endDate:        (event as any).endDate ?? null,
-      instructorId:   event.instructorTrigram ?? null,
+      instructorId:   event.instructorTrigram || null,
     };
     contentFn("save_event", { event: dbEvent }).catch((err) => {
       console.error("Failed to save event:", err);

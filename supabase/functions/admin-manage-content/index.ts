@@ -212,7 +212,7 @@ Deno.serve(async (req) => {
     if (!event || !event.id) return err("event with id required");
     const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, instructorTrigram, evaluationType: _et, ...rest } = event as any;
     // instructorTrigram → instructorId (nome real da coluna no banco)
-    const safeEvent = { ...rest, instructorId: instructorTrigram ?? rest.instructorId ?? null };
+    const safeEvent = { ...rest, instructorId: instructorTrigram || rest.instructorId || null };
     console.log("save_event payload:", JSON.stringify(safeEvent));
     const { data: inserted, error: insErr } = await adminClient
       .from("programacao_aulas")
@@ -226,8 +226,7 @@ Deno.serve(async (req) => {
         .upsert(safeEvent);
       if (upsErr) {
         console.error("save_event upsert error code:", upsErr.code, "msg:", upsErr.message, "details:", upsErr.details);
-        // Retorna 200 com erro no corpo para diagnóstico — REMOVER DEPOIS
-        return ok({ success: false, debugError: { code: upsErr.code, message: upsErr.message, details: upsErr.details, hint: upsErr.hint } });
+        return err(`${upsErr.code}: ${upsErr.message}`, 500);
       }
     }
     console.log("save_event inserted:", inserted?.length ?? 0);
