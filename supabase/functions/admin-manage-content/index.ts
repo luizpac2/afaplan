@@ -210,7 +210,9 @@ Deno.serve(async (req) => {
   if (action === "save_event") {
     const { event } = body;
     if (!event || !event.id) return err("event with id required");
-    const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, ...safeEvent } = event as any;
+    const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, instructorTrigram, evaluationType: _et, ...rest } = event as any;
+    // instructorTrigram → instructorId (nome real da coluna no banco)
+    const safeEvent = { ...rest, instructorId: instructorTrigram ?? rest.instructorId ?? null };
     console.log("save_event keys:", Object.keys(safeEvent), "id:", safeEvent.id);
     const { data: inserted, error: insErr } = await adminClient
       .from("programacao_aulas")
@@ -236,8 +238,9 @@ Deno.serve(async (req) => {
     const { id, updates } = body;
     if (!id || !updates) return err("id and updates required");
 
-    // Strip frontend-only fields that are NOT columns in programacao_aulas
-    const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, ...safeUpdates } = updates as any;
+    // Strip frontend-only fields; remap instructorTrigram → instructorId
+    const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, instructorTrigram, evaluationType: _et, ...rest } = updates as any;
+    const safeUpdates = { ...rest, ...(instructorTrigram !== undefined ? { instructorId: instructorTrigram } : {}) };
     console.log("update_event id:", id, "keys:", Object.keys(safeUpdates));
 
     const { data: updRows, error: upErr } = await adminClient

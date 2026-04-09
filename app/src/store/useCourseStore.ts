@@ -593,6 +593,7 @@ export const useCourseStore = create<CourseState>((set) => ({
     });
 
     // Envia apenas colunas conhecidas da tabela programacao_aulas
+    // NOTA: no banco a coluna chama-se instructorId (não instructorTrigram)
     const dbEvent = {
       id:             event.id,
       date:           event.date,
@@ -601,7 +602,6 @@ export const useCourseStore = create<CourseState>((set) => ({
       disciplineId:   event.disciplineId,
       classId:        event.classId,
       type:           event.type ?? null,
-      evaluationType: event.evaluationType ?? null,
       location:       event.location ?? null,
       color:          event.color ?? null,
       targetSquadron: event.targetSquadron != null ? String(event.targetSquadron) : null,
@@ -610,7 +610,7 @@ export const useCourseStore = create<CourseState>((set) => ({
       description:    event.description ?? null,
       notes:          (event as any).notes ?? null,
       endDate:        (event as any).endDate ?? null,
-      instructorTrigram: event.instructorTrigram ?? null,
+      instructorId:   event.instructorTrigram ?? null,
     };
     contentFn("save_event", { event: dbEvent }).catch((err) => {
       console.error("Failed to save event:", err);
