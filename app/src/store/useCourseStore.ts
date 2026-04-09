@@ -592,7 +592,27 @@ export const useCourseStore = create<CourseState>((set) => ({
       ),
     });
 
-    contentFn("save_event", { event }).catch((err) => {
+    // Envia apenas colunas conhecidas da tabela programacao_aulas
+    const dbEvent = {
+      id:             event.id,
+      date:           event.date,
+      startTime:      event.startTime ?? null,
+      endTime:        event.endTime ?? null,
+      disciplineId:   event.disciplineId,
+      classId:        event.classId,
+      type:           event.type ?? null,
+      evaluationType: event.evaluationType ?? null,
+      location:       event.location ?? null,
+      color:          event.color ?? null,
+      targetSquadron: event.targetSquadron != null ? String(event.targetSquadron) : null,
+      targetCourse:   event.targetCourse ?? null,
+      targetClass:    event.targetClass ?? null,
+      description:    event.description ?? null,
+      notes:          (event as any).notes ?? null,
+      endDate:        (event as any).endDate ?? null,
+      instructorTrigram: event.instructorTrigram ?? null,
+    };
+    contentFn("save_event", { event: dbEvent }).catch((err) => {
       console.error("Failed to save event:", err);
     });
   },
