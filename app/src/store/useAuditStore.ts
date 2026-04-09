@@ -4,6 +4,19 @@ import type { AuditLogEntry, AuditLogState } from "../types/auditLog";
 
 const PAGE_SIZE = 50;
 
+// Mapeia linha do banco para AuditLogEntry
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mapRow = (r: any): AuditLogEntry => ({
+  id:         r.id,
+  timestamp:  r.timestamp,
+  action:     r.action,
+  entity:     r.entity,
+  entityId:   r.entityId ?? r.registro_id ?? "",
+  entityName: r.entityName ?? r.tabela ?? "",
+  changes:    r.changes ?? (r.dados_antes || r.dados_depois ? { before: r.dados_antes, after: r.dados_depois } : undefined),
+  user:       r.user ?? r.user_id ?? "Sistema",
+});
+
 interface ExtendedAuditLogState extends AuditLogState {
   page: number;
   loading: boolean;
@@ -33,13 +46,13 @@ export const useAuditStore = create<ExtendedAuditLogState>((set, get) => ({
     set({ loading: true, logs: [] });
     try {
       const { data, error } = await supabase
-        .from("audit_log")
+        .from("action_logs")
         .select("*")
         .order("timestamp", { ascending: false })
         .range(0, PAGE_SIZE - 1);
 
       if (error) throw error;
-      const logs = (data ?? []) as AuditLogEntry[];
+      const logs = (data ?? []).map(mapRow) as AuditLogEntry[];
       set({ logs, page: 1, hasMore: logs.length === PAGE_SIZE, loading: false });
     } catch (error) {
       console.error("Error fetching logs:", error);
@@ -55,13 +68,13 @@ export const useAuditStore = create<ExtendedAuditLogState>((set, get) => ({
     try {
       const from = page * PAGE_SIZE;
       const { data, error } = await supabase
-        .from("audit_log")
+        .from("action_logs")
         .select("*")
         .order("timestamp", { ascending: false })
         .range(from, from + PAGE_SIZE - 1);
 
       if (error) throw error;
-      const newLogs = (data ?? []) as AuditLogEntry[];
+      const newLogs = (data ?? []).map(mapRow) as AuditLogEntry[];
       set({
         logs: [...logs, ...newLogs],
         page: page + 1,

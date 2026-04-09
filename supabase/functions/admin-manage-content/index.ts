@@ -206,5 +206,25 @@ Deno.serve(async (req) => {
     return ok({ success: true });
   }
 
+  // ── log_action ──────────────────────────────────────────────────────────────
+  if (action === "log_action") {
+    const { entry } = body;
+    if (!entry) return err("entry required");
+    const { error: insErr } = await adminClient.from("action_logs").insert({
+      action:      entry.action,
+      entity:      entry.entity,
+      entityId:    entry.entityId,
+      entityName:  entry.entityName ?? null,
+      changes:     entry.changes ?? null,
+      user:        entry.user ?? null,
+      userId:      user.id,
+    });
+    if (insErr) {
+      console.error("log_action insert error:", insErr.message);
+      return err(insErr.message, 500);
+    }
+    return ok({ success: true });
+  }
+
   return err("Unknown action");
 });

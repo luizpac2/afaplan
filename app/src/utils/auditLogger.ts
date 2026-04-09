@@ -1,9 +1,9 @@
+import { supabase } from "../config/supabase";
 import type {
   AuditAction,
   AuditEntity,
   AuditLogEntry,
 } from "../types/auditLog";
-// import { sendAuditEmail } from './emailService';
 
 interface LogActionParams {
   action: AuditAction;
@@ -23,26 +23,23 @@ export const logAction = ({
   before,
   after,
   user,
-}: LogActionParams) => {
-  const userName = user ?? "Sistema";
-
-  const logEntry: AuditLogEntry = {
-    id: crypto.randomUUID(),
+}: LogActionParams): void => {
+  const entry: Omit<AuditLogEntry, "id"> = {
     timestamp: new Date().toISOString(),
     action,
     entity,
     entityId,
     entityName,
-    changes: action === "UPDATE" ? { before, after } : undefined,
-    user: userName,
+    changes: (action === "UPDATE" && (before || after)) ? { before, after } : undefined,
+    user: user ?? "Sistema",
   };
 
-  // audit_log is populated via DB triggers (fn_audit_log); direct inserts are blocked by RLS.
-  // Logging here is intentionally suppressed to avoid false-positive errors in the console.
-  void logEntry;
-
-  // Trigger email notification (Simulated)
-  // sendAuditEmail(logEntry).catch(console.error); // DISABLED BY USER REQUEST (Daily Digest will replace this)
+  // Fire-and-forget: grava via edge function (service role, sem RLS)
+  supabase.functions
+    .invoke("admin-manage-content", { body: { action: "log_action", entry } })
+    .then(({ error }) => {
+      if (error) console.warn("[audit] falha ao gravar log:", error.message);
+    });
 };
 
 export const getEntityName = (
@@ -51,9 +48,7 @@ export const getEntityName = (
 ): string => {
   switch (entityType) {
     case "DISCIPLINE":
-      return (
-        (entity?.name as string) || (entity?.code as string) || "Disciplina"
-      );
+      return (entity?.name as string) || (entity?.code as string) || "Disciplina";
     case "EVENT":
       return `${(entity?.classId as string) || "Event"} - ${(entity?.date as string) || ""}`;
     case "CLASS":
@@ -87,38 +82,20 @@ export const formatChanges = (
   allKeys.forEach((key) => {
     const valBefore = before[key];
     const valAfter = after[key];
-
-    // Skip if values are strictly equal
     if (valBefore === valAfter) return;
-
-    // Skip if both are objects and stringified versions are equal
     if (
-      typeof valBefore === "object" &&
-      valBefore !== null &&
-      typeof valAfter === "object" &&
-      valAfter !== null
-    ) {
-      if (JSON.stringify(valBefore) === JSON.stringify(valAfter)) return;
-    }
-
-    // Add change log
-    changes.push(
-      `${key}: ${formatValue(valBefore)} → ${formatValue(valAfter)}`,
-    );
+      typeof valBefore === "object" && valBefore !== null &&
+      typeof valAfter === "object" && valAfter !== null &&
+      JSON.stringify(valBefore) === JSON.stringify(valAfter)
+    ) return;
+    changes.push(`${key}: ${formatValue(valBefore)} → ${formatValue(valAfter)}`);
   });
 
   return changes.join(", ");
 };
 
 export const exportToCSV = (logs: AuditLogEntry[]) => {
-  const headers = [
-    "Timestamp",
-    "User",
-    "Action",
-    "Entity",
-    "Entity Name",
-    "Changes",
-  ];
+  const headers = ["Timestamp", "User", "Action", "Entity", "Entity Name", "Changes"];
   const rows = logs.map((log) => [
     new Date(log.timestamp).toLocaleString("pt-BR"),
     log.user || "Sistema",
