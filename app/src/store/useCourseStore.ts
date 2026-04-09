@@ -30,7 +30,18 @@ async function contentFn(action: string, payload: Record<string, unknown>): Prom
   const { data, error } = await supabase.functions.invoke("admin-manage-content", {
     body: { action, ...payload },
   });
-  if (error) throw error;
+  if (error) {
+    // Tenta extrair mensagem do corpo da resposta
+    const context = (error as any).context;
+    if (context && typeof context.json === "function") {
+      try {
+        const body = await context.json();
+        console.error(`[contentFn:${action}] HTTP error body:`, body);
+        throw new Error(body?.error ?? error.message);
+      } catch (parseErr) { /* ignora */ }
+    }
+    throw error;
+  }
   if (data?.error) throw new Error(data.error);
   console.log(`[contentFn:${action}] result:`, data);
 }

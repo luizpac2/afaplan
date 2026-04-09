@@ -213,20 +213,20 @@ Deno.serve(async (req) => {
     const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, instructorTrigram, evaluationType: _et, ...rest } = event as any;
     // instructorTrigram → instructorId (nome real da coluna no banco)
     const safeEvent = { ...rest, instructorId: instructorTrigram ?? rest.instructorId ?? null };
-    console.log("save_event keys:", Object.keys(safeEvent), "id:", safeEvent.id);
+    console.log("save_event payload:", JSON.stringify(safeEvent));
     const { data: inserted, error: insErr } = await adminClient
       .from("programacao_aulas")
       .insert(safeEvent)
       .select("id");
     if (insErr) {
-      console.error("save_event insert error:", insErr.message);
+      console.error("save_event insert error code:", insErr.code, "msg:", insErr.message, "details:", insErr.details, "hint:", insErr.hint);
       // Tenta upsert como fallback (registro já existe)
       const { error: upsErr } = await adminClient
         .from("programacao_aulas")
         .upsert(safeEvent);
       if (upsErr) {
-        console.error("save_event upsert error:", upsErr.message);
-        return err(upsErr.message, 500);
+        console.error("save_event upsert error code:", upsErr.code, "msg:", upsErr.message, "details:", upsErr.details);
+        return err(`${upsErr.code}: ${upsErr.message} | ${upsErr.details ?? ""}`, 500);
       }
     }
     console.log("save_event inserted:", inserted?.length ?? 0);
