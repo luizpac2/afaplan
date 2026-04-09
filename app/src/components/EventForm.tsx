@@ -19,6 +19,7 @@ interface EventFormProps {
   onDelete?: (id: string) => void;
   onCancel: () => void;
   isBatchMode?: boolean;
+  lockClass?: boolean; // quando true, oculta seletores de esquadrão/turma (já definidos pelo slot)
 }
 
 export const EventForm = ({
@@ -27,6 +28,7 @@ export const EventForm = ({
   onDelete,
   onCancel,
   isBatchMode = false,
+  lockClass = false,
 }: EventFormProps) => {
   const { disciplines, swapEvents, instructors, classes } = useCourseStore();
   const { theme } = useTheme();
@@ -228,43 +230,55 @@ export const EventForm = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* 1. Squadron Selector - FIRST */}
-          <div>
-            <label
-              className={`block text-sm  mb-1 ${theme === "dark" ? "text-slate-300" : "text-gray-700"}`}
-            >
-              Esquadrão
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {[1, 2, 3, 4].map((num) => (
-                <button
-                  key={num}
-                  type="button"
-                  onClick={() => {
-                    const squadron = num;
-                    setSelectedSquadron(squadron);
-                    setFormData((prev) => ({
-                      ...prev,
-                      classId: "",
-                      disciplineId: checkDisciplineCompatibility(
-                        prev.disciplineId,
-                        squadron,
-                        "",
-                      )
-                        ? prev.disciplineId
-                        : "",
-                    }));
-                  }}
-                  className={`py-2 text-sm  rounded-lg border transition-all ${selectedSquadron === num
-                    ? "bg-blue-600 border-blue-600 text-white shadow-sm"
-                    : `${theme === "dark" ? "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200" : "bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600"}`
-                    }`}
-                >
-                  {num}º
-                </button>
-              ))}
+          {/* 1. Squadron / Class — oculto quando lockClass (já definido pelo slot) */}
+          {lockClass ? (
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm ${theme === "dark" ? "bg-slate-700/40 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
+              <span className="font-semibold">{formData.classId}</span>
+              <span className="opacity-60">·</span>
+              <span className="opacity-70">
+                {getCourseFromClassId(formData.classId) === "AVIATION" ? "Aviação" :
+                 getCourseFromClassId(formData.classId) === "INTENDANCY" ? "Intendência" :
+                 getCourseFromClassId(formData.classId) === "INFANTRY" ? "Infantaria" : "Todas"}
+              </span>
             </div>
-          </div>
+          ) : (
+            <div>
+              <label
+                className={`block text-sm  mb-1 ${theme === "dark" ? "text-slate-300" : "text-gray-700"}`}
+              >
+                Esquadrão
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {[1, 2, 3, 4].map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => {
+                      const squadron = num;
+                      setSelectedSquadron(squadron);
+                      setFormData((prev) => ({
+                        ...prev,
+                        classId: "",
+                        disciplineId: checkDisciplineCompatibility(
+                          prev.disciplineId,
+                          squadron,
+                          "",
+                        )
+                          ? prev.disciplineId
+                          : "",
+                      }));
+                    }}
+                    className={`py-2 text-sm  rounded-lg border transition-all ${selectedSquadron === num
+                      ? "bg-blue-600 border-blue-600 text-white shadow-sm"
+                      : `${theme === "dark" ? "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200" : "bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600"}`
+                      }`}
+                  >
+                    {num}º
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* New: Event Type Selector */}
           <div className="grid grid-cols-2 gap-4">
@@ -349,8 +363,8 @@ export const EventForm = ({
             )}
           </div>
 
-          {/* 2. Class Selector - SECOND (only show after squadron is selected) */}
-          {selectedSquadron && (
+          {/* 2. Class Selector - SECOND (oculto quando lockClass) */}
+          {!lockClass && selectedSquadron && (
             <div>
               <label
                 className={`block text-sm  mb-1 ${theme === "dark" ? "text-slate-300" : "text-gray-700"}`}

@@ -550,6 +550,7 @@ export const GanttProgramming = () => {
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
             <EventForm
               initialData={editingEvent}
+              lockClass={!editingEvent.id}
               onSubmit={(data) => {
                 if (editingEvent.id) {
                   // Edição
