@@ -534,8 +534,18 @@ export const GanttProgramming = () => {
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
             <EventForm
               initialData={editingEvent}
-              onSubmit={(data) => { updateEvent(editingEvent.id, data); setIsModalOpen(false); setEditingEvent(undefined); }}
-              onDelete={(id) => { useCourseStore.getState().deleteEvent(id); setIsModalOpen(false); setEditingEvent(undefined); }}
+              onSubmit={(data) => {
+                updateEvent(editingEvent.id, data);
+                setWeekEvents((prev) => prev.map((e) => e.id === editingEvent.id ? { ...e, ...data } : e));
+                setIsModalOpen(false);
+                setEditingEvent(undefined);
+              }}
+              onDelete={(id) => {
+                useCourseStore.getState().deleteEvent(id);
+                setWeekEvents((prev) => prev.filter((e) => e.id !== id));
+                setIsModalOpen(false);
+                setEditingEvent(undefined);
+              }}
               onCancel={() => { setIsModalOpen(false); setEditingEvent(undefined); }}
             />
           </div>
