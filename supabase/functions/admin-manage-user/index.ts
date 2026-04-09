@@ -83,10 +83,13 @@ Deno.serve(async (req: Request) => {
         });
       }
 
+      // Mapeia roles do frontend para valores válidos do enum user_role no DB
+      const dbRole = mapRoleToDB(role);
+
       // Upsert para garantir que crie se não existir
       const { error } = await adminClient
         .from("user_roles")
-        .upsert({ user_id: userId, role: role.toLowerCase() }, { onConflict: "user_id" });
+        .upsert({ user_id: userId, role: dbRole }, { onConflict: "user_id" });
 
       if (error) throw error;
       return new Response(JSON.stringify({ ok: true }), {
@@ -158,3 +161,15 @@ Deno.serve(async (req: Request) => {
     });
   }
 });
+
+// Converte role do frontend para valor válido do enum user_role no Postgres
+function mapRoleToDB(frontendRole: string): string {
+  switch (frontendRole.toUpperCase()) {
+    case "SUPER_ADMIN":   return "super_admin";
+    case "ADMIN":         return "gestor";
+    case "DOCENTE":       return "docente";
+    case "CADETE":        return "cadete";
+    case "CHEFE_TURMA":   return "cadete"; // cadete com permissão extra
+    default:              return "cadete";
+  }
+}
