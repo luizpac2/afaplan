@@ -181,6 +181,29 @@ export const EventForm = ({
     return null;
   };
 
+  // Verifica se disciplina está habilitada para um dado esquadrão (ano) e curso
+  // Suporta tanto o sistema legado (year/course/category) quanto o novo (enabledYears/enabledCourses)
+  const isDisciplineEnabledFor = (
+    d: typeof disciplines[0],
+    squadron: number | null,
+    course: "AVIATION" | "INTENDANCY" | "INFANTRY" | null,
+  ): boolean => {
+    const hasNewSystem = (d.enabledYears?.length ?? 0) > 0 || (d.enabledCourses?.length ?? 0) > 0;
+
+    if (hasNewSystem) {
+      // Novo sistema: enabledYears e enabledCourses
+      const yearOk = !squadron || !d.enabledYears?.length || d.enabledYears.includes(squadron as any);
+      const courseOk = !course || !d.enabledCourses?.length || d.enabledCourses.includes(course);
+      return yearOk && courseOk;
+    }
+
+    // Sistema legado: year / course / category
+    const yearOk = !squadron || d.year === squadron || d.year === "ALL";
+    if (!yearOk) return false;
+    if (!course) return true;
+    return d.course === course || d.course === "ALL" || d.category === "COMMON";
+  };
+
   const checkDisciplineCompatibility = (
     disciplineId: string,
     squadron: number | null,
@@ -189,19 +212,8 @@ export const EventForm = ({
     if (!disciplineId) return true;
     const d = disciplines.find((disc) => disc.id === disciplineId);
     if (!d) return false;
-
-    // A. YEAR FILTER
-    const yearMatch = d.year === squadron || d.year === "ALL";
-    if (!yearMatch) return false;
-
-    // B. COURSE FILTER
-    if (!classId) return true;
-    if (classId.endsWith("ESQ"))
-      return d.course === "ALL" || d.category === "COMMON";
-
-    const course = getCourseFromClassId(classId);
-    if (course === null) return true; // unknown → allow
-    return d.course === course || d.course === "ALL" || d.category === "COMMON";
+    const course = classId ? getCourseFromClassId(classId) : null;
+    return isDisciplineEnabledFor(d, squadron, course);
   };
 
   return (
@@ -709,25 +721,8 @@ export const EventForm = ({
                             !d.code.toLowerCase().includes(term)
                           )
                             return false;
-                          const yearMatch =
-                            d.year === selectedSquadron || d.year === "ALL";
-                          if (!yearMatch) return false;
-                          if (
-                            formData.classIds.some((id) => id.endsWith("ESQ"))
-                          ) {
-                            return (
-                              d.course === "ALL" || d.category === "COMMON"
-                            );
-                          }
-                          const targetCourse = getCourseFromClassId(
-                            formData.classIds[0] || "",
-                          );
-                          if (targetCourse === null) return true;
-                          return (
-                            d.course === targetCourse ||
-                            d.course === "ALL" ||
-                            d.category === "COMMON"
-                          );
+                          const targetCourse = getCourseFromClassId(formData.classIds[0] || "");
+                          return isDisciplineEnabledFor(d, selectedSquadron, targetCourse);
                         });
 
                         if (filtered.length === 0) return null;
