@@ -211,8 +211,11 @@ export const Dashboard = () => {
                 {(() => {
                   const entryYear = calendarYear - sq + 1;
                   const cohort = cohorts.find((c) => Number(c.entryYear) === entryYear);
+                  const nameColor = isDark
+                    ? (tokens.primary === "#18181b" ? "#e2e8f0" : tokens.primary)
+                    : tokens.dark;
                   return cohort ? (
-                    <span className="text-[11px] font-semibold" style={{ color: tokens.primary }}>
+                    <span className="text-[11px] font-semibold" style={{ color: nameColor }}>
                       {cohort.name}
                     </span>
                   ) : null;
