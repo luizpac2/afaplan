@@ -330,7 +330,7 @@ export const Dashboard = () => {
           onClick={() => setNoticeFormSquadron(null)}>
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
             <NoticeForm
-              initialData={{ startDate: TODAY, endDate: TODAY, targetSquadron: noticeFormSquadron }}
+              initialData={{ startDate: TODAY, endDate: TODAY, targetSquadron: noticeFormSquadron as CourseYear }}
               onSubmit={handleNoticeSubmit}
               onCancel={() => setNoticeFormSquadron(null)}
             />
@@ -344,7 +344,7 @@ export const Dashboard = () => {
           onClick={() => setAcademicFormSquadron(null)}>
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
             <AcademicEventForm
-              initialData={{ date: TODAY, type: "ACADEMIC", disciplineId: "ACADEMIC", classId: `${academicFormSquadron}ESQ`, targetSquadron: academicFormSquadron }}
+              initialData={{ date: TODAY, type: "ACADEMIC", disciplineId: "ACADEMIC", classId: `${academicFormSquadron}ESQ`, targetSquadron: academicFormSquadron as unknown as CourseYear }}
               onSubmit={handleAcademicSubmit}
               onCancel={() => setAcademicFormSquadron(null)}
             />
