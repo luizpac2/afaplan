@@ -101,8 +101,6 @@ export const Dashboard = () => {
 
   const border = isDark ? "border-slate-700" : "border-slate-200";
   const card   = isDark ? "bg-slate-800/60 border-slate-700" : "bg-white border-slate-200 shadow-sm";
-  const text   = isDark ? "text-slate-100" : "text-slate-800";
-  const muted  = isDark ? "text-slate-400" : "text-slate-500";
 
   return (
     <div className="p-4 md:p-6 flex flex-col gap-5 max-w-[1800px] mx-auto">
@@ -129,7 +127,7 @@ export const Dashboard = () => {
               <div
                 key={ev.id}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold"
-                style={{ background: col.bg, borderColor: col.border, color: col.text }}
+                style={{ background: col.bg, borderColor: col.border, color: col.title }}
               >
                 <span>📅</span>
                 <span>{ev.description || ev.location || "Evento Acadêmico"}</span>
@@ -197,7 +195,7 @@ export const Dashboard = () => {
                       <span
                         key={e.id}
                         className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border truncate max-w-[180px]"
-                        style={{ background: col.bg, borderColor: col.border, color: col.text }}
+                        style={{ background: col.bg, borderColor: col.border, color: col.title }}
                       >
                         📅 {e.description || e.location || "Evento"}
                         {e.startTime ? ` ${e.startTime}` : ""}
