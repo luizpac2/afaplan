@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, Bell, BookOpen, AlertTriangle, Info, CalendarDays, Zap } from "lucide-react";
+import { Calendar, Bell, BookOpen, AlertTriangle, Info, CalendarDays, Zap, Plus } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { GanttView } from "../components/GanttView";
-import { getAcademicColor } from "../components/AcademicEventForm";
-import { subscribeToEventsByDateRange } from "../services/supabaseService";
+import { AcademicEventForm, getAcademicColor } from "../components/AcademicEventForm";
+import { NoticeForm } from "../components/NoticeForm";
+import { subscribeToEventsByDateRange, saveDocument } from "../services/supabaseService";
+import { supabase } from "../config/supabase";
 import { formatDate } from "../utils/dateUtils";
-import type { ScheduleEvent, CourseYear } from "../types";
+import type { ScheduleEvent, CourseYear, SystemNotice } from "../types";
 import type { CohortColor } from "../types";
 import { getCohortColorTokens } from "../utils/cohortColors";
 
@@ -26,12 +28,19 @@ export const Dashboard = () => {
   const { userProfile } = useAuth();
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const { disciplines, notices, cohorts, classes: storeClasses, fetchYearlyEvents, dataReady } = useCourseStore();
+  const {
+    disciplines, notices, cohorts, classes: storeClasses,
+    fetchYearlyEvents, dataReady, addNotice, addEvent,
+  } = useCourseStore();
 
   const [todayEvents, setTodayEvents] = useState<ScheduleEvent[]>([]);
   const [yearlyEvents, setYearlyEvents] = useState<ScheduleEvent[]>([]);
+  const [noticeFormSquadron, setNoticeFormSquadron] = useState<number | null>(null);
+  const [academicFormSquadron, setAcademicFormSquadron] = useState<number | null>(null);
+  const [editingAcademic, setEditingAcademic] = useState<ScheduleEvent | null>(null);
 
   const calendarYear = new Date().getFullYear();
+  const canEdit = ["SUPER_ADMIN", "ADMIN"].includes(userProfile?.role || "");
 
   useEffect(() => {
     if (!dataReady) return;
@@ -88,7 +97,6 @@ export const Dashboard = () => {
     return result;
   }, [cohorts, calendarYear]);
 
-  // Notices e academic por esquadrão no dia de hoje
   const squadronNotices = (sq: number) =>
     notices.filter((n) =>
       TODAY >= n.startDate && TODAY <= n.endDate &&
@@ -103,6 +111,60 @@ export const Dashboard = () => {
       const ts = e.targetSquadron;
       return ts === "ALL" || ts == null || Number(ts) === sq;
     });
+
+  const handleNoticeSubmit = (data: Partial<SystemNotice>) => {
+    addNotice({
+      ...data,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      createdBy: userProfile?.uid || "system",
+    } as SystemNotice);
+    setNoticeFormSquadron(null);
+  };
+
+  const handleAcademicSubmit = (data: Omit<ScheduleEvent, "id">) => {
+    const id = crypto.randomUUID();
+    const newEvent = { ...data, id };
+    addEvent(newEvent);
+    setTodayEvents((prev) => [...prev, newEvent]);
+    const dbPayload: Record<string, any> = {
+      id, date: data.date, startTime: data.startTime ?? null, endTime: data.endTime ?? null,
+      description: data.description ?? null, notes: (data as any).notes ?? null,
+      endDate: (data as any).endDate ?? null, location: data.location ?? null,
+      targetSquadron: data.targetSquadron != null ? String(data.targetSquadron) : null,
+      targetCourse: data.targetCourse ?? null, targetClass: data.targetClass ?? null,
+      type: data.type ?? null, disciplineId: data.disciplineId, classId: data.classId, color: data.color ?? null,
+    };
+    saveDocument("programacao_aulas", id, dbPayload).catch((err) => console.error("[AcademicSave]", err));
+    setAcademicFormSquadron(null);
+  };
+
+  const handleAcademicUpdate = (data: Omit<ScheduleEvent, "id">) => {
+    if (!editingAcademic) return;
+    const dbPayload: Record<string, any> = {
+      date: data.date, startTime: data.startTime ?? null, endTime: data.endTime ?? null,
+      description: data.description ?? null, notes: (data as any).notes ?? null,
+      endDate: (data as any).endDate ?? null, location: data.location ?? null,
+      targetSquadron: data.targetSquadron != null ? String(data.targetSquadron) : null,
+      targetCourse: data.targetCourse ?? null, targetClass: data.targetClass ?? null,
+      type: data.type ?? null, color: data.color ?? null,
+    };
+    const merged = { ...editingAcademic, ...data };
+    setTodayEvents((prev) => prev.map((e) => e.id === editingAcademic.id ? merged : e));
+    useCourseStore.setState((s) => ({
+      events: s.events.map((e) => e.id === editingAcademic.id ? merged : e),
+    }));
+    supabase.functions
+      .invoke("admin-manage-content", { body: { action: "update_event", id: editingAcademic.id, updates: dbPayload } })
+      .then(({ error }) => { if (error) console.error("[AcademicUpdate]", error.message); });
+    setEditingAcademic(null);
+  };
+
+  const handleAcademicDelete = (id: string) => {
+    useCourseStore.getState().deleteEvent(id);
+    setTodayEvents((prev) => prev.filter((e) => e.id !== id));
+    setEditingAcademic(null);
+  };
 
   const border    = isDark ? "border-slate-700" : "border-slate-200";
   const card      = isDark ? "bg-slate-800/60 border-slate-700" : "bg-white border-slate-200 shadow-sm";
@@ -131,11 +193,11 @@ export const Dashboard = () => {
           const tokens    = cohortTokens[sq];
           const notices_  = squadronNotices(sq);
           const academic_ = squadronAcademic(sq);
-          const hasSidebar = notices_.length > 0 || academic_.length > 0;
+          const hasSidebar = notices_.length > 0 || academic_.length > 0 || canEdit;
 
           return (
             <div key={sq} className={idx > 0 ? `border-t ${border}` : ""}>
-              {/* Cabeçalho do esquadrão */}
+              {/* Cabeçalho */}
               <div
                 className="px-4 py-1.5 flex items-center gap-2"
                 style={{ background: isDark ? `${tokens.primary}22` : tokens.light }}
@@ -150,7 +212,6 @@ export const Dashboard = () => {
 
               {/* Corpo: Gantt + Sidebar */}
               <div className="flex">
-                {/* Gantt */}
                 <div className="flex-1 overflow-x-auto">
                   <GanttView
                     date={TODAY}
@@ -162,15 +223,24 @@ export const Dashboard = () => {
                   />
                 </div>
 
-                {/* Sidebar — igual ao GanttProgramming */}
                 {hasSidebar && (
                   <div className={`w-52 flex-shrink-0 border-l ${border} ${sidebarBg} flex flex-col gap-0`}>
 
                     {/* Avisos */}
                     <div className="px-3 pt-3 pb-2">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 mb-1.5 ${muted}`}>
-                        <Bell size={10} /> Avisos
-                      </span>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${muted}`}>
+                          <Bell size={10} /> Avisos
+                        </span>
+                        {canEdit && (
+                          <button
+                            onClick={() => setNoticeFormSquadron(sq)}
+                            className="text-[10px] text-blue-500 hover:text-blue-400 flex items-center gap-0.5 transition-colors"
+                          >
+                            <Plus size={10} /> Novo
+                          </button>
+                        )}
+                      </div>
                       {notices_.length === 0 ? (
                         <p className={`text-[10px] italic ${muted} opacity-60`}>Sem avisos</p>
                       ) : (
@@ -200,9 +270,19 @@ export const Dashboard = () => {
 
                     {/* Eventos acadêmicos */}
                     <div className="px-3 pt-2 pb-3">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 mb-1.5 ${muted}`}>
-                        <BookOpen size={10} /> Eventos
-                      </span>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${muted}`}>
+                          <BookOpen size={10} /> Eventos
+                        </span>
+                        {canEdit && (
+                          <button
+                            onClick={() => setAcademicFormSquadron(sq)}
+                            className="text-[10px] text-purple-500 hover:text-purple-400 flex items-center gap-0.5 transition-colors"
+                          >
+                            <Plus size={10} /> Novo
+                          </button>
+                        )}
+                      </div>
                       {academic_.length === 0 ? (
                         <p className={`text-[10px] italic ${muted} opacity-60`}>Sem eventos</p>
                       ) : (
@@ -210,7 +290,12 @@ export const Dashboard = () => {
                           {academic_.map((ev) => {
                             const col = getAcademicColor(ev.targetSquadron, isDark);
                             return (
-                              <div key={ev.id} className={`rounded-lg border ${col.border} ${col.bg} px-2 py-1.5`}>
+                              <div
+                                key={ev.id}
+                                className={`rounded-lg border ${col.border} ${col.bg} px-2 py-1.5 transition-colors ${canEdit ? `cursor-pointer ${col.hover}` : ""}`}
+                                onClick={() => canEdit && setEditingAcademic(ev)}
+                                title={canEdit ? "Clique para editar" : undefined}
+                              >
                                 <p className={`text-[10px] font-semibold leading-tight ${col.title}`}>
                                   {ev.description || ev.location || "Evento acadêmico"}
                                 </p>
@@ -238,6 +323,49 @@ export const Dashboard = () => {
           );
         })}
       </div>
+
+      {/* Modal: Novo Aviso */}
+      {noticeFormSquadron !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setNoticeFormSquadron(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
+            <NoticeForm
+              initialData={{ startDate: TODAY, endDate: TODAY, targetSquadron: noticeFormSquadron }}
+              onSubmit={handleNoticeSubmit}
+              onCancel={() => setNoticeFormSquadron(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Novo Evento Acadêmico */}
+      {academicFormSquadron !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setAcademicFormSquadron(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
+            <AcademicEventForm
+              initialData={{ date: TODAY, type: "ACADEMIC", disciplineId: "ACADEMIC", classId: `${academicFormSquadron}ESQ`, targetSquadron: academicFormSquadron }}
+              onSubmit={handleAcademicSubmit}
+              onCancel={() => setAcademicFormSquadron(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Editar Evento Acadêmico */}
+      {editingAcademic && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setEditingAcademic(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
+            <AcademicEventForm
+              initialData={editingAcademic}
+              onSubmit={handleAcademicUpdate}
+              onDelete={handleAcademicDelete}
+              onCancel={() => setEditingAcademic(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
