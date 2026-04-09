@@ -226,7 +226,8 @@ Deno.serve(async (req) => {
         .upsert(safeEvent);
       if (upsErr) {
         console.error("save_event upsert error code:", upsErr.code, "msg:", upsErr.message, "details:", upsErr.details);
-        return err(`${upsErr.code}: ${upsErr.message} | ${upsErr.details ?? ""}`, 500);
+        // Retorna 200 com erro no corpo para diagnóstico — REMOVER DEPOIS
+        return ok({ success: false, debugError: { code: upsErr.code, message: upsErr.message, details: upsErr.details, hint: upsErr.hint } });
       }
     }
     console.log("save_event inserted:", inserted?.length ?? 0);

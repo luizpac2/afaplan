@@ -43,6 +43,7 @@ async function contentFn(action: string, payload: Record<string, unknown>): Prom
     throw error;
   }
   if (data?.error) throw new Error(data.error);
+  if (data?.debugError) console.error(`[contentFn:${action}] DEBUG ERROR:`, JSON.stringify(data.debugError));
   console.log(`[contentFn:${action}] result:`, data);
 }
 
