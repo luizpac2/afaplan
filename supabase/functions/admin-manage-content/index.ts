@@ -211,13 +211,23 @@ Deno.serve(async (req) => {
     const { event } = body;
     if (!event || !event.id) return err("event with id required");
     const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, ...safeEvent } = event as any;
-    const { error: upsErr } = await adminClient
+    console.log("save_event keys:", Object.keys(safeEvent), "id:", safeEvent.id);
+    const { data: inserted, error: insErr } = await adminClient
       .from("programacao_aulas")
-      .upsert(safeEvent, { onConflict: "id" });
-    if (upsErr) {
-      console.error("save_event error:", upsErr.message);
-      return err(upsErr.message, 500);
+      .insert(safeEvent)
+      .select("id");
+    if (insErr) {
+      console.error("save_event insert error:", insErr.message);
+      // Tenta upsert como fallback (registro já existe)
+      const { error: upsErr } = await adminClient
+        .from("programacao_aulas")
+        .upsert(safeEvent);
+      if (upsErr) {
+        console.error("save_event upsert error:", upsErr.message);
+        return err(upsErr.message, 500);
+      }
     }
+    console.log("save_event inserted:", inserted?.length ?? 0);
     return ok({ success: true });
   }
 
