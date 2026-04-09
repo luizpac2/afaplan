@@ -440,6 +440,7 @@ export const useCourseStore = create<CourseState>((set) => ({
         const dbUpdates: Record<string, unknown> = {
           name: after.name,
           load_hours: after.load_hours ?? 0,
+          color: after.color ?? null,
           data: {
             ...existingData,
             trainingField: after.trainingField !== "GERAL" ? after.trainingField : undefined,
@@ -487,14 +488,15 @@ export const useCourseStore = create<CourseState>((set) => ({
       try {
         for (const d of itemsToSave) {
           const dbUpdates = {
-            code: d.code,
             name: d.name,
             load_hours: d.load_hours || 0,
+            color: d.color ?? null,
             data: {
               ...(d as any).data,
               trainingField: d.trainingField !== "GERAL" ? d.trainingField : undefined,
               instructor: d.instructor,
               instructorTrigram: d.instructorTrigram,
+              color: d.color ?? null,
             },
           };
           await contentFn("update_discipline", { code: d.code, updates: dbUpdates });
