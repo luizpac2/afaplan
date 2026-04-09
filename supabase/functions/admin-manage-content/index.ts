@@ -206,6 +206,40 @@ Deno.serve(async (req) => {
     return ok({ success: true });
   }
 
+  // ── update_event ────────────────────────────────────────────────────────────
+  if (action === "update_event") {
+    const { id, updates } = body;
+    if (!id || !updates) return err("id and updates required");
+
+    // Strip frontend-only fields that are NOT columns in programacao_aulas
+    const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, ...safeUpdates } = updates as any;
+    console.log("update_event id:", id, "keys:", Object.keys(safeUpdates));
+
+    const { data: updRows, error: upErr } = await adminClient
+      .from("programacao_aulas")
+      .update(safeUpdates)
+      .eq("id", id)
+      .select("id");
+    if (upErr) {
+      console.error("update_event error:", upErr.message);
+      return err(upErr.message, 500);
+    }
+    console.log("update_event rows updated:", updRows?.length ?? 0);
+    return ok({ success: true, updated: updRows?.length ?? 0 });
+  }
+
+  // ── delete_event ────────────────────────────────────────────────────────────
+  if (action === "delete_event") {
+    const { id } = body;
+    if (!id) return err("id required");
+    const { error: delErr } = await adminClient
+      .from("programacao_aulas")
+      .delete()
+      .eq("id", id);
+    if (delErr) return err(delErr.message, 500);
+    return ok({ success: true });
+  }
+
   // ── log_action ──────────────────────────────────────────────────────────────
   if (action === "log_action") {
     const { entry } = body;

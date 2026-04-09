@@ -649,11 +649,9 @@ export const useCourseStore = create<CourseState>((set) => ({
     });
     invalidateEventsLocalCache();
 
-    if (true) {
-      updateDocument("programacao_aulas", id, updates).catch((err) => {
-        console.error("Failed to update event:", err);
-      });
-    }
+    contentFn("update_event", { id, updates }).catch((err) => {
+      console.error("Failed to update event:", err);
+    });
   },
 
   deleteEvent: (id) => {
@@ -675,11 +673,9 @@ export const useCourseStore = create<CourseState>((set) => ({
     });
     invalidateEventsLocalCache();
 
-    if (true) {
-      deleteDocument("programacao_aulas", id).catch((err) => {
-        console.error("Failed to delete event:", err);
-      });
-    }
+    contentFn("delete_event", { id }).catch((err) => {
+      console.error("Failed to delete event:", err);
+    });
   },
 
   deleteBatchEvents: (ids) => {

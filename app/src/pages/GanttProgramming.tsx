@@ -7,7 +7,8 @@ import {
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { useAuth } from "../contexts/AuthContext";
-import { subscribeToEventsByDateRange, updateDocument, saveDocument } from "../services/supabaseService";
+import { subscribeToEventsByDateRange, saveDocument } from "../services/supabaseService";
+import { supabase } from "../config/supabase";
 import { GanttView } from "../components/GanttView";
 import { EventForm } from "../components/EventForm";
 import { AcademicEventForm, getAcademicColor } from "../components/AcademicEventForm";
@@ -231,10 +232,13 @@ export const GanttProgramming = () => {
       events: s.events.map((e) => e.id === editingAcademic.id ? merged : e),
     }));
 
-    // Persiste no banco com payload controlado (uma única chamada)
-    updateDocument("programacao_aulas", editingAcademic.id, dbPayload)
-      .then(() => console.log("[AcademicUpdate] salvo:", dbPayload))
-      .catch((err) => console.error("[AcademicUpdate] DB error:", err));
+    // Persiste via edge function (service role, bypassa RLS)
+    supabase.functions
+      .invoke("admin-manage-content", { body: { action: "update_event", id: editingAcademic.id, updates: dbPayload } })
+      .then(({ error }) => {
+        if (error) console.error("[AcademicUpdate] edge error:", error.message);
+        else console.log("[AcademicUpdate] salvo:", dbPayload);
+      });
 
     setEditingAcademic(null);
   };
