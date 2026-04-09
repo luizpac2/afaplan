@@ -78,6 +78,11 @@ export const GanttProgramming = () => {
   const [isLinkModalOpen, setIsLinkModalOpen]   = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
+  // ── Batch allocation mode ─────────────────────────────────────────────────
+  const [isBatchMode, setIsBatchMode] = useState(false);
+  const [selectedSlots, setSelectedSlots] = useState<{ classId: string; slotIndex: number; date: string }[]>([]);
+  const [isBatchFormOpen, setIsBatchFormOpen] = useState(false);
+
   // ── Sidebar: notice / event creation / editing ───────────────────────────
   const [noticeFormDate, setNoticeFormDate]       = useState<string | null>(null);
   const [academicFormDate, setAcademicFormDate]   = useState<string | null>(null);
@@ -170,6 +175,34 @@ export const GanttProgramming = () => {
       type: "CLASS",
     });
     setIsModalOpen(true);
+  };
+
+  const handleSlotSelect = (classId: string, slotIndex: number, date: string) => {
+    setSelectedSlots((prev) => {
+      const exists = prev.some((s) => s.classId === classId && s.slotIndex === slotIndex && s.date === date);
+      return exists
+        ? prev.filter((s) => !(s.classId === classId && s.slotIndex === slotIndex && s.date === date))
+        : [...prev, { classId, slotIndex, date }];
+    });
+  };
+
+  const handleBatchAllocate = (data: Omit<ScheduleEvent, "id">) => {
+    const newEvents: ScheduleEvent[] = selectedSlots.map(({ classId, slotIndex, date }) => {
+      const slot = TIME_SLOTS[slotIndex];
+      return {
+        ...data,
+        id: crypto.randomUUID(),
+        classId,
+        date,
+        startTime: slot?.start || data.startTime,
+        endTime: slot?.end || data.endTime,
+      };
+    });
+    newEvents.forEach((ev) => addEvent(ev));
+    setWeekEvents((prev) => [...prev, ...newEvents]);
+    setIsBatchFormOpen(false);
+    setIsBatchMode(false);
+    setSelectedSlots([]);
   };
 
   const handleBatchDelete = () => {
@@ -310,7 +343,31 @@ export const GanttProgramming = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {canEdit && !isSelectionMode && (
+          {canEdit && !isSelectionMode && !isBatchMode && (
+            <button
+              onClick={() => setIsBatchMode(true)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-green-400 text-green-600`}
+            >
+              <Plus size={13} /> Alocar em Lote
+            </button>
+          )}
+          {canEdit && isBatchMode && (
+            <div className="flex items-center gap-2">
+              <span className={`text-xs ${muted}`}>{selectedSlots.length} slot(s)</span>
+              <button
+                onClick={() => { if (selectedSlots.length > 0) setIsBatchFormOpen(true); }}
+                disabled={selectedSlots.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium text-green-600 border-green-400 hover:bg-green-500/10 disabled:opacity-40 transition-colors"
+              >
+                <Plus size={13} /> Alocar
+              </button>
+              <button onClick={() => { setIsBatchMode(false); setSelectedSlots([]); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-slate-400 ${muted}`}>
+                <X size={13} /> Cancelar
+              </button>
+            </div>
+          )}
+          {canEdit && !isSelectionMode && !isBatchMode && (
             <button
               onClick={() => setIsSelectionMode(true)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-blue-400 ${text}`}
@@ -401,7 +458,10 @@ export const GanttProgramming = () => {
                   onSelectEvent={handleSelectEvent}
                   isSelectionMode={isSelectionMode}
                   onSlotDrop={handleSlotDrop}
-                  onEmptySlotClick={handleEmptySlotClick}
+                  onEmptySlotClick={!isBatchMode ? handleEmptySlotClick : undefined}
+                  isBatchMode={isBatchMode}
+                  selectedSlots={selectedSlots}
+                  onSlotSelect={handleSlotSelect}
                 />
               </div>
 
@@ -545,6 +605,28 @@ export const GanttProgramming = () => {
       })()}
 
       {/* ── Modals ──────────────────────────────────────────────────────────── */}
+
+      {/* Alocação em Lote */}
+      {isBatchFormOpen && selectedSlots.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setIsBatchFormOpen(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
+            <EventForm
+              initialData={{
+                classId: selectedSlots[0].classId,
+                date: selectedSlots[0].date,
+                startTime: TIME_SLOTS[selectedSlots[0].slotIndex]?.start || "07:00",
+                endTime: TIME_SLOTS[selectedSlots[0].slotIndex]?.end || "08:00",
+                type: "CLASS",
+              }}
+              lockClass
+              isBatchMode
+              onSubmit={handleBatchAllocate}
+              onCancel={() => setIsBatchFormOpen(false)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Edição de aula */}
       {isModalOpen && editingEvent && (

@@ -17,6 +17,9 @@ interface Props {
   isSelectionMode?: boolean;
   onSlotDrop?: (event: ScheduleEvent, newSlotIndex: number) => void;
   onEmptySlotClick?: (classId: string, slotIndex: number, date: string) => void;
+  isBatchMode?: boolean;
+  selectedSlots?: { classId: string; slotIndex: number; date: string }[];
+  onSlotSelect?: (classId: string, slotIndex: number, date: string) => void;
 }
 
 // Largura fixa de cada coluna de tempo (px) — define o quadrado
@@ -37,6 +40,9 @@ export const GanttView = ({
   isSelectionMode = false,
   onSlotDrop,
   onEmptySlotClick,
+  isBatchMode = false,
+  selectedSlots = [],
+  onSlotSelect,
 }: Props) => {
   const { instructors } = useCourseStore();
   const { theme } = useTheme();
@@ -129,6 +135,9 @@ export const GanttView = ({
                 const code = disc?.code || ev?.disciplineId || "";
 
                 const isSelected = ev ? selectedEventIds.includes(ev.id) : false;
+                const isSlotSelected = !ev && selectedSlots.some(
+                  (s) => s.classId === classId && s.slotIndex === i && s.date === date
+                );
 
                 const handleDragStart = (e: React.DragEvent) => {
                   if (!canEdit || !ev) return;
@@ -171,8 +180,22 @@ export const GanttView = ({
                       flexShrink: 0,
                       background: ev ? undefined : emptyBg,
                     }}
-                    className={`border-l ${border} p-[3px] ${canEdit && !ev ? "hover:bg-blue-500/10 cursor-pointer" : ""}`}
-                    onClick={!ev && canEdit && !isSelectionMode ? () => onEmptySlotClick?.(classId, i, date) : undefined}
+                    className={`border-l ${border} p-[3px] ${
+                      isBatchMode && !ev
+                        ? isSlotSelected
+                          ? "bg-green-500/20 ring-1 ring-green-400 cursor-pointer"
+                          : "hover:bg-green-500/10 cursor-pointer"
+                        : canEdit && !ev && !isSelectionMode
+                          ? "hover:bg-blue-500/10 cursor-pointer"
+                          : ""
+                    }`}
+                    onClick={
+                      isBatchMode && !ev
+                        ? () => onSlotSelect?.(classId, i, date)
+                        : !ev && canEdit && !isSelectionMode
+                          ? () => onEmptySlotClick?.(classId, i, date)
+                          : undefined
+                    }
                     onDragOver={handleDragOver}
                     onDrop={handleDrop}
                   >
