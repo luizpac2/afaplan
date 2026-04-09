@@ -18,7 +18,6 @@ import {
   updateDocument,
   deleteDocument,
   batchSave,
-  batchDelete,
   normalizeEvent,
   invalidateCache,
 } from "../services/supabaseService";
@@ -706,11 +705,10 @@ export const useCourseStore = create<CourseState>((set) => ({
       entityName: `${ids.length} eventos removidos`,
     });
 
-    if (true) {
-      batchDelete("programacao_aulas", ids).catch((err) => {
-        console.error("❌ Falha crítica ao deletar no Supabase:", err);
-      });
-    }
+    // Deleta via edge function (service role) para bypassar RLS
+    Promise.all(ids.map((id) => contentFn("delete_event", { id }))).catch((err) => {
+      console.error("❌ Falha ao deletar no Supabase:", err);
+    });
   },
 
   swapEvents: (eventId, targetDate, targetTime, targetClassId) => {

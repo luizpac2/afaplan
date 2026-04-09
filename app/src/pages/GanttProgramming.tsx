@@ -173,7 +173,10 @@ export const GanttProgramming = () => {
   };
 
   const handleBatchDelete = () => {
-    if (selectedEventIds.length) deleteBatchEvents(selectedEventIds);
+    if (selectedEventIds.length) {
+      deleteBatchEvents(selectedEventIds);
+      setWeekEvents((prev) => prev.filter((e) => !selectedEventIds.includes(e.id)));
+    }
     setIsDeleteConfirmOpen(false);
     setIsSelectionMode(false);
     setSelectedEventIds([]);
