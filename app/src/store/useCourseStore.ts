@@ -446,9 +446,12 @@ export const useCourseStore = create<CourseState>((set) => ({
             trainingField: after.trainingField !== "GERAL" ? after.trainingField : undefined,
             instructor: after.instructor ?? null,
             instructorTrigram: after.instructorTrigram ?? null,
+            noSpecificInstructor: after.noSpecificInstructor ?? null,
+            location: after.location ?? null,
             color: after.color ?? null,
             enabledCourses: after.enabledCourses ?? null,
             enabledYears: after.enabledYears ?? null,
+            ppcLoads: after.ppcLoads ?? null,
           },
         };
         await contentFn("update_discipline", { code: after.code, updates: dbUpdates });
@@ -487,16 +490,22 @@ export const useCourseStore = create<CourseState>((set) => ({
 
       try {
         for (const d of itemsToSave) {
+          const existingData = (d as any).data && typeof (d as any).data === "object" ? (d as any).data : {};
           const dbUpdates = {
             name: d.name,
-            load_hours: d.load_hours || 0,
+            load_hours: d.load_hours ?? 0,
             color: d.color ?? null,
             data: {
-              ...(d as any).data,
+              ...existingData,
               trainingField: d.trainingField !== "GERAL" ? d.trainingField : undefined,
-              instructor: d.instructor,
-              instructorTrigram: d.instructorTrigram,
+              instructor: d.instructor ?? null,
+              instructorTrigram: d.instructorTrigram ?? null,
+              noSpecificInstructor: d.noSpecificInstructor ?? null,
+              location: d.location ?? null,
               color: d.color ?? null,
+              enabledCourses: d.enabledCourses ?? null,
+              enabledYears: d.enabledYears ?? null,
+              ppcLoads: d.ppcLoads ?? null,
             },
           };
           await contentFn("update_discipline", { code: d.code, updates: dbUpdates });
