@@ -368,7 +368,7 @@ export const GanttProgramming = () => {
               <span className={`text-sm font-bold ${isToday ? "text-blue-500" : text}`}>{dayNum} {monthShort}.</span>
               {isToday && <span className="text-[9px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-full">HOJE</span>}
               <span className={`text-xs ${muted}`}>
-                {weekEvents.filter(e => e.date === dateStr && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC").length} aula(s)
+                {weekEvents.filter(e => e.date === dateStr && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC" && e.classId?.startsWith(String(currentSquadron))).length} aula(s)
               </span>
               {notices_.length > 0 && (
                 <div className="flex gap-1 ml-auto">
