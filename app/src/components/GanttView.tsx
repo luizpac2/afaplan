@@ -16,6 +16,7 @@ interface Props {
   onSelectEvent?: (eventId: string) => void;
   isSelectionMode?: boolean;
   onSlotDrop?: (event: ScheduleEvent, newSlotIndex: number) => void;
+  onEmptySlotClick?: (classId: string, slotIndex: number, date: string) => void;
 }
 
 // Largura fixa de cada coluna de tempo (px) — define o quadrado
@@ -35,6 +36,7 @@ export const GanttView = ({
   onSelectEvent,
   isSelectionMode = false,
   onSlotDrop,
+  onEmptySlotClick,
 }: Props) => {
   const { instructors } = useCourseStore();
   const { theme } = useTheme();
@@ -169,7 +171,8 @@ export const GanttView = ({
                       flexShrink: 0,
                       background: ev ? undefined : emptyBg,
                     }}
-                    className={`border-l ${border} p-[3px] ${canEdit && !ev ? "hover:bg-blue-500/5" : ""}`}
+                    className={`border-l ${border} p-[3px] ${canEdit && !ev ? "hover:bg-blue-500/10 cursor-pointer" : ""}`}
+                    onClick={!ev && canEdit && !isSelectionMode ? () => onEmptySlotClick?.(classId, i, date) : undefined}
                     onDragOver={handleDragOver}
                     onDrop={handleDrop}
                   >

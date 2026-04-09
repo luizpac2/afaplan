@@ -157,6 +157,21 @@ export const GanttProgramming = () => {
     updateEvent(ev.id, { startTime: newSlot.start, endTime: newSlot.end });
   };
 
+  const handleEmptySlotClick = (classId: string, slotIndex: number, date: string) => {
+    if (!canEdit) return;
+    const slot = TIME_SLOTS[slotIndex];
+    setEditingEvent({
+      id: "",
+      disciplineId: "",
+      classId,
+      date,
+      startTime: slot?.start || "07:00",
+      endTime: slot?.end || "08:00",
+      type: "CLASS",
+    });
+    setIsModalOpen(true);
+  };
+
   const handleBatchDelete = () => {
     if (selectedEventIds.length) deleteBatchEvents(selectedEventIds);
     setIsDeleteConfirmOpen(false);
@@ -383,6 +398,7 @@ export const GanttProgramming = () => {
                   onSelectEvent={handleSelectEvent}
                   isSelectionMode={isSelectionMode}
                   onSlotDrop={handleSlotDrop}
+                  onEmptySlotClick={handleEmptySlotClick}
                 />
               </div>
 
@@ -535,8 +551,16 @@ export const GanttProgramming = () => {
             <EventForm
               initialData={editingEvent}
               onSubmit={(data) => {
-                updateEvent(editingEvent.id, data);
-                setWeekEvents((prev) => prev.map((e) => e.id === editingEvent.id ? { ...e, ...data } : e));
+                if (editingEvent.id) {
+                  // Edição
+                  updateEvent(editingEvent.id, data);
+                  setWeekEvents((prev) => prev.map((e) => e.id === editingEvent.id ? { ...e, ...data } : e));
+                } else {
+                  // Criação
+                  const newEvent: ScheduleEvent = { ...data, id: crypto.randomUUID() };
+                  addEvent(newEvent);
+                  setWeekEvents((prev) => [...prev, newEvent]);
+                }
                 setIsModalOpen(false);
                 setEditingEvent(undefined);
               }}

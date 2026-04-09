@@ -582,11 +582,9 @@ export const useCourseStore = create<CourseState>((set) => ({
       ),
     });
 
-    if (true) {
-      saveDocument("programacao_aulas", event.id, event).catch((err) => {
-        console.error("Failed to save event:", err);
-      });
-    }
+    contentFn("save_event", { event }).catch((err) => {
+      console.error("Failed to save event:", err);
+    });
   },
 
   addBatchEvents: (events) => {

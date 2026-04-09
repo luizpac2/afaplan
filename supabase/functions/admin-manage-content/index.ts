@@ -206,6 +206,21 @@ Deno.serve(async (req) => {
     return ok({ success: true });
   }
 
+  // ── save_event ──────────────────────────────────────────────────────────────
+  if (action === "save_event") {
+    const { event } = body;
+    if (!event || !event.id) return err("event with id required");
+    const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, ...safeEvent } = event as any;
+    const { error: upsErr } = await adminClient
+      .from("programacao_aulas")
+      .upsert(safeEvent, { onConflict: "id" });
+    if (upsErr) {
+      console.error("save_event error:", upsErr.message);
+      return err(upsErr.message, 500);
+    }
+    return ok({ success: true });
+  }
+
   // ── update_event ────────────────────────────────────────────────────────────
   if (action === "update_event") {
     const { id, updates } = body;
