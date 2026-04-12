@@ -23,9 +23,8 @@ interface Props {
   onDeleteEvent?: (eventId: string) => void;
 }
 
-// Dimensões responsivas — calculadas pelo componente pai via CSS
-// Usamos valores mínimos pequenos; o container define o tamanho real via flex/grid
-const MIN_COL_W = 44; // mínimo para caber o código (4 chars)
+// Desktop: células maiores com texto completo
+// Mobile: células mínimas apenas com código (sem scroll)
 const LABEL_W = 28;
 
 export const GanttView = ({
@@ -87,11 +86,9 @@ export const GanttView = ({
     return TIME_SLOTS.findIndex((s) => s.start === startTime);
   }
 
-  const minTotalW = LABEL_W + MIN_COL_W * TIME_SLOTS.length;
-
   return (
-    <div className="overflow-x-auto w-full">
-      <div style={{ minWidth: minTotalW }} className="w-full">
+    <div className="w-full">
+      <div className="w-full">
 
         {/* ── Header ───────────────────────────────────────────────── */}
         <div className={`flex border-b ${border}`}>
@@ -102,10 +99,9 @@ export const GanttView = ({
             <div
               key={i}
               className={`flex-1 flex flex-col items-center justify-center py-1 border-l ${border} ${i === 0 ? "border-l-0" : ""}`}
-              style={{ minWidth: MIN_COL_W }}
             >
               <span className={`text-[9px] font-bold leading-none ${textMain}`}>{slot.start}</span>
-              <span className={`text-[7px] leading-none mt-0.5 ${textMuted} hidden sm:block`}>{slot.end}</span>
+              <span className={`text-[7px] leading-none mt-0.5 ${textMuted} hidden md:block`}>{slot.end}</span>
             </div>
           ))}
         </div>
@@ -132,13 +128,12 @@ export const GanttView = ({
           return (
             <div
               key={letter}
-              className={`flex border-b ${border}`}
-              style={{ height: 40 }}
+              className={`flex border-b ${border} h-10 md:h-16`}
             >
               {/* Row label */}
               <div
                 style={{ width: LABEL_W, flexShrink: 0 }}
-                className={`flex items-center justify-center text-[9px] font-bold ${textMain} ${labelBg} border-r ${border}`}
+                className={`flex items-center justify-center text-[9px] font-bold ${textMain} ${labelBg} border-r ${border} h-full`}
               >
                 {squadronNum}{letter}
               </div>
@@ -211,8 +206,6 @@ export const GanttView = ({
                   <div
                     key={i}
                     style={{
-                      minWidth: MIN_COL_W,
-                      height: 40,
                       flexShrink: 1,
                       flexGrow: 1,
                       flexBasis: 0,
@@ -260,10 +253,21 @@ export const GanttView = ({
                           <span className="text-white text-[10px] font-extrabold leading-none truncate px-1 w-full text-center">
                             {hasOverlap ? "⚠" : code}
                           </span>
-                          {/* Contagem — apenas se houver espaço (não em overlap) */}
+                          {/* Contagem */}
                           {!hasOverlap && count && (
                             <span className="text-white/60 text-[8px] leading-none">
                               {count.current}/{count.total}
+                            </span>
+                          )}
+                          {/* Professor e local — apenas no desktop */}
+                          {!hasOverlap && (
+                            <span className="text-white/80 text-[8px] leading-none truncate px-1 w-full text-center hidden md:block">
+                              {displayInstructor}
+                            </span>
+                          )}
+                          {!hasOverlap && displayLocation && displayLocation !== "—" && (
+                            <span className="text-white/60 text-[7px] leading-none truncate px-1 w-full text-center hidden md:block">
+                              {displayLocation}
                             </span>
                           )}
                         </div>
