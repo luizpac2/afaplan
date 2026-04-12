@@ -149,7 +149,8 @@ export const GanttView = ({
                 const overlapEvs = overlapMap[i]; // defined only when ≥2 events share this slot
                 const hasOverlap = !!overlapEvs;
                 const disc = ev ? disciplines.find((d) => d.id === ev.disciplineId) : null;
-                const count = ev ? eventCounts?.[String(ev.id)] : null;
+                const slotKey = ev ? `${ev.classId}|${ev.date}|${ev.startTime}` : null;
+                const count = slotKey ? eventCounts?.[slotKey] : null;
 
                 const bgColor = disc?.color || "#3b82f6";
                 const trigram = ev

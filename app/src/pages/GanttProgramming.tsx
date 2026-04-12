@@ -125,7 +125,10 @@ export const GanttProgramming = () => {
       const total = (disc?.ppcLoads && pkKey && disc.ppcLoads[pkKey]) || disc?.load_hours || group.length;
       group
         .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`))
-        .forEach((ev, i) => { counts[String(ev.id)] = { current: i + 1, total }; });
+        .forEach((ev, i) => {
+          const key = `${ev.classId}|${ev.date}|${ev.startTime}`;
+          counts[key] = { current: i + 1, total };
+        });
     });
     return counts;
   }, [yearlyEvents, weekEvents, calendarYear, disciplines, classes]);
