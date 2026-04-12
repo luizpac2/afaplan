@@ -264,7 +264,13 @@ export const GanttView = ({
                               {count.current}/{count.total}
                             </span>
                           )}
-                          {/* Professor e local — apenas no desktop */}
+                          {/* Trigrama — sempre visível quando disponível */}
+                          {!hasOverlap && trigram && (
+                            <span className="text-white/75 text-[8px] font-semibold leading-none w-full text-center" style={{ letterSpacing: "-0.01em" }}>
+                              {trigram}
+                            </span>
+                          )}
+                          {/* Professor (nome de guerra) e local — apenas no desktop */}
                           {!hasOverlap && (
                             <span className="text-white/80 text-[8px] leading-none truncate px-1 w-full text-center hidden md:block">
                               {displayInstructor}
