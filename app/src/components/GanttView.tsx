@@ -273,7 +273,7 @@ export const GanttView = ({
                               <span className="text-xs font-bold text-red-500">⚠ {overlapEvs.length} eventos sobrepostos</span>
                               <button onClick={() => setOverlapPopover(null)} className="text-slate-400 hover:text-slate-200 text-xs">✕</button>
                             </div>
-                            <div className="flex flex-col divide-y" style={{ divideColor: isDark ? "#334155" : "#e2e8f0" }}>
+                            <div className={`flex flex-col divide-y ${isDark ? "divide-slate-700" : "divide-slate-200"}`}>
                               {overlapEvs.map((oEv, oIdx) => {
                                 const oDisc = disciplines.find(d => d.id === oEv.disciplineId);
                                 const oName = oDisc?.name || oEv.disciplineId;
