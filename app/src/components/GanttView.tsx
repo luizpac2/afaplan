@@ -129,7 +129,7 @@ export const GanttView = ({
           return (
             <div
               key={letter}
-              className={`flex border-b ${border} h-10 md:h-16`}
+              className={`flex border-b ${border} h-10 md:h-20`}
             >
               {/* Row label */}
               <div
@@ -264,13 +264,13 @@ export const GanttView = ({
                               {count.current}/{count.total}
                             </span>
                           )}
-                          {/* Trigrama — sempre visível quando disponível */}
+                          {/* Trigrama — apenas no mobile (substituído pelo nome completo no desktop) */}
                           {!hasOverlap && trigram && (
-                            <span className="text-white/75 text-[8px] font-semibold leading-none w-full text-center" style={{ letterSpacing: "-0.01em" }}>
+                            <span className="text-white/75 text-[8px] font-semibold leading-none w-full text-center md:hidden" style={{ letterSpacing: "-0.01em" }}>
                               {trigram}
                             </span>
                           )}
-                          {/* Professor (nome de guerra) e local — apenas no desktop */}
+                          {/* Nome de guerra e local — apenas no desktop */}
                           {!hasOverlap && (
                             <span className="text-white/80 text-[8px] leading-none truncate px-1 w-full text-center hidden md:block">
                               {displayInstructor}
