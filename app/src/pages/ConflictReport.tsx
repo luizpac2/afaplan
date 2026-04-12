@@ -153,8 +153,11 @@ export const ConflictReport = () => {
 
   const handleResolve = (conflict: Conflict) => {
     if (!conflict.classId) return;
+    // Extract squadron number from classId (e.g. "1E" → "1", "4" → "4")
+    const firstChar = conflict.classId.charAt(0);
+    const squadronId = /^\d$/.test(firstChar) ? firstChar : "1";
     const dateParam = conflict.date ? `?date=${conflict.date}` : "";
-    navigate(`/programming/${conflict.classId}${dateParam}`);
+    navigate(`/gantt/${squadronId}${dateParam}`);
   };
 
   return (

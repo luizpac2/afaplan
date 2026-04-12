@@ -519,7 +519,7 @@ export function detectConflicts(
                 {
                     label: 'Mover aula',
                     action: 'navigate',
-                    payload: `/programming/${event.classId}?date=${event.date}`
+                    payload: `/gantt/${event.classId.charAt(0).match(/^[1-4]$/) ? event.classId.charAt(0) : "1"}?date=${event.date}`
                 },
                 {
                     label: 'Remover bloqueio',
@@ -567,7 +567,7 @@ export function detectConflicts(
                 {
                     label: 'Mover para período correto',
                     action: 'navigate',
-                    payload: `/programming/${event.classId}?date=${event.date}`
+                    payload: `/gantt/${event.classId.charAt(0).match(/^[1-4]$/) ? event.classId.charAt(0) : "1"}?date=${event.date}`
                 },
                 {
                     label: 'Revisar Ficha Informativa',
@@ -624,7 +624,7 @@ export function detectConflicts(
                 {
                     label: 'Remover aulas excedentes',
                     action: 'navigate',
-                    payload: `/programming/${classId}`
+                    payload: `/gantt/${classId.charAt(0).match(/^[1-4]$/) ? classId.charAt(0) : "1"}`
                 },
                 {
                     label: 'Ajustar carga na Ficha',

@@ -100,9 +100,12 @@ export const GanttView = ({
           const rowEvents = dayEvents.filter((e) => e.classId === classId);
 
           const slotMap: Record<number, ScheduleEvent> = {};
+          const overlapSlots = new Set<number>(); // slots com mais de 1 evento
           rowEvents.forEach((ev) => {
             const idx = slotIndex(ev.startTime || "");
-            if (idx >= 0) slotMap[idx] = ev;
+            if (idx < 0) return;
+            if (slotMap[idx]) overlapSlots.add(idx);
+            else slotMap[idx] = ev;
           });
 
           return (
@@ -122,6 +125,7 @@ export const GanttView = ({
               {/* Slots */}
               {TIME_SLOTS.map((_, i) => {
                 const ev   = slotMap[i];
+                const hasOverlap = overlapSlots.has(i);
                 const disc = ev ? disciplines.find((d) => d.id === ev.disciplineId) : null;
                 const count = ev ? eventCounts?.[String(ev.id)] : null;
 
@@ -204,16 +208,27 @@ export const GanttView = ({
                         onClick={handleClick}
                         draggable={canEdit}
                         onDragStart={handleDragStart}
-                        title={`${disc?.name || ev.disciplineId} | ${displayInstructor} | ${displayLocation}${count ? ` | Aula ${count.current}/${count.total}` : ""}`}
-                        className="w-full h-full rounded cursor-pointer hover:brightness-110 transition-all flex flex-col justify-between px-[5px] py-[4px] overflow-hidden"
+                        title={`${disc?.name || ev.disciplineId} | ${displayInstructor} | ${displayLocation}${count ? ` | Aula ${count.current}/${count.total}` : ""}${hasOverlap ? " ⚠ SOBREPOSIÇÃO: há outro evento neste horário" : ""}`}
+                        className="w-full h-full rounded cursor-pointer hover:brightness-110 transition-all flex flex-col justify-between px-[5px] py-[4px] overflow-hidden relative"
                         style={{
                           backgroundColor: bgColor,
-                          border: isSelected ? "2px solid white" : "1px solid rgba(0,0,0,0.15)",
-                          outline: isSelected ? "2px solid #3b82f6" : "none",
+                          border: hasOverlap ? "2px solid #ef4444" : isSelected ? "2px solid white" : "1px solid rgba(0,0,0,0.15)",
+                          outline: isSelected ? "2px solid #3b82f6" : hasOverlap ? "2px solid #fca5a5" : "none",
                           outlineOffset: "1px",
                           cursor: canEdit ? (isSelectionMode ? "pointer" : "grab") : "pointer",
                         }}
                       >
+                        {/* Indicador de sobreposição */}
+                        {hasOverlap && (
+                          <div className="absolute top-0 right-0 w-0 h-0"
+                            style={{
+                              borderLeft: "14px solid transparent",
+                              borderTop: "14px solid #ef4444",
+                            }}
+                            title="Sobreposição detectada"
+                          />
+                        )}
+
                         {/* Linha 1 — código (maior) */}
                         <span className="text-white text-[11px] font-extrabold leading-none truncate">
                           {code}
@@ -229,9 +244,9 @@ export const GanttView = ({
                           {displayLocation}
                         </span>
 
-                        {/* Linha 4 — contagem */}
-                        <span className="text-white/60 text-[8px] leading-none">
-                          {count ? `${count.current}/${count.total}` : ""}
+                        {/* Linha 4 — contagem ou aviso de sobreposição */}
+                        <span className={`text-[8px] leading-none ${hasOverlap ? "text-red-200 font-bold" : "text-white/60"}`}>
+                          {hasOverlap ? "⚠ Sobreposição" : count ? `${count.current}/${count.total}` : ""}
                         </span>
                       </div>
                     ) : (
