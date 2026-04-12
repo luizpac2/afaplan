@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
 import type { ScheduleEvent, Discipline } from "../types";
@@ -20,6 +20,7 @@ interface Props {
   isBatchMode?: boolean;
   selectedSlots?: { classId: string; slotIndex: number; date: string }[];
   onSlotSelect?: (classId: string, slotIndex: number, date: string) => void;
+  onDeleteEvent?: (eventId: string) => void;
 }
 
 // Largura fixa de cada coluna de tempo (px) — define o quadrado
@@ -43,11 +44,14 @@ export const GanttView = ({
   isBatchMode = false,
   selectedSlots = [],
   onSlotSelect,
+  onDeleteEvent,
 }: Props) => {
   const { instructors } = useCourseStore();
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const dragEventRef = useRef<ScheduleEvent | null>(null);
+  // Overlap popover: { key: "classId_slotIdx", events }
+  const [overlapPopover, setOverlapPopover] = useState<{ key: string; evs: ScheduleEvent[] } | null>(null);
 
   const dayEvents = useMemo(
     () => events.filter((e) => e.date === date && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC"),
@@ -100,12 +104,16 @@ export const GanttView = ({
           const rowEvents = dayEvents.filter((e) => e.classId === classId);
 
           const slotMap: Record<number, ScheduleEvent> = {};
-          const overlapSlots = new Set<number>(); // slots com mais de 1 evento
+          const overlapMap: Record<number, ScheduleEvent[]> = {}; // idx → todos os eventos sobrepostos
           rowEvents.forEach((ev) => {
             const idx = slotIndex(ev.startTime || "");
             if (idx < 0) return;
-            if (slotMap[idx]) overlapSlots.add(idx);
-            else slotMap[idx] = ev;
+            if (slotMap[idx]) {
+              overlapMap[idx] = overlapMap[idx] ?? [slotMap[idx]];
+              overlapMap[idx].push(ev);
+            } else {
+              slotMap[idx] = ev;
+            }
           });
 
           return (
@@ -125,7 +133,8 @@ export const GanttView = ({
               {/* Slots */}
               {TIME_SLOTS.map((_, i) => {
                 const ev   = slotMap[i];
-                const hasOverlap = overlapSlots.has(i);
+                const overlapEvs = overlapMap[i]; // defined only when ≥2 events share this slot
+                const hasOverlap = !!overlapEvs;
                 const disc = ev ? disciplines.find((d) => d.id === ev.disciplineId) : null;
                 const count = ev ? eventCounts?.[String(ev.id)] : null;
 
@@ -168,12 +177,21 @@ export const GanttView = ({
 
                 const handleClick = () => {
                   if (!ev) return;
+                  if (hasOverlap && canEdit) {
+                    // Open overlap popover instead of edit modal
+                    const key = `${classId}_${i}`;
+                    setOverlapPopover(prev => prev?.key === key ? null : { key, evs: overlapEvs! });
+                    return;
+                  }
                   if (isSelectionMode && onSelectEvent) {
                     onSelectEvent(ev.id);
                   } else {
                     onEventClick?.(ev);
                   }
                 };
+
+                const popoverKey = `${classId}_${i}`;
+                const isPopoverOpen = overlapPopover?.key === popoverKey;
 
                 return (
                   <div
@@ -183,6 +201,7 @@ export const GanttView = ({
                       height: ROW_H,
                       flexShrink: 0,
                       background: ev ? undefined : emptyBg,
+                      position: "relative",
                     }}
                     className={`border-l ${border} p-[3px] ${
                       isBatchMode && !ev
@@ -204,51 +223,100 @@ export const GanttView = ({
                     onDrop={handleDrop}
                   >
                     {ev ? (
-                      <div
-                        onClick={handleClick}
-                        draggable={canEdit}
-                        onDragStart={handleDragStart}
-                        title={`${disc?.name || ev.disciplineId} | ${displayInstructor} | ${displayLocation}${count ? ` | Aula ${count.current}/${count.total}` : ""}${hasOverlap ? " ⚠ SOBREPOSIÇÃO: há outro evento neste horário" : ""}`}
-                        className="w-full h-full rounded cursor-pointer hover:brightness-110 transition-all flex flex-col justify-between px-[5px] py-[4px] overflow-hidden relative"
-                        style={{
-                          backgroundColor: bgColor,
-                          border: hasOverlap ? "2px solid #ef4444" : isSelected ? "2px solid white" : "1px solid rgba(0,0,0,0.15)",
-                          outline: isSelected ? "2px solid #3b82f6" : hasOverlap ? "2px solid #fca5a5" : "none",
-                          outlineOffset: "1px",
-                          cursor: canEdit ? (isSelectionMode ? "pointer" : "grab") : "pointer",
-                        }}
-                      >
-                        {/* Indicador de sobreposição */}
-                        {hasOverlap && (
-                          <div className="absolute top-0 right-0 w-0 h-0"
-                            style={{
-                              borderLeft: "14px solid transparent",
-                              borderTop: "14px solid #ef4444",
-                            }}
-                            title="Sobreposição detectada"
-                          />
+                      <>
+                        <div
+                          onClick={handleClick}
+                          draggable={canEdit && !hasOverlap}
+                          onDragStart={handleDragStart}
+                          title={hasOverlap
+                            ? `⚠ ${overlapEvs!.length} aulas no mesmo horário — clique para resolver`
+                            : `${disc?.name || ev.disciplineId} | ${displayInstructor} | ${displayLocation}${count ? ` | Aula ${count.current}/${count.total}` : ""}`}
+                          className="w-full h-full rounded transition-all flex flex-col justify-between px-[5px] py-[4px] overflow-hidden relative"
+                          style={{
+                            backgroundColor: hasOverlap ? "#b91c1c" : bgColor,
+                            border: hasOverlap ? "2px solid #ef4444" : isSelected ? "2px solid white" : "1px solid rgba(0,0,0,0.15)",
+                            outline: isSelected ? "2px solid #3b82f6" : "none",
+                            outlineOffset: "1px",
+                            cursor: hasOverlap ? "pointer" : canEdit ? (isSelectionMode ? "pointer" : "grab") : "pointer",
+                            animation: hasOverlap ? "pulse 2s cubic-bezier(0.4,0,0.6,1) infinite" : "none",
+                          }}
+                        >
+                          {/* Linha 1 — ícone de alerta ou código */}
+                          <span className="text-white text-[11px] font-extrabold leading-none truncate">
+                            {hasOverlap ? "⚠ CONFLITO" : code}
+                          </span>
+
+                          {/* Linha 2 */}
+                          <span className="text-white/80 text-[8px] leading-none truncate">
+                            {hasOverlap ? `${overlapEvs!.length} aulas` : displayInstructor}
+                          </span>
+
+                          {/* Linha 3 */}
+                          <span className="text-white/70 text-[8px] leading-none truncate">
+                            {hasOverlap ? "mesmo horário" : displayLocation}
+                          </span>
+
+                          {/* Linha 4 */}
+                          <span className="text-white/60 text-[8px] leading-none">
+                            {hasOverlap ? "clique p/ resolver" : count ? `${count.current}/${count.total}` : ""}
+                          </span>
+                        </div>
+
+                        {/* Overlap popover */}
+                        {isPopoverOpen && overlapEvs && (
+                          <div
+                            className="absolute z-50 top-full left-0 mt-1 w-64 rounded-lg shadow-xl border overflow-hidden"
+                            style={{ background: isDark ? "#1e293b" : "#fff", borderColor: isDark ? "#334155" : "#e2e8f0" }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: isDark ? "#334155" : "#e2e8f0" }}>
+                              <span className="text-xs font-bold text-red-500">⚠ {overlapEvs.length} eventos sobrepostos</span>
+                              <button onClick={() => setOverlapPopover(null)} className="text-slate-400 hover:text-slate-200 text-xs">✕</button>
+                            </div>
+                            <div className="flex flex-col divide-y" style={{ divideColor: isDark ? "#334155" : "#e2e8f0" }}>
+                              {overlapEvs.map((oEv, oIdx) => {
+                                const oDisc = disciplines.find(d => d.id === oEv.disciplineId);
+                                const oName = oDisc?.name || oEv.disciplineId;
+                                const oCode = oDisc?.code || oEv.disciplineId;
+                                return (
+                                  <div key={oEv.id} className="px-3 py-2 flex items-center justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-xs font-semibold truncate ${isDark ? "text-slate-100" : "text-slate-800"}`}>{oCode} — {oName}</p>
+                                      <p className={`text-[10px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>{oEv.startTime} · {oEv.classId}</p>
+                                    </div>
+                                    <div className="flex gap-1 flex-shrink-0">
+                                      {canEdit && (
+                                        <button
+                                          onClick={() => { onEventClick?.(oEv); setOverlapPopover(null); }}
+                                          className="px-2 py-1 text-[10px] rounded border text-blue-400 border-blue-700 hover:bg-blue-900/30"
+                                        >
+                                          Editar
+                                        </button>
+                                      )}
+                                      {canEdit && onDeleteEvent && (
+                                        <button
+                                          onClick={() => {
+                                            onDeleteEvent(oEv.id);
+                                            if (overlapEvs.length <= 2) setOverlapPopover(null);
+                                            else setOverlapPopover(p => p ? { ...p, evs: p.evs.filter(e => e.id !== oEv.id) } : null);
+                                          }}
+                                          className="px-2 py-1 text-[10px] rounded border text-red-400 border-red-700 hover:bg-red-900/30"
+                                          title={`Excluir evento ${oIdx + 1}`}
+                                        >
+                                          Excluir
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className={`px-3 py-1.5 text-[10px] ${isDark ? "text-slate-500 bg-slate-800/50" : "text-slate-400 bg-slate-50"}`}>
+                              Exclua os eventos duplicados para resolver o conflito
+                            </div>
+                          </div>
                         )}
-
-                        {/* Linha 1 — código (maior) */}
-                        <span className="text-white text-[11px] font-extrabold leading-none truncate">
-                          {code}
-                        </span>
-
-                        {/* Linha 2 — docente */}
-                        <span className="text-white/80 text-[8px] leading-none truncate">
-                          {displayInstructor}
-                        </span>
-
-                        {/* Linha 3 — local */}
-                        <span className="text-white/70 text-[8px] leading-none truncate">
-                          {displayLocation}
-                        </span>
-
-                        {/* Linha 4 — contagem ou aviso de sobreposição */}
-                        <span className={`text-[8px] leading-none ${hasOverlap ? "text-red-200 font-bold" : "text-white/60"}`}>
-                          {hasOverlap ? "⚠ Sobreposição" : count ? `${count.current}/${count.total}` : ""}
-                        </span>
-                      </div>
+                      </>
                     ) : (
                       <div className="w-full h-full" />
                     )}

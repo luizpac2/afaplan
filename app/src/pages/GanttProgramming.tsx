@@ -462,6 +462,7 @@ export const GanttProgramming = () => {
                   isBatchMode={isBatchMode}
                   selectedSlots={selectedSlots}
                   onSlotSelect={handleSlotSelect}
+                  onDeleteEvent={(id) => useCourseStore.getState().deleteEvent(id)}
                 />
               </div>
 
