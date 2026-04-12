@@ -46,6 +46,17 @@ export const ConflictReport = () => {
 
   // Detect all conflicts
   const allConflicts = useMemo(() => {
+    console.log(`[ConflictReport] yearEvents=${yearEvents.length} disciplines=${disciplines.length}`);
+    // Log duplicate slots to understand false positives
+    const slotCount = new Map<string, number>();
+    yearEvents.forEach(e => {
+      if (e.type === 'ACADEMIC' || e.disciplineId === 'ACADEMIC') return;
+      const k = `${e.classId}|${e.date}|${e.startTime}`;
+      slotCount.set(k, (slotCount.get(k) ?? 0) + 1);
+    });
+    const dupes = [...slotCount.entries()].filter(([,v]) => v > 1);
+    if (dupes.length) console.warn(`[ConflictReport] ${dupes.length} slots duplicados:`, dupes.slice(0, 5));
+    else console.log('[ConflictReport] Nenhum slot duplicado encontrado');
     return detectConflicts(yearEvents, disciplines, semesterConfigs);
   }, [yearEvents, disciplines, semesterConfigs]);
 
