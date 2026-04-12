@@ -19,6 +19,7 @@ import {
   deleteDocument,
   batchSave,
   normalizeEvent,
+  normalizeTime,
   invalidateCache,
 } from "../services/supabaseService";
 import { supabase } from "../config/supabase";
@@ -1384,7 +1385,7 @@ export const useCourseStore = create<CourseState>((set) => ({
           slotSeen.set(r.id, r);
           return;
         }
-        const slotKey = `${r.classId}|${r.date}|${r.startTime}`;
+        const slotKey = `${r.classId}|${r.date}|${normalizeTime(r.startTime)}`;
         if (!slotSeen.has(slotKey)) slotSeen.set(slotKey, r);
       });
       const deduped = [...slotSeen.values()];

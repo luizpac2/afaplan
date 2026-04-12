@@ -42,9 +42,21 @@ const clean = (data: any): any =>
  * O banco armazena instructorId; o frontend espera instructorTrigram.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+/** Garante formato HH:mm (com zero à esquerda) */
+export const normalizeTime = (t: string | null | undefined): string => {
+  if (!t) return t as string;
+  // Remove segundos se presentes: "07:00:00" → "07:00"
+  const withoutSeconds = t.length > 5 ? t.slice(0, 5) : t;
+  // Adiciona zero à esquerda se necessário: "7:00" → "07:00"
+  const [h, m] = withoutSeconds.split(":");
+  return `${h.padStart(2, "0")}:${(m ?? "00").padStart(2, "0")}`;
+};
+
 export const normalizeEvent = (row: any): any => ({
   ...row,
   instructorTrigram: row.instructorTrigram ?? row.instructorId ?? null,
+  startTime: row.startTime ? normalizeTime(row.startTime) : row.startTime,
+  endTime:   row.endTime   ? normalizeTime(row.endTime)   : row.endTime,
 });
 
 // ---------------------------------------------------------------------------
@@ -139,7 +151,7 @@ export const subscribeToEventsByDateRange = (
         slotSeen.set(r.id, r); // eventos acadêmicos nunca deduplicados
         return;
       }
-      const slotKey = `${r.classId}|${r.date}|${r.startTime}`;
+      const slotKey = `${r.classId}|${r.date}|${normalizeTime(r.startTime)}`;
       if (!slotSeen.has(slotKey)) slotSeen.set(slotKey, r);
     });
     const deduped = [...slotSeen.values()];
