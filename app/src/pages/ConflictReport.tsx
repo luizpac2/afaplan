@@ -362,8 +362,8 @@ export const ConflictReport = () => {
                 ? "Parabéns! Sua programação está 100% livre de conflitos."
                 : "Tente ajustar os filtros para visualizar outros eventos."
             }
-            actionLabel="Atualizar Programação"
-            onAction={() => navigate("/programming/1")}
+            actionLabel="Abrir Gantt"
+            onAction={() => navigate("/gantt/1")}
           />
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-700">

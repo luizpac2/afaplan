@@ -111,6 +111,7 @@ export const GanttView = ({
             if (slotMap[idx]) {
               overlapMap[idx] = overlapMap[idx] ?? [slotMap[idx]];
               overlapMap[idx].push(ev);
+              console.warn(`[GanttView] Sobreposição detectada: classId=${classId} slot=${ev.startTime} date=${date}`, overlapMap[idx]);
             } else {
               slotMap[idx] = ev;
             }
