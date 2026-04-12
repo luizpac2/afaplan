@@ -109,7 +109,9 @@ export const GanttProgramming = () => {
   // ── eventCounts ───────────────────────────────────────────────────────────
   const eventCounts = useMemo(() => {
     const counts: Record<string, { current: number; total: number }> = {};
+    // yearlyEvents may be empty if still loading — fall back to weekEvents
     const source = yearlyEvents.length > 0 ? yearlyEvents : weekEvents;
+    console.log(`[eventCounts] source=${source === yearlyEvents ? "yearly" : "week"} len=${source.length} weekly=${weekEvents.length} yearly=${yearlyEvents.length}`);
     const groupings: Record<string, ScheduleEvent[]> = {};
     source.forEach((ev) => {
       if (ev.type === "ACADEMIC" || ev.disciplineId === "ACADEMIC") return;
@@ -129,6 +131,12 @@ export const GanttProgramming = () => {
           const key = `${ev.classId}|${ev.date}|${ev.startTime}`;
           counts[key] = { current: i + 1, total };
         });
+    });
+    // Debug: check if week event slots are covered by counts
+    weekEvents.forEach(ev => {
+      if (ev.type === "ACADEMIC" || ev.disciplineId === "ACADEMIC") return;
+      const k = `${ev.classId}|${ev.date}|${ev.startTime}`;
+      if (!counts[k]) console.warn(`[eventCounts] MISSING key=${k} id=${ev.id}`);
     });
     return counts;
   }, [yearlyEvents, weekEvents, calendarYear, disciplines, classes]);
