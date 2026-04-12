@@ -120,13 +120,18 @@ export const subscribeToEventsByDateRange = (
       .gte("endDate", startDate)
       .lt("date", startDate), // evita duplicatas (já buscados acima)
   ]).then(([r1, r2]) => {
-    if (r1.error) { callback([]); return; }
+    if (r1.error) {
+      console.error("[subscribeToEventsByDateRange] Erro r1:", r1.error);
+      callback([]);
+      return;
+    }
     const seen = new Set<string>();
     const rows = [...(r1.data ?? []), ...(r2.data ?? [])].filter((r) => {
       if (seen.has(r.id)) return false;
       seen.add(r.id);
       return true;
     });
+    console.log(`[subscribeToEventsByDateRange] ${startDate}→${endDate}: ${rows.length} eventos`);
     callback(rows.map(normalizeEvent));
   });
   return () => {};
