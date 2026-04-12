@@ -474,10 +474,10 @@ export const GanttProgramming = () => {
               )}
             </div>
 
-            {/* Body: Gantt + Sidebar — sidebar fica abaixo em telas pequenas */}
-            <div className="flex flex-col">
-              {/* Gantt — sempre ocupa largura total */}
-              <div className="w-full overflow-hidden px-2 py-2">
+            {/* Body: Gantt + Sidebar — row on desktop, column on mobile */}
+            <div className="flex flex-col md:flex-row">
+              {/* Gantt — ocupa largura disponível */}
+              <div className="flex-1 min-w-0 overflow-hidden px-2 py-2">
                 <GanttView
                   date={dateStr}
                   events={weekEvents}
@@ -498,9 +498,9 @@ export const GanttProgramming = () => {
                 />
               </div>
 
-              {/* Sidebar — abaixo do Gantt, horizontal em telas maiores */}
+              {/* Sidebar — à direita no desktop, abaixo no mobile */}
               {hasSidebar && (
-                <div className={`border-t ${border} ${sidebarBg} flex flex-col sm:flex-row gap-0`}>
+                <div className={`border-t md:border-t-0 md:border-l ${border} ${sidebarBg} flex flex-col w-full md:w-52 md:flex-shrink-0`}>
 
                   {/* Avisos */}
                   <div className="px-3 pt-3 pb-2">
