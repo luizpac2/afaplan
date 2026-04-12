@@ -20,6 +20,12 @@ export interface SchedulingResult {
     warnings?: string[];
 }
 
+export interface ConflictSuggestion {
+    label: string;       // Texto curto para exibir no botão
+    action: 'navigate' | 'info';
+    payload?: string;    // URL de navegação ou texto informativo
+}
+
 export interface Conflict {
     type: 'overlap' | 'overload' | 'restriction' | 'distribution';
     severity: 'error' | 'warning';
@@ -30,6 +36,7 @@ export interface Conflict {
     year?: number | 'ALL';
     date?: string;
     timeSlot?: string;
+    suggestions?: ConflictSuggestion[];
 }
 
 /**
@@ -371,7 +378,17 @@ export function autoScheduleDiscipline(
 }
 
 /**
- * Detect conflicts in current schedule
+ * Detect conflicts in current schedule.
+ *
+ * Key design decisions:
+ * - classId values may be arbitrary strings (UUID, numeric string like "1", "2", or legacy "1A").
+ *   The engine does NOT assume any particular format beyond what is stored in each event.
+ * - Two CLASS/EVALUATION events overlap when they share the same classId AND the same
+ *   (date, startTime). We generate exactly ONE conflict entry per unique pair of overlapping
+ *   events to avoid exponential duplicates.
+ * - ACADEMIC events with isBlocking !== false block every non-ACADEMIC event on that date.
+ * - Instructor conflicts: if two events on the same slot share the same instructorTrigram,
+ *   that instructor is double-booked.
  */
 export function detectConflicts(
     events: ScheduleEvent[],
@@ -380,192 +397,242 @@ export function detectConflicts(
 ): Conflict[] {
     const conflicts: Conflict[] = [];
 
-    // Group events by date and time
-    const eventsBySlot = new Map<string, ScheduleEvent[]>();
-    const academicBlocks = new Set<string>();
+    // ── Pre-processing ────────────────────────────────────────────────────────
+    // Separate academic blocking events from regular class events.
+    const academicBlockingDates = new Map<string, ScheduleEvent>(); // date -> first blocking ACADEMIC event
+    const classEvents: ScheduleEvent[] = [];
 
     events.forEach(event => {
         const isAcad = event.type === 'ACADEMIC' || event.disciplineId === 'ACADEMIC';
         if (isAcad) {
-            academicBlocks.add(event.date);
-            return; // Don't count academic events as potential overlaps with themselves
+            if (event.isBlocking !== false && !academicBlockingDates.has(event.date)) {
+                academicBlockingDates.set(event.date, event);
+            }
+            return;
         }
-        const key = `${event.date}_${event.startTime}`;
-        const existing = eventsBySlot.get(key) || [];
-        existing.push(event);
-        eventsBySlot.set(key, existing);
+        classEvents.push(event);
     });
 
-    // Check for semester restriction violation
-    events.forEach(event => {
+    // ── 1. Overlap detection ──────────────────────────────────────────────────
+    // Group class events by (date, startTime, classId). If a group has >1 event,
+    // there is an overlap. We use a Set of pair-keys to avoid duplicate conflict entries.
+    const overlapSeen = new Set<string>();
+    const slotMap = new Map<string, ScheduleEvent[]>(); // key = date_startTime_classId
+
+    classEvents.forEach(event => {
+        const key = `${event.date}_${event.startTime}_${event.classId}`;
+        const group = slotMap.get(key) ?? [];
+        group.push(event);
+        slotMap.set(key, group);
+    });
+
+    slotMap.forEach((group, key) => {
+        if (group.length < 2) return;
+
+        // One conflict per slot+class, referencing all overlapping events
+        if (!overlapSeen.has(key)) {
+            overlapSeen.add(key);
+            const ev = group[0];
+            const discipline1 = disciplines.find(d => d.id === group[0].disciplineId);
+            const discipline2 = disciplines.find(d => d.id === group[1].disciplineId);
+            const d1Name = discipline1?.name ?? group[0].disciplineId;
+            const d2Name = discipline2?.name ?? group[1].disciplineId;
+            conflicts.push({
+                type: 'overlap',
+                severity: 'error',
+                message: `Sobreposição: turma ${ev.classId} tem ${group.length} aulas no mesmo horário (${ev.date} ${ev.startTime}) — "${d1Name}" e "${d2Name}"`,
+                events: group,
+                classId: ev.classId,
+                date: ev.date,
+                timeSlot: ev.startTime,
+                suggestions: [
+                    {
+                        label: 'Reagendar 1ª aula',
+                        action: 'info',
+                        payload: `Remova ou mova "${d1Name}" (${ev.classId}, ${ev.date} ${ev.startTime}) para outro horário livre.`
+                    },
+                    {
+                        label: 'Reagendar 2ª aula',
+                        action: 'info',
+                        payload: `Remova ou mova "${d2Name}" (${ev.classId}, ${ev.date} ${ev.startTime}) para outro horário livre.`
+                    }
+                ]
+            });
+        }
+    });
+
+    // ── 2. Instructor double-booking ──────────────────────────────────────────
+    const instructorSlotMap = new Map<string, ScheduleEvent[]>(); // key = date_startTime_trigram
+    classEvents.forEach(event => {
+        if (!event.instructorTrigram) return;
+        const key = `${event.date}_${event.startTime}_${event.instructorTrigram}`;
+        const group = instructorSlotMap.get(key) ?? [];
+        group.push(event);
+        instructorSlotMap.set(key, group);
+    });
+
+    instructorSlotMap.forEach((group) => {
+        if (group.length < 2) return;
+        const ev = group[0];
+        const trigram = ev.instructorTrigram!;
+        const d1 = disciplines.find(d => d.id === group[0].disciplineId)?.name ?? group[0].disciplineId;
+        const d2 = disciplines.find(d => d.id === group[1].disciplineId)?.name ?? group[1].disciplineId;
+        conflicts.push({
+            type: 'overlap',
+            severity: 'error',
+            message: `Docente duplo: ${trigram} está escalado em ${group.length} turmas simultaneamente (${ev.date} ${ev.startTime}) — "${d1}" e "${d2}"`,
+            events: group,
+            classId: group.map(e => e.classId).join('/'),
+            date: ev.date,
+            timeSlot: ev.startTime,
+            suggestions: [
+                {
+                    label: 'Substituir docente',
+                    action: 'info',
+                    payload: `Atribua outro docente habilitado em "${d2}" para a turma ${group[1].classId} no horário ${ev.date} ${ev.startTime}.`
+                },
+                {
+                    label: 'Reagendar uma aula',
+                    action: 'info',
+                    payload: `Mova uma das aulas de ${trigram} para um horário em que ele esteja livre.`
+                }
+            ]
+        });
+    });
+
+    // ── 3. Academic block violations ──────────────────────────────────────────
+    classEvents.forEach(event => {
+        const blockEvent = academicBlockingDates.get(event.date);
+        if (!blockEvent) return;
+        const blockLabel = blockEvent.location ?? blockEvent.description ?? 'Evento Acadêmico';
         const discipline = disciplines.find(d => d.id === event.disciplineId);
-        if (!discipline || !discipline.scheduling_criteria?.semester) return;
+        const discName = discipline?.name ?? event.disciplineId;
+        conflicts.push({
+            type: 'restriction',
+            severity: 'error',
+            message: `Dia bloqueado: "${discName}" (${event.classId}) está agendada em ${event.date} que é um dia não-programável — "${blockLabel}"`,
+            events: [event],
+            classId: event.classId,
+            date: event.date,
+            timeSlot: event.startTime,
+            suggestions: [
+                {
+                    label: 'Mover aula',
+                    action: 'navigate',
+                    payload: `/programming/${event.classId}?date=${event.date}`
+                },
+                {
+                    label: 'Remover bloqueio',
+                    action: 'info',
+                    payload: `Acesse o Calendário Acadêmico e remova o bloqueio em ${event.date} se ele estiver incorreto.`
+                }
+            ]
+        });
+    });
+
+    // ── 4. Semester restriction violations ───────────────────────────────────
+    classEvents.forEach(event => {
+        const discipline = disciplines.find(d => d.id === event.disciplineId);
+        if (!discipline?.scheduling_criteria?.semester) return;
 
         const year = new Date(event.date).getFullYear();
         const config = semesterConfigs.find(c => c.year === year);
         if (!config) return;
 
-        const targetSemester = discipline.scheduling_criteria.semester;
-        const eventDateStr = event.date; // ISO format
-
-        const s1Start = config.s1Start;
-        const s1End = config.s1End;
-        const s2Start = config.s2Start;
-        const s2End = config.s2End;
-
+        const targetSem = discipline.scheduling_criteria.semester;
+        const dateStr = event.date;
         let isOutside = false;
-        let periodStr = "";
+        let periodStr = '';
 
-        if (targetSemester === 1) {
-            if (s1Start && s1End) {
-                isOutside = eventDateStr < s1Start || eventDateStr > s1End;
-                periodStr = `S1: ${s1Start} a ${s1End}`;
-            }
-        } else if (targetSemester === 2) {
-            if (s2Start && s2End) {
-                isOutside = eventDateStr < s2Start || eventDateStr > s2End;
-                periodStr = `S2: ${s2Start} a ${s2End}`;
-            }
+        if (targetSem === 1 && config.s1Start && config.s1End) {
+            isOutside = dateStr < config.s1Start || dateStr > config.s1End;
+            periodStr = `1º sem: ${config.s1Start} a ${config.s1End}`;
+        } else if (targetSem === 2 && config.s2Start && config.s2End) {
+            isOutside = dateStr < config.s2Start || dateStr > config.s2End;
+            periodStr = `2º sem: ${config.s2Start} a ${config.s2End}`;
         }
 
-        if (isOutside) {
-            conflicts.push({
-                type: 'restriction',
-                severity: 'warning',
-                message: `Fora do Semestre: ${discipline.name} (${event.classId}) deve ser no ${targetSemester}º semestre (${periodStr})`,
-                events: [event],
-                classId: event.classId,
-                year: discipline.year,
-                date: event.date,
-                timeSlot: event.startTime
-            });
-        }
-    });
+        if (!isOutside) return;
 
-    // Check for academic blocks violation
-    events.forEach(event => {
-        const isAcad = event.type === 'ACADEMIC' || event.disciplineId === 'ACADEMIC';
-        if (!isAcad && academicBlocks.has(event.date)) {
-            const academicEvent = events.find(e => e.date === event.date && (e.type === 'ACADEMIC' || e.disciplineId === 'ACADEMIC') && (e.isBlocking !== false));
-            if (academicEvent) {
-                conflicts.push({
-                    type: 'restriction',
-                    severity: 'error',
-                    message: `Dia Bloqueado: ${event.classId} tem aula em dia não programável (${academicEvent?.location})`,
-                    events: [event],
-                    classId: event.classId,
-                    year: parseInt(event.classId.charAt(0)) || undefined,
-                    date: event.date,
-                    timeSlot: event.startTime
-                });
-            }
-        }
-    });
-
-    // Check for overlaps (same class, same time)
-    eventsBySlot.forEach((slotEvents) => {
-        const classesBySlot = new Map<string, ScheduleEvent[]>();
-
-        slotEvents.forEach(event => {
-            // Check if classId conflicts with any existing
-            for (const [existingClass, existingEvents] of classesBySlot.entries()) {
-                // Same class
-                if (event.classId === existingClass) {
-                    conflicts.push({
-                        type: 'overlap',
-                        severity: 'error',
-                        message: `Sobreposição: Turma ${event.classId} tem múltiplas aulas no mesmo horário`,
-                        events: [...existingEvents, event],
-                        classId: event.classId,
-                        year: parseInt(event.classId.charAt(0)) || undefined,
-                        date: event.date,
-                        timeSlot: event.startTime
-                    });
+        conflicts.push({
+            type: 'restriction',
+            severity: 'warning',
+            message: `Semestre incorreto: "${discipline.name}" (${event.classId}) está em ${dateStr} mas deveria ser no ${targetSem}º semestre (${periodStr})`,
+            events: [event],
+            classId: event.classId,
+            year: discipline.year,
+            date: event.date,
+            timeSlot: event.startTime,
+            suggestions: [
+                {
+                    label: 'Mover para período correto',
+                    action: 'navigate',
+                    payload: `/programming/${event.classId}?date=${event.date}`
+                },
+                {
+                    label: 'Revisar Ficha Informativa',
+                    action: 'info',
+                    payload: `Acesse a Ficha Informativa de "${discipline.name}" e confirme a restrição de semestre.`
                 }
-
-                // ESQ conflicts with specific classes
-                if (event.classId.endsWith('ESQ')) {
-                    const squadron = event.classId.charAt(0);
-                    if (existingClass.startsWith(squadron)) {
-                        conflicts.push({
-                            type: 'overlap',
-                            severity: 'error',
-                            message: `Conflito ESQ: Aula geral do ${squadron}º Esquadrão conflita com aula da turma ${existingClass}`,
-                            events: [...existingEvents, event],
-                            classId: existingClass,
-                            year: parseInt(existingClass.charAt(0)) || undefined,
-                            date: event.date,
-                            timeSlot: event.startTime
-                        });
-                    }
-                } else if (existingClass.endsWith('ESQ')) {
-                    const squadron = existingClass.charAt(0);
-                    if (event.classId.startsWith(squadron)) {
-                        conflicts.push({
-                            type: 'overlap',
-                            severity: 'error',
-                            message: `Conflito ESQ: Aula da turma ${event.classId} conflita com aula geral do ${squadron}º Esquadrão`,
-                            events: [...existingEvents, event],
-                            classId: event.classId,
-                            year: parseInt(event.classId.charAt(0)) || undefined,
-                            date: event.date,
-                            timeSlot: event.startTime
-                        });
-                    }
-                }
-            }
-
-            const classList = classesBySlot.get(event.classId) || [];
-            classList.push(event);
-            classesBySlot.set(event.classId, classList);
+            ]
         });
     });
 
-    // Check for load violations (more classes than load_hours)
-    // Agrupa por Disciplina E Turma para evitar soma global incorreta
-    const eventsByDisciplineAndClass = new Map<string, ScheduleEvent[]>();
-    events.forEach(event => {
-        const key = `${event.disciplineId}_${event.classId}`;
-        const existing = eventsByDisciplineAndClass.get(key) || [];
-        existing.push(event);
-        eventsByDisciplineAndClass.set(key, existing);
+    // ── 5. Overload detection ─────────────────────────────────────────────────
+    // Group by disciplineId + classId and count sessions (1 session = 1 hour).
+    // Skip ACADEMIC events — they were already filtered into classEvents above.
+    const loadMap = new Map<string, ScheduleEvent[]>();
+    classEvents.forEach(event => {
+        const key = `${event.disciplineId}__${event.classId}`;
+        const list = loadMap.get(key) ?? [];
+        list.push(event);
+        loadMap.set(key, list);
     });
 
-    eventsByDisciplineAndClass.forEach((discEvents, key) => {
-        const [disciplineId, classId] = key.split('_');
+    loadMap.forEach((discEvents, key) => {
+        const sepIdx = key.indexOf('__');
+        const disciplineId = key.slice(0, sepIdx);
+        const classId = key.slice(sepIdx + 2);
         const discipline = disciplines.find(d => d.id === disciplineId);
         if (!discipline) return;
 
-        const hoursPerClass = 1;
-        const allocatedHours = discEvents.length * hoursPerClass;
+        const allocatedHours = discEvents.length; // 1 event = 1 hour
 
-        let expectedHours = discipline.load_hours || 0;
-        if (discipline.ppcLoads) {
-            // Check if classId starts with a number (e.g. 1A, 2B)
-            const yearMatch = classId.match(/^(\d)/);
-            const classYear = yearMatch ? yearMatch[1] : null;
-            if (classYear) {
-                const loadsForYear = Object.entries(discipline.ppcLoads)
-                    .filter(([k]) => k.endsWith(`_${classYear}`))
-                    .map(([, load]) => load);
-                if (loadsForYear.length > 0) {
-                    expectedHours = Math.max(...loadsForYear);
+        // Determine expected hours — use ppcLoads if available
+        let expectedHours = discipline.load_hours ?? 0;
+        if (discipline.ppcLoads && expectedHours === 0) {
+            const allLoads = Object.values(discipline.ppcLoads).filter(v => typeof v === 'number') as number[];
+            if (allLoads.length > 0) expectedHours = Math.max(...allLoads);
+        }
+
+        if (expectedHours <= 0) return; // No reference — can't determine overload
+
+        const tolerance = 1.1; // 10% buffer
+        if (allocatedHours <= expectedHours * tolerance) return;
+
+        const excess = allocatedHours - expectedHours;
+        conflicts.push({
+            type: 'overload',
+            severity: 'warning',
+            message: `Carga excedida: "${discipline.name}" tem ${allocatedHours}h alocadas na turma ${classId} (previsto: ${expectedHours}h, excesso: ${excess}h)`,
+            events: discEvents,
+            disciplineId: discipline.id,
+            classId,
+            year: discipline.year,
+            timeSlot: 'Total',
+            suggestions: [
+                {
+                    label: 'Remover aulas excedentes',
+                    action: 'navigate',
+                    payload: `/programming/${classId}`
+                },
+                {
+                    label: 'Ajustar carga na Ficha',
+                    action: 'info',
+                    payload: `Acesse a Ficha Informativa de "${discipline.name}" e corrija a carga horária prevista se o PPC foi atualizado.`
                 }
-            }
-        }
-
-        if (allocatedHours > expectedHours * 1.1) { // 10% tolerance
-            conflicts.push({
-                type: 'overload',
-                severity: 'warning',
-                message: `Carga horária excedida: "${discipline.name}" tem ${allocatedHours.toFixed(1)}h alocadas na turma ${classId} mas o previsto máximo é ${expectedHours}h`,
-                events: discEvents,
-                disciplineId: discipline.id,
-                classId: classId,
-                year: parseInt(classId.charAt(0)) || discipline.year,
-                timeSlot: 'Total'
-            });
-        }
+            ]
+        });
     });
 
     return conflicts;

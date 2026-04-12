@@ -5,10 +5,14 @@ import {
   Download,
   CalendarCheck,
   Loader2,
+  Lightbulb,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { detectConflicts } from "../utils/schedulingEngine";
+import type { Conflict } from "../utils/schedulingEngine";
 import { EmptyState } from "../components/EmptyState";
 import { useNavigate } from "react-router-dom";
 import type { ScheduleEvent } from "../types";
@@ -25,6 +29,8 @@ export const ConflictReport = () => {
   const [filterType, setFilterType] = useState<string>("ALL");
   const [filterSeverity, setFilterSeverity] = useState<string>("ALL");
   const [filterSquadron, setFilterSquadron] = useState<string>("ALL");
+  const [expandedSuggestions, setExpandedSuggestions] = useState<Set<number>>(new Set());
+  const [suggestionModal, setSuggestionModal] = useState<{ text: string } | null>(null);
   // Local state for events to enable real-time updates
   const [yearEvents, setYearEvents] = useState<ScheduleEvent[]>([]);
 
@@ -126,16 +132,29 @@ export const ConflictReport = () => {
     link.click();
   };
 
-  const handleResolve = (conflict: any) => {
+  const toggleSuggestions = (idx: number) => {
+    setExpandedSuggestions(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  const handleSuggestionAction = (conflict: Conflict, suggestionIdx: number) => {
+    const suggestion = conflict.suggestions?.[suggestionIdx];
+    if (!suggestion) return;
+    if (suggestion.action === 'navigate' && suggestion.payload) {
+      navigate(suggestion.payload);
+    } else if (suggestion.action === 'info' && suggestion.payload) {
+      setSuggestionModal({ text: suggestion.payload });
+    }
+  };
+
+  const handleResolve = (conflict: Conflict) => {
     if (!conflict.classId) return;
-
-    // Extract squadron from classId (e.g. "1A" -> "1")
-    // If it starts with a number, use it. Otherwise default to 1 or handle "Geral"
-    const squadronChar = conflict.classId.charAt(0);
-    const squadronId = isNaN(parseInt(squadronChar)) ? "1" : squadronChar;
-
     const dateParam = conflict.date ? `?date=${conflict.date}` : "";
-    navigate(`/programming/${squadronId}${dateParam}`);
+    navigate(`/programming/${conflict.classId}${dateParam}`);
   };
 
   return (
@@ -344,158 +363,135 @@ export const ConflictReport = () => {
             onAction={() => navigate("/programming/1")}
           />
         ) : (
-          <div className="overflow-x-auto custom-scrollbar relative">
-            <table className="w-full border-collapse min-w-[1200px]">
-              <thead
-                className={`sticky top-0 z-20 border-b shadow-sm ${theme === "dark" ? "bg-slate-800 border-slate-700" : "bg-slate-50 border-slate-200"}`}
-              >
-                <tr>
-                  <th
-                    className={`w-32 text-left p-4  text-xs uppercase tracking-wider ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}
-                  >
-                    Severidade
-                  </th>
-                  <th
-                    className={`w-48 text-left p-4  text-xs uppercase tracking-wider ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}
-                  >
-                    Tipo
-                  </th>
-                  <th
-                    className={`w-24 text-left p-4  text-xs uppercase tracking-wider ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}
-                  >
-                    Turma
-                  </th>
-                  <th
-                    className={`w-28 text-left p-4  text-xs uppercase tracking-wider ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}
-                  >
-                    Ano
-                  </th>
-                  <th
-                    className={`w-32 text-left p-4  text-xs uppercase tracking-wider ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}
-                  >
-                    Data
-                  </th>
-                  <th
-                    className={`w-36 text-left p-4  text-xs uppercase tracking-wider ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}
-                  >
-                    Horário
-                  </th>
-                  <th
-                    className={`text-left p-4  text-xs uppercase tracking-wider ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}
-                  >
-                    Descrição
-                  </th>
-                  <th
-                    className={`sticky right-0 z-30 w-32 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)] backdrop-blur-sm border-l text-center p-4  text-xs uppercase tracking-wider ${theme === "dark" ? "bg-slate-800/90 text-slate-400 border-slate-700" : "bg-slate-50/90 text-slate-500 border-slate-200"}`}
-                  >
-                    Ação
-                  </th>
-                </tr>
-              </thead>
-              <tbody
-                className={`divide-y ${theme === "dark" ? "divide-slate-700" : "divide-slate-100"}`}
-              >
-                {filteredConflicts.map((conflict, idx) => (
-                  <tr
-                    key={idx}
-                    className={`transition-colors ${theme === "dark" ? "hover:bg-slate-700/50" : "hover:bg-slate-50"}`}
-                  >
-                    <td className="p-4 w-32">
-                      <span
-                        className={`inline-flex px-2 py-1 rounded-full text-xs  border ${severityBadgeColor(conflict.severity)}`}
-                      >
-                        {conflict.severity === "error" ? "Erro" : "Aviso"}
-                      </span>
-                    </td>
-                    <td
-                      className={`p-4 text-sm w-48 ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}
+          <div className="divide-y divide-slate-100 dark:divide-slate-700">
+            {filteredConflicts.map((conflict, idx) => {
+              const hasSuggestions = conflict.suggestions && conflict.suggestions.length > 0;
+              const isExpanded = expandedSuggestions.has(idx);
+              return (
+                <div
+                  key={idx}
+                  className={`p-4 transition-colors ${theme === "dark" ? "hover:bg-slate-700/30" : "hover:bg-slate-50"}`}
+                >
+                  {/* Main row */}
+                  <div className="flex items-start gap-3">
+                    {/* Severity badge */}
+                    <span
+                      className={`flex-shrink-0 mt-0.5 inline-flex px-2 py-1 rounded-full text-xs border ${severityBadgeColor(conflict.severity)}`}
                     >
-                      {conflictTypeLabel(conflict.type)}
-                    </td>
-                    <td
-                      className={`p-4 text-sm  w-24 ${theme === "dark" ? "text-slate-100" : "text-slate-900"}`}
-                    >
-                      {formatClassLabel(conflict.classId)}
-                    </td>
-                    <td
-                      className={`p-4 text-sm w-28 ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}
-                    >
-                      {conflict.year === "ALL"
-                        ? "Geral"
-                        : conflict.year
-                          ? `${conflict.year}º Ano`
-                          : "-"}
-                    </td>
-                    <td
-                      className={`p-4 text-sm w-32 ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}
-                    >
-                      {conflict.date
-                        ? new Date(conflict.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
-                        : "-"}
-                    </td>
-                    <td
-                      className={`p-4 text-sm w-36 ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}
-                    >
-                      {conflict.timeSlot || "-"}
-                    </td>
-                    <td
-                      className={`p-4 text-sm ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}
-                    >
-                      {conflict.message}
-                    </td>
-                    <td
-                      className={`sticky right-0 z-10 backdrop-blur-sm border-l shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)] transition-colors p-4 w-32 text-center ${theme === "dark" ? "bg-slate-800/95 group-hover:bg-slate-700/90 border-slate-700" : "bg-white/95 group-hover:bg-slate-50/95 border-slate-100"}`}
-                    >
+                      {conflict.severity === "error" ? "Erro" : "Aviso"}
+                    </span>
+
+                    {/* Type + message */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className={`text-xs font-medium uppercase tracking-wide ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                          {conflictTypeLabel(conflict.type)}
+                        </span>
+                        {conflict.classId && (
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${theme === "dark" ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-600"}`}>
+                            {formatClassLabel(conflict.classId)}
+                          </span>
+                        )}
+                        {conflict.date && (
+                          <span className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                            {new Date(conflict.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                            {conflict.timeSlot && conflict.timeSlot !== "Total" ? ` · ${conflict.timeSlot}` : ""}
+                          </span>
+                        )}
+                      </div>
+                      <p className={`text-sm ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>
+                        {conflict.message}
+                      </p>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex-shrink-0 flex items-center gap-2">
                       {conflict.classId && (
                         <button
                           onClick={() => handleResolve(conflict)}
-                          className={`px-3 py-1.5 rounded text-xs  whitespace-nowrap transition-colors border ${theme === "dark" ? "bg-blue-900/20 text-blue-400 hover:bg-blue-900/30 border-blue-800" : "bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200"}`}
+                          className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-colors border ${theme === "dark" ? "bg-blue-900/20 text-blue-400 hover:bg-blue-900/40 border-blue-800" : "bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200"}`}
                         >
-                          Ver Problema
+                          Ver na Grade
                         </button>
                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      {hasSuggestions && (
+                        <button
+                          onClick={() => toggleSuggestions(idx)}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-colors border ${theme === "dark" ? "bg-amber-900/20 text-amber-400 hover:bg-amber-900/40 border-amber-800" : "bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200"}`}
+                        >
+                          <Lightbulb size={12} />
+                          Sugestões
+                          {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Suggestions panel */}
+                  {hasSuggestions && isExpanded && (
+                    <div className={`mt-3 ml-16 p-3 rounded-lg border ${theme === "dark" ? "bg-amber-900/10 border-amber-800/50" : "bg-amber-50 border-amber-200"}`}>
+                      <p className={`text-xs font-semibold uppercase tracking-wide mb-2 flex items-center gap-1 ${theme === "dark" ? "text-amber-400" : "text-amber-700"}`}>
+                        <Lightbulb size={12} />
+                        Como resolver
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        {conflict.suggestions!.map((s, sIdx) => (
+                          <div key={sIdx} className="flex items-start gap-2">
+                            <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${theme === "dark" ? "bg-amber-800/50 text-amber-300" : "bg-amber-200 text-amber-800"}`}>
+                              {sIdx + 1}
+                            </span>
+                            {s.action === 'navigate' ? (
+                              <button
+                                onClick={() => handleSuggestionAction(conflict, sIdx)}
+                                className={`text-sm text-left underline underline-offset-2 ${theme === "dark" ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-800"}`}
+                              >
+                                {s.label} →
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleSuggestionAction(conflict, sIdx)}
+                                className={`text-sm text-left ${theme === "dark" ? "text-amber-200 hover:text-amber-100" : "text-amber-800 hover:text-amber-900"}`}
+                              >
+                                <strong>{s.label}:</strong> {s.payload}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Help Section */}
-      {filteredConflicts.length > 0 && (
+      {/* Suggestion info modal */}
+      {suggestionModal && (
         <div
-          className={`mt-6 p-4 rounded-lg border ${theme === "dark" ? "bg-blue-900/20 border-blue-800" : "bg-blue-50 border-blue-200"}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setSuggestionModal(null)}
         >
-          <div className="flex items-start gap-2">
-            <AlertTriangle
-              className={`flex-shrink-0 mt-0.5 ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`}
-              size={20}
-            />
-            <div
-              className={`text-sm ${theme === "dark" ? "text-blue-200" : "text-blue-800"}`}
-            >
-              <p className=" mb-1">Como resolver conflitos:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>
-                  <strong>Sobreposição:</strong> Remova ou realoque uma das
-                  aulas conflitantes
-                </li>
-                <li>
-                  <strong>Carga Excedida:</strong> Reduza o número de aulas ou
-                  ajuste a carga horária da disciplina
-                </li>
-                <li>
-                  <strong>Restrição Violada:</strong> Verifique a Ficha
-                  Informativa e realoque para dias permitidos
-                </li>
-                <li>
-                  <strong>Distribuição Irregular:</strong> Redistribua as aulas
-                  de forma mais uniforme
-                </li>
-              </ul>
+          <div
+            className={`max-w-md w-full mx-4 p-6 rounded-xl shadow-xl border ${theme === "dark" ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 mb-4">
+              <Lightbulb className={`flex-shrink-0 ${theme === "dark" ? "text-amber-400" : "text-amber-600"}`} size={20} />
+              <h3 className={`font-semibold ${theme === "dark" ? "text-slate-100" : "text-slate-900"}`}>
+                Sugestão de Resolução
+              </h3>
             </div>
+            <p className={`text-sm leading-relaxed ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
+              {suggestionModal.text}
+            </p>
+            <button
+              onClick={() => setSuggestionModal(null)}
+              className="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              Entendido
+            </button>
           </div>
         </div>
       )}
