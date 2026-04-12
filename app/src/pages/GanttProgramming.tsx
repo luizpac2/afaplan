@@ -108,77 +108,55 @@ export const GanttProgramming = () => {
 
   // ── eventCounts ───────────────────────────────────────────────────────────
   const eventCounts = useMemo(() => {
+    // yearlyEvents is the single source of truth for sequence numbers.
+    // weekEvents is only used as fallback while yearly is still loading.
+    if (yearlyEvents.length === 0) return {};
+
     const counts: Record<string, { current: number; total: number }> = {};
+    const groupings: Record<string, ScheduleEvent[]> = {};
 
-    // Build total per (disciplineId|classId) from yearlyEvents (authoritative for full year)
-    // Fall back to weekEvents if yearly not loaded yet
-    const annualSource = yearlyEvents.length > 0 ? yearlyEvents : weekEvents;
-    const totals: Record<string, number> = {};
-    annualSource.forEach((ev) => {
+    yearlyEvents.forEach((ev) => {
       if (ev.type === "ACADEMIC" || ev.disciplineId === "ACADEMIC") return;
       if (new Date(ev.date).getFullYear() !== calendarYear) return;
       const groupKey = `${ev.disciplineId}|${ev.classId}`;
-      totals[groupKey] = (totals[groupKey] ?? 0) + 1;
+      if (!groupings[groupKey]) groupings[groupKey] = [];
+      groupings[groupKey].push(ev);
     });
 
-    // Override total with PPC load if available
-    const getTotalForEvent = (ev: ScheduleEvent) => {
-      const groupKey = `${ev.disciplineId}|${ev.classId}`;
-      const disc = disciplines.find((d) => d.id === ev.disciplineId);
-      const cls  = classes.find((c) => c.id === ev.classId);
+    Object.values(groupings).forEach((group) => {
+      const disc = disciplines.find((d) => d.id === group[0].disciplineId);
+      const cls  = classes.find((c) => c.id === group[0].classId);
       const pkKey = cls ? `${cls.type}_${cls.year}` : "";
-      return (disc?.ppcLoads && pkKey && disc.ppcLoads[pkKey]) || disc?.load_hours || totals[groupKey] || 1;
-    };
-
-    // Build current position using weekEvents as source of truth for the visible week
-    // Group by (disciplineId|classId) and sort chronologically to assign sequence numbers
-    const weekGroupings: Record<string, ScheduleEvent[]> = {};
-    weekEvents.forEach((ev) => {
-      if (ev.type === "ACADEMIC" || ev.disciplineId === "ACADEMIC") return;
-      const groupKey = `${ev.disciplineId}|${ev.classId}`;
-      if (!weekGroupings[groupKey]) weekGroupings[groupKey] = [];
-      weekGroupings[groupKey].push(ev);
-    });
-
-    // For current position we need the full year sorted — use annualSource
-    // but only write counts for slots that appear in weekEvents (to avoid huge map)
-    const weekSlotKeys = new Set(
-      weekEvents
-        .filter(e => e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC")
-        .map(e => `${e.classId}|${e.date}|${e.startTime}`)
-    );
-
-    const annualGroupings: Record<string, ScheduleEvent[]> = {};
-    annualSource.forEach((ev) => {
-      if (ev.type === "ACADEMIC" || ev.disciplineId === "ACADEMIC") return;
-      if (new Date(ev.date).getFullYear() !== calendarYear) return;
-      const groupKey = `${ev.disciplineId}|${ev.classId}`;
-      if (!annualGroupings[groupKey]) annualGroupings[groupKey] = [];
-      annualGroupings[groupKey].push(ev);
-    });
-
-    // Also add weekEvents slots that may be missing from annualSource
-    weekEvents.forEach((ev) => {
-      if (ev.type === "ACADEMIC" || ev.disciplineId === "ACADEMIC") return;
-      const groupKey = `${ev.disciplineId}|${ev.classId}`;
-      if (!annualGroupings[groupKey]) annualGroupings[groupKey] = [];
-      const slotKey = `${ev.classId}|${ev.date}|${ev.startTime}`;
-      const alreadyIn = annualGroupings[groupKey].some(
-        e => `${e.classId}|${e.date}|${e.startTime}` === slotKey
-      );
-      if (!alreadyIn) annualGroupings[groupKey].push(ev);
-    });
-
-    Object.values(annualGroupings).forEach((group) => {
-      const total = getTotalForEvent(group[0]);
+      const total = (disc?.ppcLoads && pkKey && disc.ppcLoads[pkKey]) || disc?.load_hours || group.length;
       group
         .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`))
         .forEach((ev, i) => {
-          const slotKey = `${ev.classId}|${ev.date}|${ev.startTime}`;
-          if (weekSlotKeys.has(slotKey) || annualSource === weekEvents) {
-            counts[slotKey] = { current: i + 1, total };
-          }
+          counts[`${ev.classId}|${ev.date}|${ev.startTime}`] = { current: i + 1, total };
         });
+    });
+
+    // Fill any slots present in weekEvents but absent from yearlyEvents
+    // (race condition: event saved after yearly query but before weekly query)
+    weekEvents.forEach((ev) => {
+      if (ev.type === "ACADEMIC" || ev.disciplineId === "ACADEMIC") return;
+      const slotKey = `${ev.classId}|${ev.date}|${ev.startTime}`;
+      if (!counts[slotKey]) {
+        // Find the group to get total and approximate position
+        const groupKey = `${ev.disciplineId}|${ev.classId}`;
+        const group = groupings[groupKey];
+        if (group) {
+          const disc = disciplines.find((d) => d.id === ev.disciplineId);
+          const cls  = classes.find((c) => c.id === ev.classId);
+          const pkKey = cls ? `${cls.type}_${cls.year}` : "";
+          const total = (disc?.ppcLoads && pkKey && disc.ppcLoads[pkKey]) || disc?.load_hours || group.length;
+          // Insert this event into the sorted group to find its position
+          const allWithThis = [...group, ev].sort(
+            (a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`)
+          );
+          const pos = allWithThis.findIndex(e => `${e.classId}|${e.date}|${e.startTime}` === slotKey);
+          counts[slotKey] = { current: pos + 1, total };
+        }
+      }
     });
 
     return counts;
