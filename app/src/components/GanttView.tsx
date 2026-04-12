@@ -26,6 +26,19 @@ interface Props {
 const LABEL_W = 28;
 const TRAINING_FIELDS = new Set(["GERAL", "MILITAR", "PROFISSIONAL", "ATIVIDADES_COMPLEMENTARES"]);
 
+const EVAL_LABELS: Record<string, string> = {
+  PARTIAL:       "Av. Parcial",
+  EXAM:          "Exame",
+  FINAL:         "Av. Final",
+  SECOND_CHANCE: "2ª Chamada",
+};
+const EVAL_COLORS: Record<string, string> = {
+  PARTIAL:       "#b45309", // amber-700
+  EXAM:          "#7c3aed", // violet-700
+  FINAL:         "#b91c1c", // red-700
+  SECOND_CHANCE: "#0369a1", // sky-700
+};
+
 export const GanttView = ({
   date,
   events,
@@ -147,7 +160,11 @@ export const GanttView = ({
                 const slotKey = ev ? `${ev.classId}|${ev.date}|${ev.startTime}` : null;
                 const count = slotKey ? eventCounts?.[slotKey] : null;
 
-                const bgColor = disc?.color || "#3b82f6";
+                const isEval = ev?.type === "EVALUATION";
+                const evalType = ev?.evaluationType || "";
+                const bgColor = hasOverlap ? "#b91c1c"
+                  : isEval ? (EVAL_COLORS[evalType] || "#92400e")
+                  : (disc?.color || "#3b82f6");
                 const trigram = ev
                   ? (ev.instructorTrigram || disc?.instructorTrigram || (disc as unknown as { data?: Record<string,string> })?.data?.instructor || "")
                   : "";
@@ -247,8 +264,8 @@ export const GanttView = ({
                             : `${disc?.name || ev.disciplineId} | ${displayInstructor} | ${displayLocation}${count ? ` | Aula ${count.current}/${count.total}` : ""}`}
                           className="w-full h-full rounded transition-all flex flex-col items-center justify-center overflow-hidden relative gap-0.5"
                           style={{
-                            backgroundColor: hasOverlap ? "#b91c1c" : bgColor,
-                            border: hasOverlap ? "2px solid #ef4444" : isSelected ? "2px solid white" : "1px solid rgba(0,0,0,0.15)",
+                            backgroundColor: bgColor,
+                            border: hasOverlap ? "2px solid #ef4444" : isEval ? "2px solid rgba(255,255,255,0.3)" : isSelected ? "2px solid white" : "1px solid rgba(0,0,0,0.15)",
                             outline: isSelected ? "2px solid #3b82f6" : "none",
                             outlineOffset: "1px",
                             cursor: hasOverlap ? "pointer" : canEdit ? (isSelectionMode ? "pointer" : "grab") : "pointer",
@@ -258,6 +275,12 @@ export const GanttView = ({
                           <span className="text-white text-[9px] font-extrabold leading-none w-full text-center overflow-hidden" style={{ letterSpacing: "-0.02em" }}>
                             {hasOverlap ? "⚠" : code}
                           </span>
+                          {/* Label de avaliação */}
+                          {!hasOverlap && isEval && (
+                            <span className="text-white/90 text-[7px] font-bold leading-none uppercase tracking-wide w-full text-center truncate px-0.5">
+                              {EVAL_LABELS[evalType] || "Avaliação"}
+                            </span>
+                          )}
                           {/* Contagem */}
                           {!hasOverlap && count && (
                             <span className="text-white/60 text-[8px] leading-none">
