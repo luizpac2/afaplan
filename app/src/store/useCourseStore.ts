@@ -1371,6 +1371,7 @@ export const useCourseStore = create<CourseState>((set) => ({
           .gte("date", start)
           .lte("date", end)
           .order("date", { ascending: true })
+          .order("id",   { ascending: true })   // desempate para paginação estável
           .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
         if (error) throw error;
         allRows = allRows.concat(pageData ?? []);
