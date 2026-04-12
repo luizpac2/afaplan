@@ -98,7 +98,7 @@ export const GanttView = ({
           {TIME_SLOTS.map((slot, i) => (
             <div
               key={i}
-              style={{ flexShrink: 1, flexGrow: 1, flexBasis: 0, minWidth: 0, overflow: "hidden" }}
+              style={{ flexShrink: 1, flexGrow: 1, flexBasis: 0, minWidth: 36, overflow: "hidden" }}
               className={`flex flex-col items-center justify-center py-1 border-l ${border} ${i === 0 ? "border-l-0" : ""}`}
             >
               <span className={`text-[9px] font-bold leading-none ${textMain}`}>{slot.start}</span>
@@ -212,7 +212,7 @@ export const GanttView = ({
                       flexShrink: 1,
                       flexGrow: 1,
                       flexBasis: 0,
-                      minWidth: 0,
+                      minWidth: 36,
                       overflow: "hidden",
                       background: ev ? undefined : emptyBg,
                       position: "relative",
@@ -254,8 +254,8 @@ export const GanttView = ({
                             cursor: hasOverlap ? "pointer" : canEdit ? (isSelectionMode ? "pointer" : "grab") : "pointer",
                           }}
                         >
-                          {/* Código da disciplina — sempre visível */}
-                          <span className="text-white text-[10px] font-extrabold leading-none truncate px-1 w-full text-center">
+                          {/* Código da disciplina — sempre visível, nunca truncado */}
+                          <span className="text-white text-[9px] font-extrabold leading-none w-full text-center overflow-hidden" style={{ letterSpacing: "-0.02em" }}>
                             {hasOverlap ? "⚠" : code}
                           </span>
                           {/* Contagem */}
