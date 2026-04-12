@@ -23,9 +23,8 @@ interface Props {
   onDeleteEvent?: (eventId: string) => void;
 }
 
-// Desktop: células maiores com texto completo
-// Mobile: células mínimas apenas com código (sem scroll)
 const LABEL_W = 28;
+const TRAINING_FIELDS = new Set(["GERAL", "MILITAR", "PROFISSIONAL", "ATIVIDADES_COMPLEMENTARES"]);
 
 export const GanttView = ({
   date,
@@ -154,7 +153,8 @@ export const GanttView = ({
                   : "";
                 const inst = trigram ? instructors.find((ins) => ins.trigram === trigram) : null;
                 const displayInstructor = inst?.warName || trigram || "—";
-                const displayLocation   = ev ? (ev.location || disc?.location || "") : "";
+                const rawLocation = ev ? (ev.location || disc?.location || "") : "";
+                const displayLocation = TRAINING_FIELDS.has(rawLocation) ? "" : rawLocation;
                 const rawCode = disc?.code || ev?.disciplineId || "";
                 // Se não achou a disciplina e o id parece UUID, mostra só "???"
                 const code = disc ? rawCode : (rawCode.includes("-") ? "???" : rawCode);
