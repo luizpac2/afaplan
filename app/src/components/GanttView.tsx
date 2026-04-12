@@ -98,7 +98,8 @@ export const GanttView = ({
           {TIME_SLOTS.map((slot, i) => (
             <div
               key={i}
-              className={`flex-1 flex flex-col items-center justify-center py-1 border-l ${border} ${i === 0 ? "border-l-0" : ""}`}
+              style={{ flexShrink: 1, flexGrow: 1, flexBasis: 0, minWidth: 0, overflow: "hidden" }}
+              className={`flex flex-col items-center justify-center py-1 border-l ${border} ${i === 0 ? "border-l-0" : ""}`}
             >
               <span className={`text-[9px] font-bold leading-none ${textMain}`}>{slot.start}</span>
               <span className={`text-[7px] leading-none mt-0.5 ${textMuted} hidden md:block`}>{slot.end}</span>
@@ -154,7 +155,9 @@ export const GanttView = ({
                 const inst = trigram ? instructors.find((ins) => ins.trigram === trigram) : null;
                 const displayInstructor = inst?.warName || trigram || "—";
                 const displayLocation   = ev ? (ev.location || (disc as unknown as { data?: Record<string,string> })?.data?.location || "—") : "";
-                const code = disc?.code || ev?.disciplineId || "";
+                const rawCode = disc?.code || ev?.disciplineId || "";
+                // Se não achou a disciplina e o id parece UUID, mostra só "???"
+                const code = disc ? rawCode : (rawCode.includes("-") ? "???" : rawCode);
 
                 const isSelected = ev ? selectedEventIds.includes(ev.id) : false;
                 const isSlotSelected = !ev && selectedSlots.some(
@@ -209,6 +212,8 @@ export const GanttView = ({
                       flexShrink: 1,
                       flexGrow: 1,
                       flexBasis: 0,
+                      minWidth: 0,
+                      overflow: "hidden",
                       background: ev ? undefined : emptyBg,
                       position: "relative",
                     }}
