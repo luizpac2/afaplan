@@ -154,7 +154,7 @@ export const GanttView = ({
                   : "";
                 const inst = trigram ? instructors.find((ins) => ins.trigram === trigram) : null;
                 const displayInstructor = inst?.warName || trigram || "—";
-                const displayLocation   = ev ? (ev.location || (disc as unknown as { data?: Record<string,string> })?.data?.location || "—") : "";
+                const displayLocation   = ev ? (ev.location || disc?.location || "") : "";
                 const rawCode = disc?.code || ev?.disciplineId || "";
                 // Se não achou a disciplina e o id parece UUID, mostra só "???"
                 const code = disc ? rawCode : (rawCode.includes("-") ? "???" : rawCode);
