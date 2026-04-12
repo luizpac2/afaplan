@@ -53,10 +53,22 @@ export const GanttView = ({
   // Overlap popover: { key: "classId_slotIdx", events }
   const [overlapPopover, setOverlapPopover] = useState<{ key: string; evs: ScheduleEvent[] } | null>(null);
 
-  const dayEvents = useMemo(
-    () => events.filter((e) => e.date === date && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC"),
-    [events, date]
-  );
+  const dayEvents = useMemo(() => {
+    const filtered = events.filter((e) => e.date === date && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC");
+    // Debug: log sample to understand classId format in real data
+    if (filtered.length > 0) {
+      const sample = filtered.slice(0, 3).map(e => ({ classId: e.classId, startTime: e.startTime, disciplineId: e.disciplineId }));
+      console.log(`[GanttView] date=${date} dayEvents=${filtered.length} sample=`, sample);
+      // Check for duplicates
+      const seen = new Map<string, string>();
+      filtered.forEach(e => {
+        const k = `${e.classId}|${e.startTime}`;
+        if (seen.has(k)) console.warn(`[GanttView] DUPLICATE SLOT: ${k} ids=${seen.get(k)} vs ${e.id}`);
+        else seen.set(k, e.id);
+      });
+    }
+    return filtered;
+  }, [events, date]);
 
   const classLetters = useMemo(() => {
     const letters = new Set(classes.map((c) => c.slice(1)));
