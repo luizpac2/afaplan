@@ -131,8 +131,20 @@ export const subscribeToEventsByDateRange = (
       seen.add(r.id);
       return true;
     });
-    console.log(`[subscribeToEventsByDateRange] ${startDate}→${endDate}: ${rows.length} eventos`);
-    callback(rows.map(normalizeEvent));
+    console.log(`[subscribeToEventsByDateRange] ${startDate}→${endDate}: ${rows.length} eventos (antes dedup)`);
+    // Deduplica por (classId, date, startTime) — mantém o evento com menor id (mais antigo)
+    const slotSeen = new Map<string, typeof rows[0]>();
+    rows.forEach(r => {
+      if (r.type === 'ACADEMIC' || r.disciplineId === 'ACADEMIC') {
+        slotSeen.set(r.id, r); // eventos acadêmicos nunca deduplicados
+        return;
+      }
+      const slotKey = `${r.classId}|${r.date}|${r.startTime}`;
+      if (!slotSeen.has(slotKey)) slotSeen.set(slotKey, r);
+    });
+    const deduped = [...slotSeen.values()];
+    console.log(`[subscribeToEventsByDateRange] ${deduped.length} eventos após dedup`);
+    callback(deduped.map(normalizeEvent));
   });
   return () => {};
 };

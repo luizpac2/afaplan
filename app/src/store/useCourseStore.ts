@@ -1377,7 +1377,19 @@ export const useCourseStore = create<CourseState>((set) => ({
         page++;
       }
 
-      const events = allRows.map(normalizeEvent) as unknown as ScheduleEvent[];
+      // Deduplica por (classId, date, startTime) — eventos acadêmicos nunca deduplicados
+      const slotSeen = new Map<string, typeof allRows[0]>();
+      allRows.forEach((r: any) => {
+        if (r.type === 'ACADEMIC' || r.disciplineId === 'ACADEMIC') {
+          slotSeen.set(r.id, r);
+          return;
+        }
+        const slotKey = `${r.classId}|${r.date}|${r.startTime}`;
+        if (!slotSeen.has(slotKey)) slotSeen.set(slotKey, r);
+      });
+      const deduped = [...slotSeen.values()];
+      console.log(`[fetchYearlyEvents] ${year}: ${allRows.length} → ${deduped.length} eventos após dedup`);
+      const events = deduped.map(normalizeEvent) as unknown as ScheduleEvent[];
 
       // Salva apenas em memória — localStorage causa jank com 2000+ eventos
       set((s: CourseState) => ({
