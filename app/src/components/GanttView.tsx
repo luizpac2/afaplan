@@ -23,10 +23,10 @@ interface Props {
   onDeleteEvent?: (eventId: string) => void;
 }
 
-// Largura fixa de cada coluna de tempo (px) — define o quadrado
-const COL_W = 76;
-const ROW_H = COL_W; // quadrado perfeito
-const LABEL_W = 36;
+// Dimensões responsivas — calculadas pelo componente pai via CSS
+// Usamos valores mínimos pequenos; o container define o tamanho real via flex/grid
+const MIN_COL_W = 44; // mínimo para caber o código (4 chars)
+const LABEL_W = 28;
 
 export const GanttView = ({
   date,
@@ -87,11 +87,11 @@ export const GanttView = ({
     return TIME_SLOTS.findIndex((s) => s.start === startTime);
   }
 
-  const totalW = LABEL_W + COL_W * TIME_SLOTS.length;
+  const minTotalW = LABEL_W + MIN_COL_W * TIME_SLOTS.length;
 
   return (
-    <div className="overflow-x-auto">
-      <div style={{ width: totalW, minWidth: totalW }}>
+    <div className="overflow-x-auto w-full">
+      <div style={{ minWidth: minTotalW }} className="w-full">
 
         {/* ── Header ───────────────────────────────────────────────── */}
         <div className={`flex border-b ${border}`}>
@@ -101,11 +101,11 @@ export const GanttView = ({
           {TIME_SLOTS.map((slot, i) => (
             <div
               key={i}
-              style={{ width: COL_W, flexShrink: 0 }}
-              className={`flex flex-col items-center justify-center py-1 border-l ${border} ${i === 0 ? "border-l-0" : ""}`}
+              className={`flex-1 flex flex-col items-center justify-center py-1 border-l ${border} ${i === 0 ? "border-l-0" : ""}`}
+              style={{ minWidth: MIN_COL_W }}
             >
-              <span className={`text-[10px] font-bold leading-none ${textMain}`}>{slot.start}</span>
-              <span className={`text-[8px] leading-none mt-0.5 ${textMuted}`}>{slot.end}</span>
+              <span className={`text-[9px] font-bold leading-none ${textMain}`}>{slot.start}</span>
+              <span className={`text-[7px] leading-none mt-0.5 ${textMuted} hidden sm:block`}>{slot.end}</span>
             </div>
           ))}
         </div>
@@ -133,12 +133,12 @@ export const GanttView = ({
             <div
               key={letter}
               className={`flex border-b ${border}`}
-              style={{ height: ROW_H }}
+              style={{ height: 40 }}
             >
               {/* Row label */}
               <div
                 style={{ width: LABEL_W, flexShrink: 0 }}
-                className={`flex items-center justify-center text-[10px] font-bold ${textMain} ${labelBg} border-r ${border}`}
+                className={`flex items-center justify-center text-[9px] font-bold ${textMain} ${labelBg} border-r ${border}`}
               >
                 {squadronNum}{letter}
               </div>
@@ -211,13 +211,15 @@ export const GanttView = ({
                   <div
                     key={i}
                     style={{
-                      width: COL_W,
-                      height: ROW_H,
-                      flexShrink: 0,
+                      minWidth: MIN_COL_W,
+                      height: 40,
+                      flexShrink: 1,
+                      flexGrow: 1,
+                      flexBasis: 0,
                       background: ev ? undefined : emptyBg,
                       position: "relative",
                     }}
-                    className={`border-l ${border} p-[3px] ${
+                    className={`border-l ${border} p-[2px] ${
                       isBatchMode && !ev
                         ? isSlotSelected
                           ? "bg-green-500/20 ring-1 ring-green-400 cursor-pointer"
@@ -245,35 +247,25 @@ export const GanttView = ({
                           title={hasOverlap
                             ? `⚠ ${overlapEvs!.length} aulas no mesmo horário — clique para resolver`
                             : `${disc?.name || ev.disciplineId} | ${displayInstructor} | ${displayLocation}${count ? ` | Aula ${count.current}/${count.total}` : ""}`}
-                          className="w-full h-full rounded transition-all flex flex-col justify-between px-[5px] py-[4px] overflow-hidden relative"
+                          className="w-full h-full rounded transition-all flex flex-col items-center justify-center overflow-hidden relative gap-0.5"
                           style={{
                             backgroundColor: hasOverlap ? "#b91c1c" : bgColor,
                             border: hasOverlap ? "2px solid #ef4444" : isSelected ? "2px solid white" : "1px solid rgba(0,0,0,0.15)",
                             outline: isSelected ? "2px solid #3b82f6" : "none",
                             outlineOffset: "1px",
                             cursor: hasOverlap ? "pointer" : canEdit ? (isSelectionMode ? "pointer" : "grab") : "pointer",
-                            animation: hasOverlap ? "pulse 2s cubic-bezier(0.4,0,0.6,1) infinite" : "none",
                           }}
                         >
-                          {/* Linha 1 — ícone de alerta ou código */}
-                          <span className="text-white text-[11px] font-extrabold leading-none truncate">
-                            {hasOverlap ? "⚠ CONFLITO" : code}
+                          {/* Código da disciplina — sempre visível */}
+                          <span className="text-white text-[10px] font-extrabold leading-none truncate px-1 w-full text-center">
+                            {hasOverlap ? "⚠" : code}
                           </span>
-
-                          {/* Linha 2 */}
-                          <span className="text-white/80 text-[8px] leading-none truncate">
-                            {hasOverlap ? `${overlapEvs!.length} aulas` : displayInstructor}
-                          </span>
-
-                          {/* Linha 3 */}
-                          <span className="text-white/70 text-[8px] leading-none truncate">
-                            {hasOverlap ? "mesmo horário" : displayLocation}
-                          </span>
-
-                          {/* Linha 4 */}
-                          <span className="text-white/60 text-[8px] leading-none">
-                            {hasOverlap ? "clique p/ resolver" : count ? `${count.current}/${count.total}` : ""}
-                          </span>
+                          {/* Contagem — apenas se houver espaço (não em overlap) */}
+                          {!hasOverlap && count && (
+                            <span className="text-white/60 text-[8px] leading-none">
+                              {count.current}/{count.total}
+                            </span>
+                          )}
                         </div>
 
                         {/* Overlap popover */}
