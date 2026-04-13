@@ -343,10 +343,19 @@ export const GanttProgramming = () => {
   const dayAcademic = (dateStr: string) =>
     weekEvents.filter((e) => {
       if (e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC") return false;
-      // Verifica vigência: do date até endDate (inclusive)
       const end = (e as any).endDate ?? e.date;
       if (dateStr < e.date || dateStr > end) return false;
-      // Filtra por esquadrão
+      const ts = e.targetSquadron;
+      if (ts !== "ALL" && ts != null && Number(ts) !== currentSquadron) return false;
+      return true;
+    });
+
+  // Day Off events that affect this squadron on a given date
+  const dayOff = (dateStr: string) =>
+    weekEvents.filter((e) => {
+      if (e.type !== "DAY_OFF") return false;
+      const end = (e as any).endDate ?? e.date;
+      if (dateStr < e.date || dateStr > end) return false;
       const ts = e.targetSquadron;
       if (ts !== "ALL" && ts != null && Number(ts) !== currentSquadron) return false;
       return true;
@@ -448,11 +457,21 @@ export const GanttProgramming = () => {
         const monthShort = day.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
         const notices_  = dayNotices(dateStr);
         const academic_ = dayAcademic(dateStr);
-        const hasSidebar = notices_.length > 0 || academic_.length > 0 || canEdit;
+        const dayOff_   = dayOff(dateStr);
+        const isDayOff  = dayOff_.length > 0;
+        const hasSidebar = notices_.length > 0 || academic_.length > 0 || isDayOff || canEdit;
 
         return (
           <div key={dateStr}
-            className={`rounded-xl border overflow-hidden ${card} ${isToday ? "ring-2 ring-blue-500/40" : ""}`}>
+            className={`rounded-xl border overflow-hidden ${card} ${isToday ? "ring-2 ring-blue-500/40" : ""} ${isDayOff ? "ring-2 ring-red-500/40" : ""}`}>
+
+            {/* Day Off banner */}
+            {isDayOff && (
+              <div className="flex items-center gap-2 px-4 py-1.5 bg-red-500/10 border-b border-red-500/20">
+                <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">⛔ Day Off</span>
+                <span className="text-[10px] text-red-400/80 truncate">{dayOff_[0].description || "Dia sem aulas"}</span>
+              </div>
+            )}
 
             {/* Day header */}
             <div className={`flex items-center gap-3 px-4 py-2 border-b ${border} ${isToday ? (isDark ? "bg-blue-900/20" : "bg-blue-50/50") : ""}`}>
@@ -490,10 +509,10 @@ export const GanttProgramming = () => {
                   onSelectEvent={handleSelectEvent}
                   isSelectionMode={isSelectionMode}
                   onSlotDrop={handleSlotDrop}
-                  onEmptySlotClick={!isBatchMode ? handleEmptySlotClick : undefined}
-                  isBatchMode={isBatchMode}
+                  onEmptySlotClick={!isBatchMode && !isDayOff ? handleEmptySlotClick : undefined}
+                  isBatchMode={isBatchMode && !isDayOff}
                   selectedSlots={selectedSlots}
-                  onSlotSelect={handleSlotSelect}
+                  onSlotSelect={!isDayOff ? handleSlotSelect : undefined}
                   onDeleteEvent={(id) => useCourseStore.getState().deleteEvent(id)}
                 />
               </div>

@@ -76,7 +76,7 @@ export const PanoramicMirror = () => {
   // Academic events and evaluations for this month
   const monthAcademic = useMemo(() => {
     return events.filter(e => {
-      const isAcad = e.type === "ACADEMIC" || e.disciplineId === "ACADEMIC" || e.type === "EVALUATION";
+      const isAcad = e.type === "ACADEMIC" || e.disciplineId === "ACADEMIC" || e.type === "EVALUATION" || e.type === "DAY_OFF";
       if (!isAcad) return false;
       // multi-day: startDate ≤ day ≤ endDate
       const start = e.date;
@@ -227,18 +227,20 @@ export const PanoramicMirror = () => {
               const col     = (firstDow + i) % 7;
               const dateStr = formatISODate(year, month, day);
               const isToday = dateStr === todayStr;
-              const isSel   = dateStr === selectedDate;
-              const isWknd  = col === 0 || col === 6;
-              const dayEvts = eventsForDay(dateStr);
-              const dayNots = noticesForDay(dateStr);
+              const isSel    = dateStr === selectedDate;
+              const isWknd   = col === 0 || col === 6;
+              const dayEvts  = eventsForDay(dateStr);
+              const dayNots  = noticesForDay(dateStr);
+              const hasDayOff = dayEvts.some(e => e.type === "DAY_OFF");
               return (
                 <div
                   key={day}
                   onClick={() => setSelectedDate(isSel ? null : dateStr)}
                   className={`min-h-[64px] lg:min-h-[110px] border-t border-r ${border} p-1.5 cursor-pointer transition-colors flex flex-col gap-0.5
                     ${isSel ? (isDark ? "bg-blue-900/30 ring-1 ring-inset ring-blue-500/50" : "bg-blue-50 ring-1 ring-inset ring-blue-300") : ""}
-                    ${!isSel && isWknd ? (isDark ? "bg-slate-900/50" : "bg-slate-50/70") : ""}
-                    ${!isSel && !isWknd ? (isDark ? "hover:bg-slate-700/40" : "hover:bg-slate-50") : ""}
+                    ${hasDayOff && !isSel ? (isDark ? "bg-red-900/15" : "bg-red-50/60") : ""}
+                    ${!isSel && !hasDayOff && isWknd ? (isDark ? "bg-slate-900/50" : "bg-slate-50/70") : ""}
+                    ${!isSel && !hasDayOff && !isWknd ? (isDark ? "hover:bg-slate-700/40" : "hover:bg-slate-50") : ""}
                   `}
                 >
                   {/* Day number */}
@@ -250,12 +252,22 @@ export const PanoramicMirror = () => {
 
                   {/* Event chips — mobile: 2, desktop: 6 */}
                   {dayEvts.slice(0, 6).map((ev, idx) => {
+                    const isDayOff = ev.type === "DAY_OFF";
                     const sqN = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
                     const sqV = sqN !== null && Number.isFinite(sqN) && sqN >= 1 && sqN <= 4;
                     const color = sqV ? sqColor(sqN!) : (ev.color ?? "#6366f1");
-                    const label = ev.type === "EVALUATION"
-                      ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Aval."}${sqV ? " " + SQ_LABELS[sqN!] : ""}`
-                      : (ev.description || ev.location || "Evento");
+                    const label = isDayOff
+                      ? (ev.description || "Day Off")
+                      : ev.type === "EVALUATION"
+                        ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Aval."}${sqV ? " " + SQ_LABELS[sqN!] : ""}`
+                        : (ev.description || ev.location || "Evento");
+                    if (isDayOff) return (
+                      <div key={ev.id}
+                        className={`rounded px-1 py-0.5 text-[9px] leading-tight font-semibold truncate text-red-300 border border-dashed border-red-500/50${idx >= 2 ? " hidden lg:block" : ""}`}
+                        style={{ background: "repeating-linear-gradient(45deg, rgba(239,68,68,0.12) 0px, rgba(239,68,68,0.12) 3px, transparent 3px, transparent 6px)" }}>
+                        ⛔ {label}
+                      </div>
+                    );
                     return (
                       <div key={ev.id}
                         className={`rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white${idx >= 2 ? " hidden lg:block" : ""}`}
@@ -313,21 +325,35 @@ export const PanoramicMirror = () => {
                   ? <p className={`text-[10px] italic ${muted} opacity-60`}>Sem eventos</p>
                   : <div className="flex flex-col gap-2">
                       {selectedEvents.map(ev => {
+                        const isDayOff = ev.type === "DAY_OFF";
                         const sqNum = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
                         const sqValid = sqNum !== null && Number.isFinite(sqNum) && sqNum >= 1 && sqNum <= 4;
-                        const color = sqValid ? sqColor(sqNum!) : (ev.color ?? "#6366f1");
+                        const color = isDayOff ? "#ef4444" : (sqValid ? sqColor(sqNum!) : (ev.color ?? "#6366f1"));
                         const disc = disciplines.find(d => d.id === ev.disciplineId);
-                        const title = ev.type === "EVALUATION"
-                          ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Avaliação"}${disc ? " — " + disc.code : ""}`
-                          : (ev.description || ev.location || "Evento Acadêmico");
-                        // notes/secondary description (not the same as title)
+                        const title = isDayOff
+                          ? (ev.description || "Day Off")
+                          : ev.type === "EVALUATION"
+                            ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Avaliação"}${disc ? " — " + disc.code : ""}`
+                            : (ev.description || ev.location || "Evento Acadêmico");
                         const notes = (ev as any).notes;
                         const hasNotes = notes && notes !== title;
-                        // location only if it differs from title
-                        const showLocation = ev.location && ev.location !== title && ev.type !== "EVALUATION";
+                        const showLocation = ev.location && ev.location !== title && ev.type !== "EVALUATION" && !isDayOff;
                         const endDateVal = (ev as any).endDate;
                         const isMultiDay = endDateVal && endDateVal !== ev.date;
                         const fmtDate = (iso: string) => iso.split("-").reverse().join("/");
+                        if (isDayOff) return (
+                          <div key={ev.id}
+                            className={`rounded-lg border border-dashed border-red-500/40 px-3 py-2 flex flex-col gap-0.5 bg-red-500/10 ${canEdit ? "cursor-pointer hover:bg-red-500/15 transition-colors" : ""}`}
+                            onClick={canEdit ? () => setEditingAcademic(ev) : undefined}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px]">⛔</span>
+                              <span className="text-[11px] font-semibold leading-tight text-red-400">{title}</span>
+                            </div>
+                            <p className="text-[10px] text-red-400/70 ml-5">Alocação de aulas bloqueada</p>
+                            {isMultiDay && <p className={`text-[10px] ${muted} ml-5`}>De {fmtDate(ev.date)} a {fmtDate(endDateVal)}</p>}
+                          </div>
+                        );
                         return (
                           <div key={ev.id}
                             className={`rounded-lg border px-3 py-2 flex flex-col gap-0.5 ${canEdit ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
