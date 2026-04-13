@@ -250,10 +250,11 @@ export const PanoramicMirror = () => {
 
                   {/* Event chips — mobile: 2, desktop: 6 */}
                   {dayEvts.slice(0, 6).map((ev, idx) => {
-                    const sq = ev.targetSquadron ? Number(ev.targetSquadron) : null;
-                    const color = (sq && sq >= 1 && sq <= 4) ? sqColor(sq) : (ev.color ?? "#6366f1");
+                    const sqN = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
+                    const sqV = sqN !== null && Number.isFinite(sqN) && sqN >= 1 && sqN <= 4;
+                    const color = sqV ? sqColor(sqN!) : (ev.color ?? "#6366f1");
                     const label = ev.type === "EVALUATION"
-                      ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Aval."} ${sq ? SQ_LABELS[sq] : ""}`
+                      ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Aval."}${sqV ? " " + SQ_LABELS[sqN!] : ""}`
                       : (ev.description || ev.location || "Evento");
                     return (
                       <div key={ev.id}
@@ -312,12 +313,18 @@ export const PanoramicMirror = () => {
                   ? <p className={`text-[10px] italic ${muted} opacity-60`}>Sem eventos</p>
                   : <div className="flex flex-col gap-2">
                       {selectedEvents.map(ev => {
-                        const sq = ev.targetSquadron ? Number(ev.targetSquadron) : null;
-                        const color = (sq && sq >= 1 && sq <= 4) ? sqColor(sq) : (ev.color ?? "#6366f1");
+                        const sqNum = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
+                        const sqValid = sqNum !== null && Number.isFinite(sqNum) && sqNum >= 1 && sqNum <= 4;
+                        const color = sqValid ? sqColor(sqNum!) : (ev.color ?? "#6366f1");
                         const disc = disciplines.find(d => d.id === ev.disciplineId);
                         const title = ev.type === "EVALUATION"
                           ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Avaliação"}${disc ? " — " + disc.code : ""}`
                           : (ev.description || ev.location || "Evento Acadêmico");
+                        // notes/secondary description (not the same as title)
+                        const notes = (ev as any).notes;
+                        const hasNotes = notes && notes !== title;
+                        // location only if it differs from title
+                        const showLocation = ev.location && ev.location !== title && ev.type !== "EVALUATION";
                         const endDateVal = (ev as any).endDate;
                         const isMultiDay = endDateVal && endDateVal !== ev.date;
                         const fmtDate = (iso: string) => iso.split("-").reverse().join("/");
@@ -331,9 +338,10 @@ export const PanoramicMirror = () => {
                               <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                               <span className="text-[11px] font-semibold leading-tight" style={{ color }}>{title}</span>
                             </div>
-                            {sq && <p className={`text-[10px] ${muted} ml-3.5`}>{SQ_LABELS[sq]}{ev.targetCourse && ev.targetCourse !== "ALL" ? ` · ${ev.targetCourse}` : ""}</p>}
+                            {sqValid && <p className={`text-[10px] ${muted} ml-3.5`}>{SQ_LABELS[sqNum!]}</p>}
                             {isMultiDay && <p className={`text-[10px] ${muted} ml-3.5`}>De {fmtDate(ev.date)} a {fmtDate(endDateVal)}</p>}
-                            {ev.location && ev.type !== "EVALUATION" && <p className={`text-[10px] ${muted} ml-3.5`}>📍 {ev.location}</p>}
+                            {showLocation && <p className={`text-[10px] ${muted} ml-3.5`}>📍 {ev.location}</p>}
+                            {hasNotes && <p className={`text-[10px] ${muted} ml-3.5 leading-tight`}>{notes}</p>}
                           </div>
                         );
                       })}
