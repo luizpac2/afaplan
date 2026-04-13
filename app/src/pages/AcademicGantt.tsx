@@ -14,12 +14,6 @@ const EVAL_LABELS: Record<string, string> = {
 
 const MONTHS_PT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
-// Alternating month band colors
-const MONTH_BAND_DARK  = ["bg-slate-800/80", "bg-slate-700/40"];
-const MONTH_BAND_LIGHT = ["bg-white",        "bg-slate-50/80"];
-const MONTH_HEAD_DARK  = ["bg-slate-800",    "bg-slate-750"];
-const MONTH_HEAD_LIGHT = ["bg-slate-50",     "bg-slate-100"];
-
 interface GanttEvent {
   id: string;
   label: string;
@@ -43,29 +37,29 @@ function fmtShort(d: Date): string {
   return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;
 }
 
-/** Merge consecutive / overlapping events that share the same label+squadron into one bar. */
+/** Merge consecutive / overlapping events that share the same label + squadron. */
 function mergeConsecutive(events: GanttEvent[]): GanttEvent[] {
   const sorted = [...events].sort((a, b) => a.start.getTime() - b.start.getTime());
   const merged: GanttEvent[] = [];
-
   for (const ev of sorted) {
     const key = `${ev.label}||${ev.squadron ?? "null"}`;
-    // find last merged event with same key
     let last: GanttEvent | undefined;
     for (let i = merged.length - 1; i >= 0; i--) {
-      const k = `${merged[i].label}||${merged[i].squadron ?? "null"}`;
-      if (k === key) { last = merged[i]; break; }
+      if (`${merged[i].label}||${merged[i].squadron ?? "null"}` === key) { last = merged[i]; break; }
     }
     if (last && diffDays(last.end, ev.start) <= 1) {
-      // extend
       if (ev.end > last.end) last.end = ev.end;
     } else {
       merged.push({ ...ev });
     }
   }
-
   return merged;
 }
+
+const DAY_PX  = 3;
+const LABEL_W = 240;
+const ROW_H   = 36;
+const HEAD_H  = 32;
 
 export const AcademicGantt = () => {
   const { theme } = useTheme();
@@ -77,9 +71,22 @@ export const AcademicGantt = () => {
   const [events, setEvents]     = useState<ScheduleEvent[]>([]);
   const [squadron, setSquadron] = useState<number | "ALL">("ALL");
   const [hovered, setHovered]   = useState<string | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Two separate refs: header mirrors body scroll
+  const bodyRef   = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { fetchYearlyEvents(year).then(setEvents); }, [year, fetchYearlyEvents]);
+
+  // Sync header scroll with body scroll
+  useEffect(() => {
+    const body   = bodyRef.current;
+    const header = headerRef.current;
+    if (!body || !header) return;
+    const onScroll = () => { header.scrollLeft = body.scrollLeft; };
+    body.addEventListener("scroll", onScroll, { passive: true });
+    return () => body.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Cohort color map
   const cohortTokens = useMemo(() => {
@@ -94,7 +101,6 @@ export const AcademicGantt = () => {
 
   const sqColor = (sq: number | null) => cohortTokens[sq ?? 0]?.primary ?? "#6366f1";
 
-  // Parse + merge multi-day events
   const ganttEvents = useMemo((): GanttEvent[] => {
     const raw: GanttEvent[] = events
       .filter(e => e.type === "ACADEMIC" || e.disciplineId === "ACADEMIC" || e.type === "EVALUATION")
@@ -102,66 +108,49 @@ export const AcademicGantt = () => {
         const sqRaw   = e.targetSquadron;
         const sqNum   = sqRaw != null && sqRaw !== "ALL" ? Number(sqRaw) : null;
         const sqValid = sqNum !== null && Number.isFinite(sqNum) && sqNum >= 1 && sqNum <= 4;
-
-        const label = e.type === "EVALUATION"
+        const label   = e.type === "EVALUATION"
           ? (EVAL_LABELS[e.evaluationType ?? ""] ?? "Avaliação")
           : (e.description || e.location || "Evento");
-
         const start = parseDate(e.date);
         const end   = parseDate((e as any).endDate ?? e.date);
         const color = sqValid ? sqColor(sqNum!) : (e.color ?? "#6366f1");
-
         return { id: e.id, label, start, end, color, squadron: sqValid ? sqNum : null, type: e.type ?? "ACADEMIC" };
       })
-      .filter(e => {
-        if (squadron === "ALL") return true;
-        return e.squadron === squadron || e.squadron === null;
-      })
+      .filter(e => squadron === "ALL" || e.squadron === squadron || e.squadron === null)
       .sort((a, b) => a.start.getTime() - b.start.getTime());
-
     return mergeConsecutive(raw);
   }, [events, squadron, cohortTokens]);
 
-  // Timeline bounds
   const timelineStart = useMemo(() => new Date(year, 0, 1), [year]);
   const timelineEnd   = useMemo(() => new Date(year, 11, 31), [year]);
   const totalDays     = diffDays(timelineStart, timelineEnd) + 1;
-
-  const DAY_PX     = 3;
-  const totalWidth = totalDays * DAY_PX;
-  const LABEL_W    = 240;
-  const ROW_H      = 36;
+  const totalWidth    = totalDays * DAY_PX;
 
   const barLeft  = (ev: GanttEvent) => Math.max(0, diffDays(timelineStart, ev.start)) * DAY_PX;
   const barWidth = (ev: GanttEvent) => Math.max(DAY_PX * 2, (diffDays(ev.start, ev.end) + 1) * DAY_PX);
 
-  // Month tick positions + width
-  const monthTicks = useMemo(() => {
-    return Array.from({ length: 12 }, (_, m) => {
-      const start  = new Date(year, m, 1);
-      const end    = new Date(year, m + 1, 0);
-      const left   = diffDays(timelineStart, start) * DAY_PX;
-      const width  = (diffDays(start, end) + 1) * DAY_PX;
-      return { label: MONTHS_PT[m], left, width, m };
-    });
-  }, [year, timelineStart]);
+  const monthTicks = useMemo(() => Array.from({ length: 12 }, (_, m) => {
+    const start = new Date(year, m, 1);
+    const end   = new Date(year, m + 1, 0);
+    return { label: MONTHS_PT[m], m, left: diffDays(timelineStart, start) * DAY_PX, width: (diffDays(start, end) + 1) * DAY_PX };
+  }), [year, timelineStart]);
 
-  // Today marker
   const todayLeft = useMemo(() => {
     const t = new Date(); t.setHours(0,0,0,0);
     if (t.getFullYear() !== year) return null;
     return diffDays(timelineStart, t) * DAY_PX;
   }, [year, timelineStart]);
 
-  const card   = isDark ? "bg-slate-800 border-slate-700"  : "bg-white border-slate-200 shadow-sm";
-  const muted  = isDark ? "text-slate-400" : "text-slate-500";
-  const border = isDark ? "border-slate-700" : "border-slate-200";
-
-  // Month band colors
-  const bandBg = (m: number) => isDark ? MONTH_BAND_DARK[m % 2] : MONTH_BAND_LIGHT[m % 2];
-  const headBg = (m: number) => isDark ? MONTH_HEAD_DARK[m % 2] : MONTH_HEAD_LIGHT[m % 2];
-  // corner / label column background
+  const card     = isDark ? "bg-slate-800 border-slate-700"  : "bg-white border-slate-200 shadow-sm";
+  const muted    = isDark ? "text-slate-400" : "text-slate-500";
+  const border   = isDark ? "border-slate-700" : "border-slate-200";
   const cornerBg = isDark ? "bg-slate-800" : "bg-slate-50";
+  const bandBg   = (m: number) => m % 2 === 0
+    ? (isDark ? "rgba(255,255,255,0.00)" : "rgba(255,255,255,1)")
+    : (isDark ? "rgba(255,255,255,0.03)" : "rgba(241,245,249,0.8)");
+  const headBg   = (m: number) => m % 2 === 0
+    ? (isDark ? "#1e293b" : "#f8fafc")
+    : (isDark ? "#162032" : "#f1f5f9");
 
   return (
     <div className="p-4 md:p-6 flex flex-col gap-5 max-w-[1800px] mx-auto">
@@ -181,7 +170,6 @@ export const AcademicGantt = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Year nav */}
           <div className="flex items-center gap-1">
             <button onClick={() => setYear(y => y - 1)} className={`p-1.5 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600"}`}>
               <ChevronLeft size={16} />
@@ -191,18 +179,12 @@ export const AcademicGantt = () => {
               <ChevronRight size={16} />
             </button>
           </div>
-
-          {/* Squadron filter */}
           <div className={`flex items-center gap-1 rounded-xl border px-2 py-1 ${isDark ? "border-slate-700 bg-slate-800/60" : "border-slate-200 bg-slate-50"}`}>
             <Filter size={12} className={muted} />
             {(["ALL", 1, 2, 3, 4] as const).map(sq => (
-              <button
-                key={sq}
-                onClick={() => setSquadron(sq)}
+              <button key={sq} onClick={() => setSquadron(sq)}
                 className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-all duration-150 ${
-                  squadron === sq
-                    ? "bg-indigo-600 text-white shadow-sm"
-                    : `${muted} ${isDark ? "hover:bg-slate-700" : "hover:bg-slate-200"}`
+                  squadron === sq ? "bg-indigo-600 text-white shadow-sm" : `${muted} ${isDark ? "hover:bg-slate-700" : "hover:bg-slate-200"}`
                 }`}
               >
                 {sq === "ALL" ? "Todos" : `${sq}º`}
@@ -212,61 +194,65 @@ export const AcademicGantt = () => {
         </div>
       </div>
 
-      {/* Gantt chart — single horizontal scroll, sticky header row */}
-      <div className={`rounded-xl border ${card}`} style={{ overflow: "clip" }}>
-        {ganttEvents.length === 0 ? (
-          <div className={`py-16 text-center ${muted} text-sm`}>Nenhum evento encontrado para {year}</div>
-        ) : (
-          <div className="overflow-x-auto" ref={scrollRef}>
-            {/* Total width = label col + timeline */}
-            <div style={{ width: LABEL_W + totalWidth, minWidth: "100%" }}>
+      {/* Gantt chart */}
+      {ganttEvents.length === 0 ? (
+        <div className={`rounded-xl border py-16 text-center ${muted} text-sm ${card}`}>
+          Nenhum evento encontrado para {year}
+        </div>
+      ) : (
+        <div className={`rounded-xl border ${card}`}>
 
-              {/* ── Sticky header row ── */}
-              <div className={`sticky top-0 z-30 flex h-8 border-b ${border}`}>
+          {/* ── Sticky header ── sits OUTSIDE the scroll container so top-0 works */}
+          <div
+            className={`sticky top-0 z-30 border-b ${border} rounded-t-xl`}
+            style={{ overflow: "hidden" }}
+          >
+            {/* This inner div is scrolled in sync with the body via JS */}
+            <div ref={headerRef} style={{ overflow: "hidden", pointerEvents: "none" }}>
+              <div style={{ display: "flex", width: LABEL_W + totalWidth }}>
                 {/* Corner */}
                 <div
-                  className={`flex-shrink-0 sticky left-0 z-40 border-r ${border} ${cornerBg}`}
-                  style={{ width: LABEL_W }}
+                  className={`flex-shrink-0 border-r ${border} ${cornerBg}`}
+                  style={{ width: LABEL_W, height: HEAD_H }}
                 />
                 {/* Month labels */}
-                <div className="relative flex-1 h-full">
+                <div className="relative flex-1" style={{ height: HEAD_H }}>
                   {monthTicks.map(t => (
                     <div
-                      key={t.label}
-                      className={`absolute top-0 bottom-0 flex items-center border-r ${border} ${headBg(t.m)}`}
-                      style={{ left: t.left, width: t.width }}
+                      key={t.m}
+                      className={`absolute top-0 bottom-0 flex items-center border-r ${border}`}
+                      style={{ left: t.left, width: t.width, background: headBg(t.m) }}
                     >
                       <span className={`text-[10px] font-bold ml-1.5 ${muted}`}>{t.label}</span>
                     </div>
                   ))}
                 </div>
               </div>
+            </div>
+          </div>
 
-              {/* ── Body rows ── */}
+          {/* ── Scrollable body ── */}
+          <div ref={bodyRef} className="overflow-x-auto">
+            <div style={{ width: LABEL_W + totalWidth, minWidth: "100%" }}>
               {ganttEvents.map((ev) => {
-                const isHov    = hovered === ev.id;
-                const left     = barLeft(ev);
-                const width    = barWidth(ev);
-                const isMulti  = diffDays(ev.start, ev.end) > 0;
-                const sqValid  = ev.squadron !== null;
-
-                // which month does this row's hover highlight use? (same row bg logic)
-                const rowBg = isHov
-                  ? (isDark ? "bg-indigo-900/20" : "bg-indigo-50/60")
-                  : "";
+                const isHov   = hovered === ev.id;
+                const left    = barLeft(ev);
+                const width   = barWidth(ev);
+                const isMulti = diffDays(ev.start, ev.end) > 0;
+                const sqValid = ev.squadron !== null;
 
                 return (
                   <div
                     key={ev.id}
                     onMouseEnter={() => setHovered(ev.id)}
                     onMouseLeave={() => setHovered(null)}
-                    className={`flex border-b transition-colors duration-100 ${border} ${rowBg}`}
+                    className={`flex border-b transition-colors duration-100 ${border} ${isHov ? (isDark ? "bg-indigo-900/15" : "bg-indigo-50/50") : ""}`}
                     style={{ height: ROW_H }}
                   >
                     {/* Label — sticky left */}
                     <div
-                      className={`flex-shrink-0 sticky left-0 z-20 flex items-center gap-2 px-3 border-r ${border} ${cornerBg} transition-colors duration-100`}
-                      style={{ width: LABEL_W }}
+                      className={`flex-shrink-0 flex items-center gap-2 px-3 border-r ${border} ${cornerBg} z-10`}
+                      style={{ width: LABEL_W, position: "sticky", left: 0 }}
                     >
                       <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
                       <span className={`text-[10px] leading-tight truncate ${isDark ? "text-slate-200" : "text-slate-700"}`}>
@@ -279,32 +265,26 @@ export const AcademicGantt = () => {
                       )}
                     </div>
 
-                    {/* Timeline area */}
+                    {/* Timeline */}
                     <div className="relative" style={{ width: totalWidth, height: ROW_H }}>
-                      {/* Alternating month bands */}
+                      {/* Month bands */}
                       {monthTicks.map(t => (
-                        <div
-                          key={t.m}
-                          className={`absolute top-0 bottom-0 ${bandBg(t.m)}`}
-                          style={{ left: t.left, width: t.width }}
-                        />
+                        <div key={t.m} className="absolute top-0 bottom-0"
+                          style={{ left: t.left, width: t.width, background: bandBg(t.m) }} />
                       ))}
 
-                      {/* Today line */}
+                      {/* Today */}
                       {todayLeft !== null && (
                         <div className="absolute top-0 bottom-0 w-px bg-red-500/60 z-10" style={{ left: todayLeft }} />
                       )}
 
-                      {/* Event bar */}
+                      {/* Bar */}
                       <div
                         className="absolute top-1/2 -translate-y-1/2 rounded-md flex items-center px-1.5 overflow-hidden transition-all duration-150"
                         style={{
-                          left,
-                          width,
-                          height: ROW_H - 10,
+                          left, width, height: ROW_H - 10, zIndex: 5,
                           backgroundColor: ev.color + (isHov ? "ff" : "cc"),
                           boxShadow: isHov ? `0 0 0 2px ${ev.color}55` : "none",
-                          zIndex: 5,
                         }}
                         title={`${ev.label} · ${fmtShort(ev.start)}${isMulti ? " → " + fmtShort(ev.end) : ""}`}
                       >
@@ -315,7 +295,7 @@ export const AcademicGantt = () => {
                         )}
                       </div>
 
-                      {/* Hover tooltip */}
+                      {/* Tooltip */}
                       {isHov && (
                         <div
                           className={`absolute z-50 top-full mt-1 rounded-lg border shadow-xl px-3 py-2 text-[11px] pointer-events-none whitespace-nowrap ${isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}
@@ -334,8 +314,8 @@ export const AcademicGantt = () => {
               })}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Legend */}
       {squadron === "ALL" && (
