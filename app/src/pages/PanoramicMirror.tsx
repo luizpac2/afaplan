@@ -1,84 +1,370 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, BookOpen, Bell, AlertTriangle, Info, CalendarDays, Zap } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
-import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
-import { YearlyGrid } from "../components/YearlyGrid";
 import { useCourseStore } from "../store/useCourseStore";
+import { getCohortColorTokens } from "../utils/cohortColors";
+import type { CohortColor } from "../types";
 import type { ScheduleEvent } from "../types";
+
+const MONTHS_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const DAYS_SHORT = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+
+const NOTICE_STYLES: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
+  URGENT:     { bg: "bg-red-500/15 border-red-400/40",      text: "text-red-500",    icon: <AlertTriangle size={10} /> },
+  WARNING:    { bg: "bg-amber-500/15 border-amber-400/40",  text: "text-amber-500",  icon: <AlertTriangle size={10} /> },
+  INFO:       { bg: "bg-blue-500/15 border-blue-400/40",    text: "text-blue-500",   icon: <Info size={10} /> },
+  EVENT:      { bg: "bg-purple-500/15 border-purple-400/40",text: "text-purple-500", icon: <CalendarDays size={10} /> },
+  EVALUATION: { bg: "bg-orange-500/15 border-orange-400/40",text: "text-orange-500", icon: <Zap size={10} /> },
+  GENERAL:    { bg: "bg-slate-500/15 border-slate-400/40",  text: "text-slate-500",  icon: <Info size={10} /> },
+};
+
+const EVAL_LABELS: Record<string, string> = {
+  PARTIAL: "Parcial", EXAM: "Exame", FINAL: "Prova Final",
+  SECOND_CHANCE: "2ª Época", REVIEW: "Vista",
+};
+
+const SQ_LABELS = ["", "1º ESQ", "2º ESQ", "3º ESQ", "4º ESQ"];
+
+function formatISODate(y: number, m: number, d: number) {
+  return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+function isLeap(y: number) {
+  return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+}
+
+function daysInMonth(y: number, m: number) {
+  const base = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return m === 1 && isLeap(y) ? 29 : base[m];
+}
 
 export const PanoramicMirror = () => {
   const { theme } = useTheme();
-  const { fetchYearlyEvents } = useCourseStore();
-  const [events, setEvents] = useState<ScheduleEvent[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const currentYear = new Date().getFullYear();
+  const isDark = theme === "dark";
+  const { fetchYearlyEvents, notices, disciplines, cohorts } = useCourseStore();
 
+  const today = new Date();
+  const [year, setYear]   = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth());
+  const [events, setEvents] = useState<ScheduleEvent[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // Load events for current year
   useEffect(() => {
-    setIsLoading(true);
-    fetchYearlyEvents(currentYear).then((data) => {
-      setEvents(data);
-      setIsLoading(false);
+    fetchYearlyEvents(year).then(setEvents);
+  }, [year, fetchYearlyEvents]);
+
+  const prevMonth = () => {
+    if (month === 0) { setMonth(11); setYear(y => y - 1); }
+    else setMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (month === 11) { setMonth(0); setYear(y => y + 1); }
+    else setMonth(m => m + 1);
+  };
+
+  // Academic events and evaluations for this month
+  const monthAcademic = useMemo(() => {
+    return events.filter(e => {
+      const isAcad = e.type === "ACADEMIC" || e.disciplineId === "ACADEMIC" || e.type === "EVALUATION";
+      if (!isAcad) return false;
+      // multi-day: startDate ≤ day ≤ endDate
+      const start = e.date;
+      const end   = (e as any).endDate ?? e.date;
+      const monthStart = formatISODate(year, month, 1);
+      const monthEnd   = formatISODate(year, month, daysInMonth(year, month));
+      return start <= monthEnd && end >= monthStart;
     });
-  }, [currentYear, fetchYearlyEvents]);
+  }, [events, year, month]);
+
+  // Notices active in this month
+  const monthNotices = useMemo(() => {
+    const monthStart = formatISODate(year, month, 1);
+    const monthEnd   = formatISODate(year, month, daysInMonth(year, month));
+    return notices.filter(n => n.startDate <= monthEnd && n.endDate >= monthStart);
+  }, [notices, year, month]);
+
+  // Events and notices for a specific day
+  const eventsForDay = (dateStr: string) =>
+    monthAcademic.filter(e => {
+      const end = (e as any).endDate ?? e.date;
+      return e.date <= dateStr && end >= dateStr;
+    });
+
+  const noticesForDay = (dateStr: string) =>
+    monthNotices.filter(n => n.startDate <= dateStr && n.endDate >= dateStr);
+
+  // Calendar grid
+  const firstDow = new Date(year, month, 1).getDay(); // 0=Sun
+  const totalDays = daysInMonth(year, month);
+  const todayStr  = formatISODate(today.getFullYear(), today.getMonth(), today.getDate());
+
+  // Selected day details
+  const selectedEvents  = selectedDate ? eventsForDay(selectedDate)  : [];
+  const selectedNotices = selectedDate ? noticesForDay(selectedDate) : [];
+
+  // Squadron → cohort color tokens
+  const cohortTokens = useMemo(() => {
+    const result: Record<number, ReturnType<typeof getCohortColorTokens>> = {};
+    [1, 2, 3, 4].forEach(sq => {
+      const entryYear = year - sq + 1;
+      const cohort = cohorts.find(c => Number(c.entryYear) === entryYear);
+      result[sq] = getCohortColorTokens((cohort?.color || "blue") as CohortColor);
+    });
+    return result;
+  }, [cohorts, year]);
+
+  const sqColor = (sq: number | null) => cohortTokens[sq ?? 0]?.primary ?? "#6366f1";
+
+  // Styling tokens (same as Dashboard/GanttProgramming)
+  const card   = isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200 shadow-sm";
+  const muted  = isDark ? "text-slate-400" : "text-slate-500";
+  const border = isDark ? "border-slate-700" : "border-slate-200";
 
   return (
-    <div className="p-6 md:p-12 pt-10 md:pt-16 max-w-7xl mx-auto space-y-8">
-      <header className="mb-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-500/10 rounded-xl">
-              <CalendarIcon className="text-blue-500" size={24} />
-            </div>
-            <div>
-              <h1
-                className={`text-2xl font-bold uppercase tracking-tight ${theme === "dark" ? "text-slate-100" : "text-slate-900"}`}
-              >
-                Calendário Acadêmico
-              </h1>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mt-1">
-                Visão mensal dos eventos acadêmicos
-              </p>
-            </div>
-          </div>
+    <div className={`p-4 md:p-6 flex flex-col gap-5 max-w-5xl mx-auto`}>
 
-          {isLoading && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 text-blue-500 rounded-full text-xs font-semibold animate-pulse">
-              <Loader2 className="animate-spin" size={14} />
-              Carregando dados do ano...
-            </div>
-          )}
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-blue-500/10 rounded-xl">
+            <CalendarIcon className="text-blue-500" size={20} />
+          </div>
+          <div>
+            <h1 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
+              Calendário Acadêmico
+            </h1>
+            <p className={`text-xs ${muted}`}>Eventos e avaliações do ano letivo</p>
+          </div>
         </div>
-      </header>
 
-      {/* Componente Anual (Somente Consulta) */}
-      <div
-        className={`w-full overflow-hidden rounded-2xl border ${
-          theme === "dark"
-            ? "bg-slate-900 border-slate-800"
-            : "bg-white border-slate-200"
-        } shadow-sm relative`}
-      >
-        {isLoading && (
-          <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
-            <Loader2 className="animate-spin text-blue-500" size={32} />
-          </div>
-        )}
-        <YearlyGrid year={currentYear} events={events} readOnly={true} />
+        {/* Month navigation */}
+        <div className="flex items-center gap-1">
+          <button onClick={prevMonth} className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600"}`}>
+            <ChevronLeft size={18} />
+          </button>
+          <span className={`text-sm font-semibold min-w-[130px] text-center ${isDark ? "text-white" : "text-slate-900"}`}>
+            {MONTHS_PT[month]} {year}
+          </span>
+          <button onClick={nextMonth} className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600"}`}>
+            <ChevronRight size={18} />
+          </button>
+        </div>
       </div>
 
-      <footer
-        className={`p-4 rounded-xl border text-xs leading-relaxed ${
-          theme === "dark"
-            ? "bg-slate-900/50 border-slate-800 text-slate-500"
-            : "bg-slate-50 border-slate-200 text-slate-400"
-        }`}
-      >
-        <p>
-          <strong>Nota:</strong> Esta página é destinada apenas à visualização.
-          Para realizar alterações no calendário acadêmico ou na programação dos
-          esquadrões, utilize as abas correspondentes no menu de{" "}
-          <strong>Planejamento</strong> (acesso restrito a administradores).
-        </p>
-      </footer>
+      {/* Calendar grid + detail panel */}
+      <div className="flex flex-col lg:flex-row gap-4">
+
+        {/* Grid */}
+        <div className={`rounded-xl border overflow-hidden flex-1 ${card}`}>
+          {/* Day headers */}
+          <div className="grid grid-cols-7">
+            {DAYS_SHORT.map(d => (
+              <div key={d} className={`py-2 text-center text-[10px] font-bold uppercase tracking-wider ${muted} ${isDark ? "bg-slate-800/80" : "bg-slate-50"}`}>
+                {d}
+              </div>
+            ))}
+          </div>
+
+          {/* Day cells */}
+          <div className="grid grid-cols-7">
+            {/* Empty cells before first day */}
+            {Array.from({ length: firstDow }).map((_, i) => (
+              <div key={`e${i}`} className={`min-h-[64px] border-t border-r ${border} ${isDark ? "bg-slate-900/30" : "bg-slate-50/50"}`} />
+            ))}
+
+            {/* Day cells */}
+            {Array.from({ length: totalDays }).map((_, i) => {
+              const day     = i + 1;
+              const col     = (firstDow + i) % 7;
+              const dateStr = formatISODate(year, month, day);
+              const isToday = dateStr === todayStr;
+              const isSel   = dateStr === selectedDate;
+              const isWknd  = col === 0 || col === 6;
+              const dayEvts = eventsForDay(dateStr);
+              const dayNots = noticesForDay(dateStr);
+              return (
+                <div
+                  key={day}
+                  onClick={() => setSelectedDate(isSel ? null : dateStr)}
+                  className={`min-h-[64px] border-t border-r ${border} p-1.5 cursor-pointer transition-colors flex flex-col gap-0.5
+                    ${isSel ? (isDark ? "bg-blue-900/30 ring-1 ring-inset ring-blue-500/50" : "bg-blue-50 ring-1 ring-inset ring-blue-300") : ""}
+                    ${!isSel && isWknd ? (isDark ? "bg-slate-900/50" : "bg-slate-50/70") : ""}
+                    ${!isSel && !isWknd ? (isDark ? "hover:bg-slate-700/40" : "hover:bg-slate-50") : ""}
+                  `}
+                >
+                  {/* Day number */}
+                  <span className={`text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0
+                    ${isToday ? "bg-blue-600 text-white" : (isWknd ? muted : (isDark ? "text-slate-200" : "text-slate-700"))}
+                  `}>
+                    {day}
+                  </span>
+
+                  {/* Event chips */}
+                  {dayEvts.slice(0, 2).map(ev => {
+                    const sq = ev.targetSquadron ? Number(ev.targetSquadron) : null;
+                    const color = (sq && sq >= 1 && sq <= 4) ? sqColor(sq) : (ev.color ?? "#6366f1");
+                    const label = ev.type === "EVALUATION"
+                      ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Aval."} ${sq ? SQ_LABELS[sq] : ""}`
+                      : (ev.description || ev.location || "Evento");
+                    return (
+                      <div key={ev.id} className="rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white"
+                        style={{ backgroundColor: color + "cc" }}>
+                        {label}
+                      </div>
+                    );
+                  })}
+                  {dayEvts.length > 2 && (
+                    <span className={`text-[9px] ${muted}`}>+{dayEvts.length - 2}</span>
+                  )}
+                  {/* Notice dot */}
+                  {dayNots.length > 0 && (
+                    <div className="flex gap-0.5 flex-wrap mt-auto">
+                      {dayNots.slice(0, 3).map(n => (
+                        <div key={n.id} className="w-1.5 h-1.5 rounded-full bg-amber-400" title={n.title} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Detail panel */}
+        {selectedDate ? (
+          <div className={`rounded-xl border flex flex-col gap-0 lg:w-72 flex-shrink-0 ${card}`}>
+            {/* Panel header */}
+            <div className={`px-4 py-3 border-b ${border} flex items-center justify-between`}>
+              <span className={`text-sm font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>
+                {new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "numeric", month: "short" }).format(new Date(selectedDate + "T12:00:00"))}
+              </span>
+              <button onClick={() => setSelectedDate(null)} className={`text-xs ${muted} hover:opacity-60`}>✕</button>
+            </div>
+
+            <div className="flex flex-col gap-0 overflow-y-auto max-h-[400px] lg:max-h-none lg:flex-1">
+              {/* Academic events */}
+              {selectedEvents.length > 0 && (
+                <div className="px-4 py-3">
+                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1 ${muted}`}>
+                    <BookOpen size={10} /> Eventos
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {selectedEvents.map(ev => {
+                      const sq = ev.targetSquadron ? Number(ev.targetSquadron) : null;
+                      const color = (sq && sq >= 1 && sq <= 4) ? sqColor(sq) : (ev.color ?? "#6366f1");
+                      const disc = disciplines.find(d => d.id === ev.disciplineId);
+                      const title = ev.type === "EVALUATION"
+                        ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Avaliação"}${disc ? " — " + disc.code : ""}`
+                        : (ev.description || ev.location || "Evento Acadêmico");
+                      const isMultiDay = (ev as any).endDate && (ev as any).endDate !== ev.date;
+
+                      return (
+                        <div key={ev.id} className="rounded-lg border px-3 py-2 flex flex-col gap-0.5"
+                          style={{ borderColor: color + "55", backgroundColor: color + "11" }}>
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                            <span className="text-[11px] font-semibold leading-tight" style={{ color }}>{title}</span>
+                          </div>
+                          {sq && <p className={`text-[10px] ${muted} ml-3.5`}>{SQ_LABELS[sq]}{ev.targetCourse && ev.targetCourse !== "ALL" ? ` · ${ev.targetCourse}` : ""}</p>}
+                          {isMultiDay && <p className={`text-[10px] ${muted} ml-3.5`}>até {(ev as any).endDate}</p>}
+                          {ev.location && ev.type !== "EVALUATION" && <p className={`text-[10px] ${muted} ml-3.5`}>📍 {ev.location}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Divider */}
+              {selectedEvents.length > 0 && selectedNotices.length > 0 && (
+                <div className={`mx-4 border-t ${border}`} />
+              )}
+
+              {/* Notices */}
+              {selectedNotices.length > 0 && (
+                <div className="px-4 py-3">
+                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1 ${muted}`}>
+                    <Bell size={10} /> Avisos
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {selectedNotices.map(n => {
+                      const style = NOTICE_STYLES[n.type ?? "GENERAL"] ?? NOTICE_STYLES.GENERAL;
+                      return (
+                        <div key={n.id} className={`rounded-lg border px-3 py-2 ${style.bg}`}>
+                          <div className={`flex items-center gap-1 font-semibold text-[11px] ${style.text}`}>
+                            {style.icon} {n.title}
+                          </div>
+                          {n.description && <p className={`text-[10px] mt-0.5 ${muted} leading-tight`}>{n.description}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {selectedEvents.length === 0 && selectedNotices.length === 0 && (
+                <div className={`px-4 py-8 text-center ${muted} text-xs`}>Sem eventos neste dia</div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Legend / summary when no day selected */
+          <div className={`rounded-xl border p-4 lg:w-72 flex-shrink-0 flex flex-col gap-4 ${card}`}>
+            <div>
+              <p className={`text-[10px] font-bold uppercase tracking-wider mb-3 ${muted}`}>Resumo do Mês</p>
+              {[1, 2, 3, 4].map(sq => {
+                const tokens = cohortTokens[sq];
+                const sqEvts = monthAcademic.filter(e => Number(e.targetSquadron) === sq || (!e.targetSquadron && e.type === "ACADEMIC"));
+                if (!sqEvts.length && sq !== 1) return null;
+                return (
+                  <div key={sq} className="flex items-center justify-between py-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: tokens.primary }} />
+                      <span className={`text-[11px] ${isDark ? "text-slate-300" : "text-slate-700"}`}>{SQ_LABELS[sq]}</span>
+                    </div>
+                    <span className={`text-[11px] font-semibold ${muted}`}>{sqEvts.length} evento{sqEvts.length !== 1 ? "s" : ""}</span>
+                  </div>
+                );
+              })}
+              {monthNotices.length > 0 && (
+                <div className="flex items-center justify-between py-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                    <span className={`text-[11px] ${isDark ? "text-slate-300" : "text-slate-700"}`}>Avisos</span>
+                  </div>
+                  <span className={`text-[11px] font-semibold ${muted}`}>{monthNotices.length}</span>
+                </div>
+              )}
+            </div>
+
+            <div className={`border-t pt-3 ${border}`}>
+              <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${muted}`}>Legenda</p>
+              <div className="flex flex-col gap-1.5">
+                {[1,2,3,4].map(sq => {
+                  const tokens = cohortTokens[sq];
+                  return (
+                    <div key={sq} className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: tokens.primary }} />
+                      <span className={`text-[10px] ${muted}`}>{SQ_LABELS[sq]}</span>
+                    </div>
+                  );
+                })}
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-400 flex-shrink-0" />
+                  <span className={`text-[10px] ${muted}`}>Avisos ativos</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer note */}
+      <p className={`text-[11px] ${muted} text-center`}>
+        Clique em um dia para ver os detalhes. Alterações via <strong>Planejamento → Calendário</strong>.
+      </p>
     </div>
   );
 };
