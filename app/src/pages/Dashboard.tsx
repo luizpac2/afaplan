@@ -39,7 +39,7 @@ export const Dashboard = () => {
   const isDark = theme === "dark";
   const {
     disciplines, notices, cohorts, classes: storeClasses,
-    fetchYearlyEvents, dataReady, addNotice, addEvent,
+    fetchYearlyEvents, dataReady, addNotice, addEvent, updateNotice, deleteNotice,
   } = useCourseStore();
 
   const [todayEvents, setTodayEvents] = useState<ScheduleEvent[]>([]);
@@ -47,6 +47,7 @@ export const Dashboard = () => {
   const [noticeFormSquadron, setNoticeFormSquadron] = useState<number | null>(null);
   const [academicFormSquadron, setAcademicFormSquadron] = useState<number | null>(null);
   const [editingAcademic, setEditingAcademic] = useState<ScheduleEvent | null>(null);
+  const [editingNotice, setEditingNotice] = useState<SystemNotice | null>(null);
 
   const calendarYear = new Date().getFullYear();
   const canEdit = ["SUPER_ADMIN", "ADMIN"].includes(userProfile?.role || "");
@@ -129,6 +130,17 @@ export const Dashboard = () => {
       createdBy: userProfile?.uid || "system",
     } as SystemNotice);
     setNoticeFormSquadron(null);
+  };
+
+  const handleNoticeUpdate = (data: Partial<SystemNotice>) => {
+    if (!editingNotice) return;
+    updateNotice(editingNotice.id, data);
+    setEditingNotice(null);
+  };
+
+  const handleNoticeDelete = (id: string) => {
+    deleteNotice(id);
+    setEditingNotice(null);
   };
 
   const handleAcademicSubmit = (data: Omit<ScheduleEvent, "id">) => {
@@ -274,7 +286,11 @@ export const Dashboard = () => {
                           {notices_.map((n) => {
                             const style = NOTICE_STYLES[n.type] || NOTICE_STYLES.GENERAL;
                             return (
-                              <div key={n.id} className={`rounded-lg border px-2 py-1.5 ${style.bg}`}>
+                              <div
+                                key={n.id}
+                                className={`rounded-lg border px-2 py-1.5 ${style.bg} ${canEdit ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
+                                onClick={canEdit ? () => setEditingNotice(n) : undefined}
+                              >
                                 <div className={`flex items-center gap-1 ${style.text} font-semibold text-[10px] leading-tight`}>
                                   {style.icon}
                                   <span className="truncate">{n.title}</span>
@@ -375,6 +391,21 @@ export const Dashboard = () => {
           </div>
         );
       })()}
+
+      {/* Modal: Editar Aviso */}
+      {editingNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setEditingNotice(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
+            <NoticeForm
+              initialData={editingNotice}
+              onSubmit={handleNoticeUpdate}
+              onDelete={() => handleNoticeDelete(editingNotice.id)}
+              onCancel={() => setEditingNotice(null)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Modal: Novo Aviso */}
       {noticeFormSquadron !== null && (
