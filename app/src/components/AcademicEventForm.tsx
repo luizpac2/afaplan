@@ -53,14 +53,18 @@ export const AcademicEventForm = ({
   const labelCls = isDark ? "text-gray-300" : "text-gray-600";
   const muted    = isDark ? "text-gray-400" : "text-gray-500";
 
-  const isDayOff = initialData?.type === "DAY_OFF";
-  const [category, setCategory]   = useState<"ACADEMIC" | "DAY_OFF">(isDayOff ? "DAY_OFF" : "ACADEMIC");
+  type Category = "ACADEMIC" | "DAY_OFF" | "COMMEMORATIVE" | "SPORTS";
+  const initCat: Category =
+    initialData?.type === "DAY_OFF"       ? "DAY_OFF"       :
+    initialData?.type === "COMMEMORATIVE" ? "COMMEMORATIVE" :
+    initialData?.type === "SPORTS"        ? "SPORTS"        : "ACADEMIC";
+  const [category, setCategory]   = useState<Category>(initCat);
   const wasAllDay = !initialData?.startTime || initialData.startTime === "";
 
   const today = new Date().toISOString().split("T")[0];
 
-  // Compatibilidade com eventos antigos: título pode estar em description ou location
-  const [title, setTitle]         = useState(initialData?.description ?? initialData?.location ?? (isDayOff ? "Day Off" : ""));
+  const defaultTitle = initCat === "DAY_OFF" ? "Day Off" : "";
+  const [title, setTitle]         = useState(initialData?.description ?? initialData?.location ?? defaultTitle);
   const [notes, setNotes]         = useState(initialData?.notes ?? "");
   const [startDate, setStartDate] = useState(initialData?.date ?? today);
   const [endDate, setEndDate]     = useState(initialData?.endDate ?? initialData?.date ?? today);
@@ -85,13 +89,13 @@ export const AcademicEventForm = ({
       classId: initialData?.classId ?? "",
       date:    startDate,
       endDate: effectiveEnd,
-      startTime: (allDay || category === "DAY_OFF") ? null as any : startTime,
-      endTime:   (allDay || category === "DAY_OFF") ? null as any : (endTime || startTime),
-      location:  category === "DAY_OFF" ? undefined : (location || undefined),
+      startTime: (allDay || category === "DAY_OFF" || category === "COMMEMORATIVE") ? null as any : startTime,
+      endTime:   (allDay || category === "DAY_OFF" || category === "COMMEMORATIVE") ? null as any : (endTime || startTime),
+      location:  (category === "DAY_OFF" || category === "COMMEMORATIVE") ? undefined : (location || undefined),
       type: category as any,
       description: title.trim(),
       notes: notes.trim() || undefined,
-      targetSquadron: category === "DAY_OFF" ? "ALL" : (squadron === "ALL" ? "ALL" : squadron),
+      targetSquadron: category === "DAY_OFF" ? "ALL" : (squadron === "ALL" ? "ALL" : squadron as any),
       targetCourse: null,
       targetClass: null,
       color: initialData?.color,
@@ -125,44 +129,60 @@ export const AcademicEventForm = ({
     <>
       <div className={`rounded-2xl border shadow-2xl ${card} overflow-hidden w-full max-w-md mx-auto`}>
         {/* Header */}
-        <div className={`flex items-center justify-between px-5 py-4 border-b ${category === "DAY_OFF" ? "border-red-500/30 bg-red-500/10" : "border-purple-500/30 bg-purple-500/10"}`}>
-          <div className="flex items-center gap-2">
-            {category === "DAY_OFF" ? <Ban size={16} className="text-red-400" /> : <Calendar size={16} className="text-purple-400" />}
-            <h2 className={`text-sm font-bold ${category === "DAY_OFF" ? "text-red-300" : "text-purple-300"}`}>
-              {isEditing
-                ? (category === "DAY_OFF" ? "Editar Day Off" : "Editar Evento Acadêmico")
-                : (category === "DAY_OFF" ? "Novo Day Off" : "Novo Evento Acadêmico")}
-            </h2>
-          </div>
-          <button onClick={onCancel} className={`p-1 rounded-lg hover:bg-gray-600/40 transition-colors ${muted}`}>
-            <X size={16} />
-          </button>
-        </div>
+        {(() => {
+          const hdrMap: Record<string, { border: string; bg: string; icon: React.ReactNode; textCls: string; label: string }> = {
+            ACADEMIC:      { border: "border-purple-500/30", bg: "bg-purple-500/10", icon: <Calendar size={16} className="text-purple-400" />, textCls: "text-purple-300", label: "Evento Acadêmico" },
+            DAY_OFF:       { border: "border-red-500/30",    bg: "bg-red-500/10",    icon: <Ban size={16} className="text-red-400" />,      textCls: "text-red-300",    label: "Day Off" },
+            COMMEMORATIVE: { border: "border-amber-500/30",  bg: "bg-amber-500/10",  icon: <Calendar size={16} className="text-amber-400" />, textCls: "text-amber-300",  label: "Comemorativo" },
+            SPORTS:        { border: "border-teal-500/30",   bg: "bg-teal-500/10",   icon: <Calendar size={16} className="text-teal-400" />,  textCls: "text-teal-300",   label: "Esportivo" },
+          };
+          const h = hdrMap[category] ?? hdrMap.ACADEMIC;
+          return (
+            <div className={`flex items-center justify-between px-5 py-4 border-b ${h.border} ${h.bg}`}>
+              <div className="flex items-center gap-2">
+                {h.icon}
+                <h2 className={`text-sm font-bold ${h.textCls}`}>
+                  {isEditing ? `Editar ${h.label}` : `Novo ${h.label}`}
+                </h2>
+              </div>
+              <button onClick={onCancel} className={`p-1 rounded-lg hover:bg-gray-600/40 transition-colors ${muted}`}>
+                <X size={16} />
+              </button>
+            </div>
+          );
+        })()}
 
         <div className="px-5 py-4 flex flex-col gap-4">
           {/* Categoria */}
-          {(
-            <div>
-              <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
-                Categoria
-              </label>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => { setCategory("ACADEMIC"); if (title === "Day Off") setTitle(""); }}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-colors ${category === "ACADEMIC" ? "bg-purple-600 border-purple-600 text-white" : isDark ? "border-gray-600 text-gray-400 hover:border-purple-500" : "border-gray-300 text-gray-500 hover:border-purple-500"}`}>
-                  <Calendar size={12} /> Evento Acadêmico
+          <div>
+            <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>Categoria</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { key: "ACADEMIC",      label: "Acadêmico",   active: "bg-purple-600 border-purple-600 text-white", hover: "hover:border-purple-500" },
+                { key: "DAY_OFF",       label: "Day Off",     active: "bg-red-600 border-red-600 text-white",    hover: "hover:border-red-500" },
+                { key: "COMMEMORATIVE", label: "Comemorativo",active: "bg-amber-500 border-amber-500 text-white", hover: "hover:border-amber-500" },
+                { key: "SPORTS",        label: "Esportivo",   active: "bg-teal-600 border-teal-600 text-white",  hover: "hover:border-teal-500" },
+              ] as const).map(opt => (
+                <button key={opt.key} type="button"
+                  onClick={() => {
+                    setCategory(opt.key as any);
+                    if (opt.key === "DAY_OFF") { if (!title.trim()) setTitle("Day Off"); setAllDay(true); }
+                    if (opt.key !== "DAY_OFF" && title === "Day Off") setTitle("");
+                  }}
+                  className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg border text-xs font-semibold transition-colors
+                    ${category === opt.key
+                      ? opt.active
+                      : isDark ? `border-gray-600 text-gray-400 ${opt.hover}` : `border-gray-300 text-gray-500 ${opt.hover}`
+                    }`}
+                >
+                  {opt.label}
                 </button>
-                <button type="button" onClick={() => { setCategory("DAY_OFF"); if (!title.trim()) setTitle("Day Off"); setAllDay(true); }}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-colors ${category === "DAY_OFF" ? "bg-red-600 border-red-600 text-white" : isDark ? "border-gray-600 text-gray-400 hover:border-red-500" : "border-gray-300 text-gray-500 hover:border-red-500"}`}>
-                  <Ban size={12} /> Day Off
-                </button>
-              </div>
-              {category === "DAY_OFF" && (
-                <p className={`text-[10px] mt-1.5 ${muted}`}>
-                  Inviabiliza alocação de aulas neste dia. Use para feriados com reposição, dias compensados, etc.
-                </p>
-              )}
+              ))}
             </div>
-          )}
+            {category === "DAY_OFF" && (
+              <p className={`text-[10px] mt-1.5 ${muted}`}>Inviabiliza alocação de aulas neste dia.</p>
+            )}
+          </div>
 
           {/* Título */}
           <div>
@@ -240,8 +260,8 @@ export const AcademicEventForm = ({
             </div>
           </div>
 
-          {/* Horário — oculto para Day Off */}
-          {category !== "DAY_OFF" && <div>
+          {/* Horário — oculto para Day Off e Comemorativo */}
+          {category !== "DAY_OFF" && category !== "COMMEMORATIVE" && <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className={`flex items-center gap-1.5 text-xs font-semibold ${labelCls}`}>
                 <Clock size={12} className="text-purple-400" />
@@ -288,8 +308,8 @@ export const AcademicEventForm = ({
             )}
           </div>}
 
-          {/* Local — oculto para Day Off */}
-          {category !== "DAY_OFF" && <div>
+          {/* Local — oculto para Day Off e Comemorativo */}
+          {category !== "DAY_OFF" && category !== "COMMEMORATIVE" && <div>
             <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
               <MapPin size={12} className="text-purple-400" />
               Local <span className={`font-normal ${muted}`}>(opcional)</span>

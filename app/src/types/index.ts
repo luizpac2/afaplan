@@ -176,7 +176,7 @@ export interface InstructorOccurrence {
   classId?: string;
 }
 
-export type EventType = "CLASS" | "EVALUATION" | "ACADEMIC" | "DAY_OFF";
+export type EventType = "CLASS" | "EVALUATION" | "ACADEMIC" | "DAY_OFF" | "COMMEMORATIVE" | "SPORTS";
 
 export type EvaluationType =
   | "PARTIAL"

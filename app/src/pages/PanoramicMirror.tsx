@@ -76,7 +76,8 @@ export const PanoramicMirror = () => {
   // Academic events and evaluations for this month
   const monthAcademic = useMemo(() => {
     return events.filter(e => {
-      const isAcad = e.type === "ACADEMIC" || e.disciplineId === "ACADEMIC" || e.type === "EVALUATION" || e.type === "DAY_OFF";
+      const SHOW = new Set(["ACADEMIC","EVALUATION","DAY_OFF","COMMEMORATIVE","SPORTS"]);
+      const isAcad = SHOW.has(e.type ?? "") || e.disciplineId === "ACADEMIC";
       if (!isAcad) return false;
       // multi-day: startDate ≤ day ≤ endDate
       const start = e.date;
@@ -253,11 +254,14 @@ export const PanoramicMirror = () => {
                   {/* Event chips — mobile: 2, desktop: 6 */}
                   {dayEvts.slice(0, 6).map((ev, idx) => {
                     const isDayOff = ev.type === "DAY_OFF";
+                    const isCommem = ev.type === "COMMEMORATIVE";
+                    const isSports = ev.type === "SPORTS";
                     const sqN = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
                     const sqV = sqN !== null && Number.isFinite(sqN) && sqN >= 1 && sqN <= 4;
-                    const color = sqV ? sqColor(sqN!) : (ev.color ?? "#6366f1");
-                    const label = isDayOff
-                      ? (ev.description || "Day Off")
+                    const color = isDayOff ? "#ef4444" : isCommem ? "#f59e0b" : isSports ? "#14b8a6"
+                      : sqV ? sqColor(sqN!) : (ev.color ?? "#6366f1");
+                    const label = isDayOff || isCommem || isSports
+                      ? (ev.description || (isDayOff ? "Day Off" : isCommem ? "Comemorativo" : "Esportivo"))
                       : ev.type === "EVALUATION"
                         ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Aval."}${sqV ? " " + SQ_LABELS[sqN!] : ""}`
                         : (ev.description || ev.location || "Evento");

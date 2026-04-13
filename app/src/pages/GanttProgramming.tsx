@@ -340,9 +340,10 @@ export const GanttProgramming = () => {
       return true;
     });
 
+  const ACADEMIC_TYPES = new Set(["ACADEMIC", "EVALUATION", "COMMEMORATIVE", "SPORTS"]);
   const dayAcademic = (dateStr: string) =>
     weekEvents.filter((e) => {
-      if (e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC") return false;
+      if (!ACADEMIC_TYPES.has(e.type ?? "") && e.disciplineId !== "ACADEMIC") return false;
       const end = (e as any).endDate ?? e.date;
       if (dateStr < e.date || dateStr > end) return false;
       const ts = e.targetSquadron;
