@@ -237,8 +237,8 @@ export const Dashboard = () => {
               </div>
 
               {/* Corpo: Gantt + Sidebar */}
-              <div className="flex">
-                <div className="flex-1 overflow-x-auto">
+              <div className="flex flex-col md:flex-row">
+                <div className="flex-1 min-w-0 overflow-hidden px-2 py-2">
                   <GanttView
                     date={DISPLAY_DATE}
                     events={todayEvents}
@@ -250,7 +250,7 @@ export const Dashboard = () => {
                 </div>
 
                 {hasSidebar && (
-                  <div className={`w-52 flex-shrink-0 border-l ${border} ${sidebarBg} flex flex-col gap-0`}>
+                  <div className={`border-t md:border-t-0 md:border-l ${border} ${sidebarBg} flex flex-col w-full md:w-52 md:flex-shrink-0`}>
 
                     {/* Avisos */}
                     <div className="px-3 pt-3 pb-2">
