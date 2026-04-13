@@ -287,12 +287,7 @@ export const GanttView = ({
                               {count.current}/{count.total}
                             </span>
                           )}
-                          {/* Trigrama — apenas no mobile (substituído pelo nome completo no desktop) */}
-                          {!hasOverlap && trigram && (
-                            <span className="text-white/75 text-[8px] font-semibold leading-none w-full text-center md:hidden" style={{ letterSpacing: "-0.01em" }}>
-                              {trigram}
-                            </span>
-                          )}
+                          {/* Trigrama — apenas no desktop (junto com nome de guerra) */}
                           {/* Nome de guerra e local — apenas no desktop */}
                           {!hasOverlap && (
                             <span className="text-white/80 text-[8px] leading-none truncate px-1 w-full text-center hidden md:block">
