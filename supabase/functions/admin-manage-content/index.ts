@@ -285,6 +285,33 @@ Deno.serve(async (req) => {
     return ok({ success: true });
   }
 
+  // ── save_notice ─────────────────────────────────────────────────────────────
+  if (action === "save_notice") {
+    const { notice } = body;
+    if (!notice || !notice.id) return err("notice with id required");
+    const { error: upsErr } = await adminClient.from("notices").upsert(notice);
+    if (upsErr) return err(upsErr.message, 500);
+    return ok({ success: true });
+  }
+
+  // ── update_notice ────────────────────────────────────────────────────────────
+  if (action === "update_notice") {
+    const { id, updates } = body;
+    if (!id || !updates) return err("id and updates required");
+    const { error: upErr } = await adminClient.from("notices").update(updates).eq("id", id);
+    if (upErr) return err(upErr.message, 500);
+    return ok({ success: true });
+  }
+
+  // ── delete_notice ────────────────────────────────────────────────────────────
+  if (action === "delete_notice") {
+    const { id } = body;
+    if (!id) return err("id required");
+    const { error: delErr } = await adminClient.from("notices").delete().eq("id", id);
+    if (delErr) return err(delErr.message, 500);
+    return ok({ success: true });
+  }
+
   // ── log_action ──────────────────────────────────────────────────────────────
   if (action === "log_action") {
     const { entry } = body;

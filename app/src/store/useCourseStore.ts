@@ -211,51 +211,33 @@ export const useCourseStore = create<CourseState>((set) => ({
 
   addNotice: (notice) => {
     set((state) => ({ notices: [...state.notices, notice] }));
-    logAction({
-      action: "ADD",
-      entity: "NOTICE",
-      entityId: notice.id,
-      entityName: notice.title,
-    });
-    saveDocument("notices", notice.id, notice);
+    logAction({ action: "ADD", entity: "NOTICE", entityId: notice.id, entityName: notice.title });
+    contentFn("save_notice", { notice }).catch((e) => console.error("addNotice failed:", e));
   },
 
   updateNotice: (id, updates) => {
     const state = useCourseStore.getState();
     const before = state.notices.find((n) => n.id === id);
     set((state) => ({
-      notices: state.notices.map((n) =>
-        n.id === id ? { ...n, ...updates } : n,
-      ),
+      notices: state.notices.map((n) => n.id === id ? { ...n, ...updates } : n),
     }));
     const after = useCourseStore.getState().notices.find((n) => n.id === id);
     if (before && after) {
       logAction({
-        action: "UPDATE",
-        entity: "NOTICE",
-        entityId: id,
-        entityName: after.title,
+        action: "UPDATE", entity: "NOTICE", entityId: id, entityName: after.title,
         before: before as unknown as Record<string, unknown>,
         after: after as unknown as Record<string, unknown>,
       });
     }
-    if (after)
-      saveDocument("notices", id, after);
+    contentFn("update_notice", { id, updates }).catch((e) => console.error("updateNotice failed:", e));
   },
 
   deleteNotice: (id) => {
     const state = useCourseStore.getState();
     const notice = state.notices.find((n) => n.id === id);
     set((state) => ({ notices: state.notices.filter((n) => n.id !== id) }));
-    if (notice) {
-      logAction({
-        action: "DELETE",
-        entity: "NOTICE",
-        entityId: id,
-        entityName: notice.title,
-      });
-    }
-    deleteDocument("notices", id);
+    if (notice) logAction({ action: "DELETE", entity: "NOTICE", entityId: id, entityName: notice.title });
+    contentFn("delete_notice", { id }).catch((e) => console.error("deleteNotice failed:", e));
   },
 
   setNotices: (notices) => set({ notices }),
