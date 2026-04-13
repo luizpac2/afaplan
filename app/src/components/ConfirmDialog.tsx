@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { AlertTriangle, X } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -60,9 +61,9 @@ export const ConfirmDialog = ({
 
     const styles = getTypeStyles();
 
-    return (
+    return createPortal(
         <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
             onClick={handleBackdropClick}
         >
             <div className={`rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200 ${theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}>
@@ -99,6 +100,7 @@ export const ConfirmDialog = ({
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
