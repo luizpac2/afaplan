@@ -689,6 +689,7 @@ export const useCourseStore = create<CourseState>((set) => ({
     });
     invalidateEventsLocalCache();
 
+    console.log("[updateEvent] id:", id, "updates:", JSON.stringify(updates));
     contentFn("update_event", { id, updates }).catch((err) => {
       console.error("Failed to update event:", err);
     });
