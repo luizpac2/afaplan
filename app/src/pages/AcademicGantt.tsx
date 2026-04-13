@@ -240,7 +240,7 @@ export const AcademicGantt = () => {
     : (isDark ? "#162032" : "#f1f5f9");
 
   const modal = (addingNew || editingEvent) ? (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
       <div className="w-full max-w-md">
         <AcademicEventForm
           initialData={editingEvent ? {
