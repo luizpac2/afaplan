@@ -90,7 +90,8 @@ export const AcademicEventForm = ({
       description: title.trim(),
       notes: notes.trim() || undefined,
       targetSquadron: squadron === "ALL" ? "ALL" : squadron,
-      targetCourse: initialData?.targetCourse,
+      targetCourse: null,
+      targetClass: null,
       color: initialData?.color,
     });
   };

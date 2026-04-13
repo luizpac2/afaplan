@@ -313,7 +313,9 @@ export const PanoramicMirror = () => {
                         const title = ev.type === "EVALUATION"
                           ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Avaliação"}${disc ? " — " + disc.code : ""}`
                           : (ev.description || ev.location || "Evento Acadêmico");
-                        const isMultiDay = (ev as any).endDate && (ev as any).endDate !== ev.date;
+                        const endDateVal = (ev as any).endDate;
+                        const isMultiDay = endDateVal && endDateVal !== ev.date;
+                        const fmtDate = (iso: string) => iso.split("-").reverse().join("/");
                         return (
                           <div key={ev.id}
                             className={`rounded-lg border px-3 py-2 flex flex-col gap-0.5 ${canEdit ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
@@ -325,7 +327,7 @@ export const PanoramicMirror = () => {
                               <span className="text-[11px] font-semibold leading-tight" style={{ color }}>{title}</span>
                             </div>
                             {sq && <p className={`text-[10px] ${muted} ml-3.5`}>{SQ_LABELS[sq]}{ev.targetCourse && ev.targetCourse !== "ALL" ? ` · ${ev.targetCourse}` : ""}</p>}
-                            {isMultiDay && <p className={`text-[10px] ${muted} ml-3.5`}>até {(ev as any).endDate}</p>}
+                            {isMultiDay && <p className={`text-[10px] ${muted} ml-3.5`}>De {fmtDate(ev.date)} a {fmtDate(endDateVal)}</p>}
                             {ev.location && ev.type !== "EVALUATION" && <p className={`text-[10px] ${muted} ml-3.5`}>📍 {ev.location}</p>}
                           </div>
                         );
