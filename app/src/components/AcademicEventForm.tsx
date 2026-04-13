@@ -53,11 +53,13 @@ export const AcademicEventForm = ({
   const labelCls = isDark ? "text-gray-300" : "text-gray-600";
   const muted    = isDark ? "text-gray-400" : "text-gray-500";
 
-  type Category = "ACADEMIC" | "DAY_OFF" | "COMMEMORATIVE" | "SPORTS";
+  type Category = "ACADEMIC" | "DAY_OFF" | "COMMEMORATIVE" | "SPORTS" | "INFORMATIVE" | "HOLIDAY";
   const initCat: Category =
     initialData?.type === "DAY_OFF"       ? "DAY_OFF"       :
     initialData?.type === "COMMEMORATIVE" ? "COMMEMORATIVE" :
-    initialData?.type === "SPORTS"        ? "SPORTS"        : "ACADEMIC";
+    initialData?.type === "SPORTS"        ? "SPORTS"        :
+    initialData?.type === "INFORMATIVE"   ? "INFORMATIVE"   :
+    initialData?.type === "HOLIDAY"       ? "HOLIDAY"       : "ACADEMIC";
   const [category, setCategory]   = useState<Category>(initCat);
   const wasAllDay = !initialData?.startTime || initialData.startTime === "";
 
@@ -89,9 +91,9 @@ export const AcademicEventForm = ({
       classId: initialData?.classId ?? "",
       date:    startDate,
       endDate: effectiveEnd,
-      startTime: (allDay || category === "DAY_OFF" || category === "COMMEMORATIVE") ? null as any : startTime,
-      endTime:   (allDay || category === "DAY_OFF" || category === "COMMEMORATIVE") ? null as any : (endTime || startTime),
-      location:  (category === "DAY_OFF" || category === "COMMEMORATIVE") ? undefined : (location || undefined),
+      startTime: (allDay || ["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? null as any : startTime,
+      endTime:   (allDay || ["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? null as any : (endTime || startTime),
+      location:  (["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? undefined : (location || undefined),
       type: category as any,
       description: title.trim(),
       notes: notes.trim() || undefined,
@@ -162,6 +164,8 @@ export const AcademicEventForm = ({
                 { key: "DAY_OFF",       label: "Day Off",     active: "bg-red-600 border-red-600 text-white",    hover: "hover:border-red-500" },
                 { key: "COMMEMORATIVE", label: "Comemorativo",active: "bg-amber-500 border-amber-500 text-white", hover: "hover:border-amber-500" },
                 { key: "SPORTS",        label: "Esportivo",   active: "bg-teal-600 border-teal-600 text-white",  hover: "hover:border-teal-500" },
+                { key: "INFORMATIVE",   label: "Informativo", active: "bg-sky-500 border-sky-500 text-white",    hover: "hover:border-sky-500" },
+                { key: "HOLIDAY",       label: "Feriado",     active: "bg-rose-600 border-rose-600 text-white",  hover: "hover:border-rose-500" },
               ] as const).map(opt => (
                 <button key={opt.key} type="button"
                   onClick={() => {
@@ -260,8 +264,8 @@ export const AcademicEventForm = ({
             </div>
           </div>
 
-          {/* Horário — oculto para Day Off e Comemorativo */}
-          {category !== "DAY_OFF" && category !== "COMMEMORATIVE" && <div>
+          {/* Horário — oculto para Day Off, Comemorativo, Informativo e Feriado */}
+          {!["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category) && <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className={`flex items-center gap-1.5 text-xs font-semibold ${labelCls}`}>
                 <Clock size={12} className="text-purple-400" />
@@ -308,8 +312,8 @@ export const AcademicEventForm = ({
             )}
           </div>}
 
-          {/* Local — oculto para Day Off e Comemorativo */}
-          {category !== "DAY_OFF" && category !== "COMMEMORATIVE" && <div>
+          {/* Local — oculto para Day Off, Comemorativo, Informativo e Feriado */}
+          {!["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category) && <div>
             <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
               <MapPin size={12} className="text-purple-400" />
               Local <span className={`font-normal ${muted}`}>(opcional)</span>

@@ -23,6 +23,8 @@ const TYPE_COLORS: Record<string, string> = {
   DAY_OFF:       "#ef4444",
   COMMEMORATIVE: "#f59e0b",
   SPORTS:        "#14b8a6",
+  INFORMATIVE:   "#0ea5e9",
+  HOLIDAY:       "#f43f5e",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -31,6 +33,8 @@ const TYPE_LABELS: Record<string, string> = {
   DAY_OFF:       "Day Off",
   COMMEMORATIVE: "Comemorativo",
   SPORTS:        "Esportivo",
+  INFORMATIVE:   "Informativo",
+  HOLIDAY:       "Feriado",
 };
 
 interface GanttEvent {
@@ -83,7 +87,7 @@ const ROW_H   = 36;
 const HEAD_H  = 32;
 const MIN_TW  = 700; // minimum timeline pixel width
 
-const ALL_TYPES = ["ACADEMIC", "EVALUATION", "DAY_OFF", "COMMEMORATIVE", "SPORTS"] as const;
+const ALL_TYPES = ["ACADEMIC", "EVALUATION", "DAY_OFF", "COMMEMORATIVE", "SPORTS", "INFORMATIVE", "HOLIDAY"] as const;
 const SQUADRONS = [1, 2, 3, 4] as const;
 
 export const AcademicGantt = () => {
@@ -189,7 +193,7 @@ export const AcademicGantt = () => {
 
   // ── Gantt events ─────────────────────────────────────────────────────────
   const ganttEvents = useMemo((): GanttEvent[] => {
-    const SHOW_TYPES = new Set(["ACADEMIC", "EVALUATION", "DAY_OFF", "COMMEMORATIVE", "SPORTS"]);
+    const SHOW_TYPES = new Set(["ACADEMIC", "EVALUATION", "DAY_OFF", "COMMEMORATIVE", "SPORTS", "INFORMATIVE", "HOLIDAY"]);
     const raw: GanttEvent[] = events
       .filter(e => SHOW_TYPES.has(e.type ?? "") || e.disciplineId === "ACADEMIC")
       .map(e => {
@@ -258,7 +262,9 @@ export const AcademicGantt = () => {
     EVALUATION: "bg-orange-500 border-orange-500 text-white",
     DAY_OFF: "bg-red-600 border-red-600 text-white",
     COMMEMORATIVE: "bg-amber-500 border-amber-500 text-white",
-    SPORTS: "bg-teal-600 border-teal-600 text-white",
+    SPORTS:        "bg-teal-600 border-teal-600 text-white",
+    INFORMATIVE:   "bg-sky-500 border-sky-500 text-white",
+    HOLIDAY:       "bg-rose-600 border-rose-600 text-white",
   };
 
   const modal = (addingNew || editingEvent) ? (
