@@ -41,12 +41,12 @@ export const NoticeForm = ({ initialData, onSubmit, onCancel }: NoticeFormProps)
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onCancel}>
             <div
-                className={`w-full max-w-2xl rounded-2xl shadow-2xl border animate-in zoom-in-95 duration-200 overflow-hidden ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
+                className={`w-full max-w-2xl rounded-2xl shadow-2xl border animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
                     }`}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className={`px-6 py-4 border-b flex items-center justify-between ${theme === 'dark' ? 'border-slate-700 bg-slate-800/50' : 'border-slate-100 bg-slate-50/50'
+                <div className={`px-6 py-4 border-b flex items-center justify-between flex-shrink-0 ${theme === 'dark' ? 'border-slate-700 bg-slate-800/50' : 'border-slate-100 bg-slate-50/50'
                     }`}>
                     <h2 className={`text-lg  flex items-center gap-2 ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>
                         {initialData?.id ? 'Editar Aviso' : 'Novo Aviso'}
@@ -60,7 +60,7 @@ export const NoticeForm = ({ initialData, onSubmit, onCancel }: NoticeFormProps)
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <form id="notice-form" onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className={`block text-sm  mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>Título</label>
@@ -225,23 +225,24 @@ export const NoticeForm = ({ initialData, onSubmit, onCancel }: NoticeFormProps)
                         </div>
                     </div>
 
-                    <div className={`flex justify-end gap-3 pt-4 border-t ${theme === 'dark' ? 'border-slate-700' : 'border-slate-100'}`}>
-                        <button
-                            type="button"
-                            onClick={onCancel}
-                            className={`px-4 py-2 rounded-lg  transition-colors ${theme === 'dark' ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            type="submit"
-                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700  shadow-sm transition-colors flex items-center gap-2"
-                        >
-                            <Check size={18} />
-                            {initialData?.id ? 'Salvar Alterações' : 'Criar Aviso'}
-                        </button>
-                    </div>
                 </form>
+                <div className={`flex justify-end gap-3 px-6 py-4 border-t flex-shrink-0 ${theme === 'dark' ? 'border-slate-700 bg-slate-800' : 'border-slate-100 bg-white'}`}>
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className={`px-4 py-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="submit"
+                        form="notice-form"
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors flex items-center gap-2"
+                    >
+                        <Check size={18} />
+                        {initialData?.id ? 'Salvar Alterações' : 'Criar Aviso'}
+                    </button>
+                </div>
             </div>
         </div>
     );

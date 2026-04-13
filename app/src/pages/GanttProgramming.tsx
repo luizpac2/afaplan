@@ -630,12 +630,14 @@ export const GanttProgramming = () => {
             )
             .map((e) => e.disciplineId)
         );
-        const usedDiscs = disciplines.filter((d) => usedIds.has(d.id));
+        const usedDiscs = disciplines
+          .filter((d) => usedIds.has(d.id))
+          .sort((a, b) => a.code.localeCompare(b.code));
         if (!usedDiscs.length) return null;
         return (
           <div className={`rounded-xl border p-3 ${card}`}>
             <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Legenda</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-1">
               {usedDiscs.map((d) => (
                 <div key={d.id} className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: d.color }} />
