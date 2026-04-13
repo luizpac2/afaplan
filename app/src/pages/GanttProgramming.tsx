@@ -340,7 +340,7 @@ export const GanttProgramming = () => {
       return true;
     });
 
-  const ACADEMIC_TYPES = new Set(["ACADEMIC", "EVALUATION", "COMMEMORATIVE", "SPORTS"]);
+  const ACADEMIC_TYPES = new Set(["ACADEMIC", "EVALUATION", "COMMEMORATIVE", "SPORTS", "INFORMATIVE", "HOLIDAY"]);
   const dayAcademic = (dateStr: string) =>
     weekEvents.filter((e) => {
       if (!ACADEMIC_TYPES.has(e.type ?? "") && e.disciplineId !== "ACADEMIC") return false;

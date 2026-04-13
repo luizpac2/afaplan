@@ -76,7 +76,7 @@ export const PanoramicMirror = () => {
   // Academic events and evaluations for this month
   const monthAcademic = useMemo(() => {
     return events.filter(e => {
-      const SHOW = new Set(["ACADEMIC","EVALUATION","DAY_OFF","COMMEMORATIVE","SPORTS"]);
+      const SHOW = new Set(["ACADEMIC","EVALUATION","DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY"]);
       const isAcad = SHOW.has(e.type ?? "") || e.disciplineId === "ACADEMIC";
       if (!isAcad) return false;
       // multi-day: startDate ≤ day ≤ endDate
@@ -256,12 +256,23 @@ export const PanoramicMirror = () => {
                     const isDayOff = ev.type === "DAY_OFF";
                     const isCommem = ev.type === "COMMEMORATIVE";
                     const isSports = ev.type === "SPORTS";
+                    const isInfo = ev.type === "INFORMATIVE";
+                    const isHoliday = ev.type === "HOLIDAY";
                     const sqN = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
                     const sqV = sqN !== null && Number.isFinite(sqN) && sqN >= 1 && sqN <= 4;
-                    const color = isDayOff ? "#ef4444" : isCommem ? "#f59e0b" : isSports ? "#14b8a6"
+                    const TYPE_COLOR_MAP: Record<string, string> = {
+                      DAY_OFF: "#ef4444", COMMEMORATIVE: "#f59e0b", SPORTS: "#14b8a6",
+                      INFORMATIVE: "#0ea5e9", HOLIDAY: "#f43f5e",
+                    };
+                    const TYPE_LABEL_MAP: Record<string, string> = {
+                      DAY_OFF: "Day Off", COMMEMORATIVE: "Comemorativo", SPORTS: "Esportivo",
+                      INFORMATIVE: "Informativo", HOLIDAY: "Feriado",
+                    };
+                    const isSpecial = isDayOff || isCommem || isSports || isInfo || isHoliday;
+                    const color = isSpecial ? (TYPE_COLOR_MAP[ev.type!] ?? "#6366f1")
                       : sqV ? sqColor(sqN!) : (ev.color ?? "#6366f1");
-                    const label = isDayOff || isCommem || isSports
-                      ? (ev.description || (isDayOff ? "Day Off" : isCommem ? "Comemorativo" : "Esportivo"))
+                    const label = isSpecial
+                      ? (ev.description || TYPE_LABEL_MAP[ev.type!] || "Evento")
                       : ev.type === "EVALUATION"
                         ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Aval."}${sqV ? " " + SQ_LABELS[sqN!] : ""}`
                         : (ev.description || ev.location || "Evento");
