@@ -15,6 +15,15 @@ import { getCohortColorTokens } from "../utils/cohortColors";
 
 const TODAY = formatDate(new Date());
 
+// Próximo dia útil a partir de hoje (seg-sáb, pula domingo)
+function nextWorkday(from: Date): string {
+  const d = new Date(from);
+  // Se domingo (0), avança para segunda
+  if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+  return formatDate(d);
+}
+const DISPLAY_DATE = nextWorkday(new Date());
+
 const NOTICE_STYLES: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
   URGENT:     { bg: "bg-red-500/15 border-red-400/40",     text: "text-red-400",    icon: <AlertTriangle size={11} /> },
   WARNING:    { bg: "bg-amber-500/15 border-amber-400/40", text: "text-amber-400",  icon: <AlertTriangle size={11} /> },
@@ -44,7 +53,7 @@ export const Dashboard = () => {
 
   useEffect(() => {
     if (!dataReady) return;
-    const unsub = subscribeToEventsByDateRange(TODAY, TODAY, setTodayEvents);
+    const unsub = subscribeToEventsByDateRange(DISPLAY_DATE, DISPLAY_DATE, setTodayEvents);
     fetchYearlyEvents(calendarYear).then(setYearlyEvents);
     return unsub;
   }, [dataReady, calendarYear, fetchYearlyEvents]);
@@ -99,7 +108,7 @@ export const Dashboard = () => {
 
   const squadronNotices = (sq: number) =>
     notices.filter((n) =>
-      TODAY >= n.startDate && TODAY <= n.endDate &&
+      DISPLAY_DATE >= n.startDate && DISPLAY_DATE <= n.endDate &&
       (n.targetSquadron == null || Number(n.targetSquadron) === sq)
     );
 
@@ -107,7 +116,7 @@ export const Dashboard = () => {
     todayEvents.filter((e) => {
       if (e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC") return false;
       const end = (e as any).endDate ?? e.date;
-      if (TODAY < e.date || TODAY > end) return false;
+      if (DISPLAY_DATE < e.date || DISPLAY_DATE > end) return false;
       const ts = e.targetSquadron;
       return ts === "ALL" || ts == null || Number(ts) === sq;
     });
@@ -187,7 +196,12 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* Gantt do dia — todos os esquadrões */}
+      {/* Gantt do dia (ou próximo dia útil) — todos os esquadrões */}
+      {DISPLAY_DATE !== TODAY && (
+        <div className={`text-xs px-3 py-1.5 rounded-lg border ${isDark ? "bg-amber-900/20 border-amber-700/40 text-amber-400" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+          Hoje é fim de semana — exibindo programação de {new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" }).format(new Date(DISPLAY_DATE + "T12:00:00"))}
+        </div>
+      )}
       <div className={`rounded-xl border overflow-hidden ${card}`}>
         {([1, 2, 3, 4] as CourseYear[]).map((sq, idx) => {
           const tokens    = cohortTokens[sq];
@@ -226,7 +240,7 @@ export const Dashboard = () => {
               <div className="flex">
                 <div className="flex-1 overflow-x-auto">
                   <GanttView
-                    date={TODAY}
+                    date={DISPLAY_DATE}
                     events={todayEvents}
                     disciplines={disciplines}
                     classes={classesBySquadron[sq]}

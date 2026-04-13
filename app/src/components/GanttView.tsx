@@ -33,10 +33,10 @@ const EVAL_LABELS: Record<string, string> = {
   SECOND_CHANCE: "2ª Chamada",
 };
 const EVAL_COLORS: Record<string, string> = {
-  PARTIAL:       "#b45309", // amber-700
-  EXAM:          "#7c3aed", // violet-700
-  FINAL:         "#b91c1c", // red-700
-  SECOND_CHANCE: "#0369a1", // sky-700
+  PARTIAL:       "#ea580c", // orange-600
+  EXAM:          "#ea580c",
+  FINAL:         "#ea580c",
+  SECOND_CHANCE: "#ea580c",
 };
 
 export const GanttView = ({
