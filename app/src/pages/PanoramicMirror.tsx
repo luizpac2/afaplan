@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, BookOpen, Bell, AlertTriangle, Info, CalendarDays, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, BookOpen, Bell, AlertTriangle, Info, CalendarDays, Zap, Plus } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
+import { useAuth } from "../contexts/AuthContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { getCohortColorTokens } from "../utils/cohortColors";
-import type { CohortColor } from "../types";
-import type { ScheduleEvent } from "../types";
+import { AcademicEventForm } from "../components/AcademicEventForm";
+import { NoticeForm } from "../components/NoticeForm";
+import type { CohortColor, ScheduleEvent, SystemNotice } from "../types";
 
 const MONTHS_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const DAYS_SHORT = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
@@ -41,13 +43,21 @@ function daysInMonth(y: number, m: number) {
 export const PanoramicMirror = () => {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const { fetchYearlyEvents, notices, disciplines, cohorts } = useCourseStore();
+  const { userProfile } = useAuth();
+  const { fetchYearlyEvents, notices, disciplines, cohorts, addEvent, addNotice, updateNotice, deleteNotice } = useCourseStore();
+  const canEdit = ["SUPER_ADMIN", "ADMIN"].includes(userProfile?.role ?? "");
 
   const today = new Date();
   const [year, setYear]   = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // Modal state
+  const [academicFormDate, setAcademicFormDate]   = useState<string | null>(null);
+  const [editingAcademic, setEditingAcademic]     = useState<ScheduleEvent | null>(null);
+  const [noticeFormDate, setNoticeFormDate]       = useState<string | null>(null);
+  const [editingNotice, setEditingNotice]         = useState<SystemNotice | null>(null);
 
   // Load events for current year
   useEffect(() => {
@@ -115,6 +125,44 @@ export const PanoramicMirror = () => {
   }, [cohorts, year]);
 
   const sqColor = (sq: number | null) => cohortTokens[sq ?? 0]?.primary ?? "#6366f1";
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const handleAcademicSubmit = (data: Omit<ScheduleEvent, "id">) => {
+    const id = crypto.randomUUID();
+    const ev = { ...data, id };
+    addEvent(ev);
+    setEvents(prev => [...prev, ev]);
+    setAcademicFormDate(null);
+  };
+
+  const handleAcademicUpdate = (data: Omit<ScheduleEvent, "id">) => {
+    if (!editingAcademic) return;
+    useCourseStore.getState().updateEvent(editingAcademic.id, data);
+    setEvents(prev => prev.map(e => e.id === editingAcademic.id ? { ...e, ...data } : e));
+    setEditingAcademic(null);
+  };
+
+  const handleAcademicDelete = (id: string) => {
+    useCourseStore.getState().deleteEvent(id);
+    setEvents(prev => prev.filter(e => e.id !== id));
+    setEditingAcademic(null);
+  };
+
+  const handleNoticeSubmit = (data: Partial<SystemNotice>) => {
+    addNotice({ ...data, id: crypto.randomUUID(), createdAt: new Date().toISOString(), createdBy: userProfile?.uid ?? "system" } as SystemNotice);
+    setNoticeFormDate(null);
+  };
+
+  const handleNoticeUpdate = (data: Partial<SystemNotice>) => {
+    if (!editingNotice) return;
+    updateNotice(editingNotice.id, data);
+    setEditingNotice(null);
+  };
+
+  const handleNoticeDelete = (id: string) => {
+    deleteNotice(id);
+    setEditingNotice(null);
+  };
 
   // Styling tokens (same as Dashboard/GanttProgramming)
   const card   = isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200 shadow-sm";
@@ -244,69 +292,82 @@ export const PanoramicMirror = () => {
 
             <div className="flex flex-col gap-0 overflow-y-auto max-h-[400px] lg:max-h-none lg:flex-1">
               {/* Academic events */}
-              {selectedEvents.length > 0 && (
-                <div className="px-4 py-3">
-                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1 ${muted}`}>
+              <div className="px-4 py-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${muted}`}>
                     <BookOpen size={10} /> Eventos
                   </p>
-                  <div className="flex flex-col gap-2">
-                    {selectedEvents.map(ev => {
-                      const sq = ev.targetSquadron ? Number(ev.targetSquadron) : null;
-                      const color = (sq && sq >= 1 && sq <= 4) ? sqColor(sq) : (ev.color ?? "#6366f1");
-                      const disc = disciplines.find(d => d.id === ev.disciplineId);
-                      const title = ev.type === "EVALUATION"
-                        ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Avaliação"}${disc ? " — " + disc.code : ""}`
-                        : (ev.description || ev.location || "Evento Acadêmico");
-                      const isMultiDay = (ev as any).endDate && (ev as any).endDate !== ev.date;
-
-                      return (
-                        <div key={ev.id} className="rounded-lg border px-3 py-2 flex flex-col gap-0.5"
-                          style={{ borderColor: color + "55", backgroundColor: color + "11" }}>
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                            <span className="text-[11px] font-semibold leading-tight" style={{ color }}>{title}</span>
-                          </div>
-                          {sq && <p className={`text-[10px] ${muted} ml-3.5`}>{SQ_LABELS[sq]}{ev.targetCourse && ev.targetCourse !== "ALL" ? ` · ${ev.targetCourse}` : ""}</p>}
-                          {isMultiDay && <p className={`text-[10px] ${muted} ml-3.5`}>até {(ev as any).endDate}</p>}
-                          {ev.location && ev.type !== "EVALUATION" && <p className={`text-[10px] ${muted} ml-3.5`}>📍 {ev.location}</p>}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {canEdit && (
+                    <button onClick={() => setAcademicFormDate(selectedDate)} className="text-[10px] text-purple-500 hover:text-purple-400 flex items-center gap-0.5 transition-colors">
+                      <Plus size={10} /> Novo
+                    </button>
+                  )}
                 </div>
-              )}
+                {selectedEvents.length === 0
+                  ? <p className={`text-[10px] italic ${muted} opacity-60`}>Sem eventos</p>
+                  : <div className="flex flex-col gap-2">
+                      {selectedEvents.map(ev => {
+                        const sq = ev.targetSquadron ? Number(ev.targetSquadron) : null;
+                        const color = (sq && sq >= 1 && sq <= 4) ? sqColor(sq) : (ev.color ?? "#6366f1");
+                        const disc = disciplines.find(d => d.id === ev.disciplineId);
+                        const title = ev.type === "EVALUATION"
+                          ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Avaliação"}${disc ? " — " + disc.code : ""}`
+                          : (ev.description || ev.location || "Evento Acadêmico");
+                        const isMultiDay = (ev as any).endDate && (ev as any).endDate !== ev.date;
+                        return (
+                          <div key={ev.id}
+                            className={`rounded-lg border px-3 py-2 flex flex-col gap-0.5 ${canEdit ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
+                            style={{ borderColor: color + "55", backgroundColor: color + "11" }}
+                            onClick={canEdit ? () => setEditingAcademic(ev) : undefined}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                              <span className="text-[11px] font-semibold leading-tight" style={{ color }}>{title}</span>
+                            </div>
+                            {sq && <p className={`text-[10px] ${muted} ml-3.5`}>{SQ_LABELS[sq]}{ev.targetCourse && ev.targetCourse !== "ALL" ? ` · ${ev.targetCourse}` : ""}</p>}
+                            {isMultiDay && <p className={`text-[10px] ${muted} ml-3.5`}>até {(ev as any).endDate}</p>}
+                            {ev.location && ev.type !== "EVALUATION" && <p className={`text-[10px] ${muted} ml-3.5`}>📍 {ev.location}</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                }
+              </div>
 
-              {/* Divider */}
-              {selectedEvents.length > 0 && selectedNotices.length > 0 && (
-                <div className={`mx-4 border-t ${border}`} />
-              )}
+              <div className={`mx-4 border-t ${border}`} />
 
               {/* Notices */}
-              {selectedNotices.length > 0 && (
-                <div className="px-4 py-3">
-                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1 ${muted}`}>
+              <div className="px-4 py-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${muted}`}>
                     <Bell size={10} /> Avisos
                   </p>
-                  <div className="flex flex-col gap-1.5">
-                    {selectedNotices.map(n => {
-                      const style = NOTICE_STYLES[n.type ?? "GENERAL"] ?? NOTICE_STYLES.GENERAL;
-                      return (
-                        <div key={n.id} className={`rounded-lg border px-3 py-2 ${style.bg}`}>
-                          <div className={`flex items-center gap-1 font-semibold text-[11px] ${style.text}`}>
-                            {style.icon} {n.title}
-                          </div>
-                          {n.description && <p className={`text-[10px] mt-0.5 ${muted} leading-tight`}>{n.description}</p>}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {canEdit && (
+                    <button onClick={() => setNoticeFormDate(selectedDate)} className="text-[10px] text-blue-500 hover:text-blue-400 flex items-center gap-0.5 transition-colors">
+                      <Plus size={10} /> Novo
+                    </button>
+                  )}
                 </div>
-              )}
-
-              {/* Empty state */}
-              {selectedEvents.length === 0 && selectedNotices.length === 0 && (
-                <div className={`px-4 py-8 text-center ${muted} text-xs`}>Sem eventos neste dia</div>
-              )}
+                {selectedNotices.length === 0
+                  ? <p className={`text-[10px] italic ${muted} opacity-60`}>Sem avisos</p>
+                  : <div className="flex flex-col gap-1.5">
+                      {selectedNotices.map(n => {
+                        const style = NOTICE_STYLES[n.type ?? "GENERAL"] ?? NOTICE_STYLES.GENERAL;
+                        return (
+                          <div key={n.id}
+                            className={`rounded-lg border px-3 py-2 ${style.bg} ${canEdit ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
+                            onClick={canEdit ? () => setEditingNotice(n) : undefined}
+                          >
+                            <div className={`flex items-center gap-1 font-semibold text-[11px] ${style.text}`}>
+                              {style.icon} {n.title}
+                            </div>
+                            {n.description && <p className={`text-[10px] mt-0.5 ${muted} leading-tight`}>{n.description}</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                }
+              </div>
             </div>
           </div>
         ) : (
@@ -363,8 +424,62 @@ export const PanoramicMirror = () => {
 
       {/* Footer note */}
       <p className={`text-[11px] ${muted} text-center`}>
-        Clique em um dia para ver os detalhes. Alterações via <strong>Planejamento → Calendário</strong>.
+        Clique em um dia para ver os detalhes.{canEdit ? "" : " Alterações via Planejamento → Calendário."}
       </p>
+
+      {/* Modal: Novo evento acadêmico */}
+      {academicFormDate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setAcademicFormDate(null)}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-lg mx-4">
+            <AcademicEventForm
+              initialData={{ date: academicFormDate, type: "ACADEMIC", disciplineId: "ACADEMIC", classId: "ESQ" }}
+              onSubmit={handleAcademicSubmit}
+              onCancel={() => setAcademicFormDate(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Editar evento acadêmico */}
+      {editingAcademic && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setEditingAcademic(null)}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-lg mx-4">
+            <AcademicEventForm
+              initialData={editingAcademic}
+              onSubmit={handleAcademicUpdate}
+              onDelete={() => handleAcademicDelete(editingAcademic.id)}
+              onCancel={() => setEditingAcademic(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Novo aviso */}
+      {noticeFormDate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setNoticeFormDate(null)}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-md mx-4">
+            <NoticeForm
+              initialData={{ startDate: noticeFormDate, endDate: noticeFormDate }}
+              onSubmit={handleNoticeSubmit}
+              onCancel={() => setNoticeFormDate(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Editar aviso */}
+      {editingNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setEditingNotice(null)}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-md mx-4">
+            <NoticeForm
+              initialData={editingNotice}
+              onSubmit={handleNoticeUpdate}
+              onDelete={() => handleNoticeDelete(editingNotice.id)}
+              onCancel={() => setEditingNotice(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
