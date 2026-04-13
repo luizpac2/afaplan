@@ -247,7 +247,7 @@ Deno.serve(async (req) => {
       // evaluationType deve ser salvo no banco
       ...(evaluationType !== undefined ? { evaluationType } : {}),
     };
-    console.log("update_event id:", id, "keys:", Object.keys(safeUpdates));
+    console.log("update_event id:", id, "payload:", JSON.stringify(safeUpdates));
 
     const { data: updRows, error: upErr } = await adminClient
       .from("programacao_aulas")
@@ -255,7 +255,7 @@ Deno.serve(async (req) => {
       .eq("id", id)
       .select("id");
     if (upErr) {
-      console.error("update_event error:", upErr.message);
+      console.error("update_event error:", upErr.code, upErr.message, upErr.details);
       return err(upErr.message, 500);
     }
     console.log("update_event rows updated:", updRows?.length ?? 0);
