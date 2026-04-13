@@ -619,7 +619,17 @@ export const GanttProgramming = () => {
 
       {/* ── Legend ──────────────────────────────────────────────────────────── */}
       {disciplines.length > 0 && (() => {
-        const usedIds   = new Set(weekEvents.map((e) => e.disciplineId));
+        const visibleDates = new Set(weekDays.slice(0, 5).map((d) => d.toISOString().slice(0, 10)));
+        const usedIds = new Set(
+          weekEvents
+            .filter((e) =>
+              visibleDates.has(e.date) &&
+              e.classId?.startsWith(String(currentSquadron)) &&
+              e.type !== "ACADEMIC" &&
+              e.disciplineId !== "ACADEMIC"
+            )
+            .map((e) => e.disciplineId)
+        );
         const usedDiscs = disciplines.filter((d) => usedIds.has(d.id));
         if (!usedDiscs.length) return null;
         return (
