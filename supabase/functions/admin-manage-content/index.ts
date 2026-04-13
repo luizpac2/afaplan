@@ -238,15 +238,26 @@ Deno.serve(async (req) => {
     const { id, updates } = body;
     if (!id || !updates) return err("id and updates required");
 
-    // Strip frontend-only fields; remap instructorTrigram → instructorId
-    const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, instructorTrigram, evaluationType, ...rest } = updates as any;
-    const safeUpdates = {
-      ...rest,
-      // instructorTrigram → instructorId; string vazia vira null para não violar FK
-      ...(instructorTrigram !== undefined ? { instructorId: instructorTrigram || null } : {}),
-      // evaluationType deve ser salvo no banco
-      ...(evaluationType !== undefined ? { evaluationType } : {}),
-    };
+    // Mapeia apenas campos conhecidos da tabela — evita enviar campos inválidos
+    const u = updates as any;
+    const safeUpdates: Record<string, unknown> = {};
+    if (u.date             !== undefined) safeUpdates.date            = u.date;
+    if (u.startTime        !== undefined) safeUpdates.startTime       = u.startTime;
+    if (u.endTime          !== undefined) safeUpdates.endTime         = u.endTime;
+    if (u.classId          !== undefined) safeUpdates.classId         = u.classId;
+    if (u.disciplineId     !== undefined) safeUpdates.disciplineId    = u.disciplineId;
+    if (u.location         !== undefined) safeUpdates.location        = u.location;
+    if (u.type             !== undefined) safeUpdates.type            = u.type;
+    if (u.evaluationType   !== undefined) safeUpdates.evaluationType  = u.evaluationType;
+    if (u.color            !== undefined) safeUpdates.color           = u.color;
+    if (u.description      !== undefined) safeUpdates.description     = u.description;
+    if (u.notes            !== undefined) safeUpdates.notes           = u.notes;
+    if (u.targetSquadron   !== undefined) safeUpdates.targetSquadron  = u.targetSquadron;
+    if (u.targetCourse     !== undefined) safeUpdates.targetCourse    = u.targetCourse;
+    if (u.targetClass      !== undefined) safeUpdates.targetClass     = u.targetClass;
+    if (u.endDate          !== undefined) safeUpdates.endDate         = u.endDate;
+    // instructorTrigram → instructorId; string vazia vira null para não violar FK
+    if (u.instructorTrigram !== undefined) safeUpdates.instructorId   = u.instructorTrigram || null;
     console.log("update_event id:", id, "payload:", JSON.stringify(safeUpdates));
 
     const { data: updRows, error: upErr } = await adminClient
