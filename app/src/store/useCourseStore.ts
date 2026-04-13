@@ -1388,7 +1388,10 @@ export const useCourseStore = create<CourseState>((set) => ({
           return;
         }
         const slotKey = `${r.classId}|${r.date}|${normalizeTime(r.startTime)}`;
-        if (!slotSeen.has(slotKey)) slotSeen.set(slotKey, r);
+        const existing = slotSeen.get(slotKey);
+        if (!existing) { slotSeen.set(slotKey, r); return; }
+        if (r.type === "EVALUATION" && existing.type !== "EVALUATION") { slotSeen.set(slotKey, r); return; }
+        if (r.id > existing.id) slotSeen.set(slotKey, r);
       });
       const deduped = [...slotSeen.values()];
       console.log(`[fetchYearlyEvents] ${year}: ${allRows.length} → ${deduped.length} eventos após dedup`);

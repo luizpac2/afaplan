@@ -152,7 +152,13 @@ export const subscribeToEventsByDateRange = (
         return;
       }
       const slotKey = `${r.classId}|${r.date}|${normalizeTime(r.startTime)}`;
-      if (!slotSeen.has(slotKey)) slotSeen.set(slotKey, r);
+      // Mantém o mais recente: prefere o que tem type=EVALUATION, ou o último pelo id
+      const existing = slotSeen.get(slotKey);
+      if (!existing) { slotSeen.set(slotKey, r); return; }
+      // Se o novo tem type EVALUATION e o existente não, prefere o novo
+      if (r.type === "EVALUATION" && existing.type !== "EVALUATION") { slotSeen.set(slotKey, r); return; }
+      // Senão, mantém o de id maior (mais recentemente criado/atualizado)
+      if (r.id > existing.id) slotSeen.set(slotKey, r);
     });
     const deduped = [...slotSeen.values()];
     console.log(`[subscribeToEventsByDateRange] ${deduped.length} eventos após dedup`);
