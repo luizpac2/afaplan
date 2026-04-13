@@ -289,8 +289,36 @@ Deno.serve(async (req) => {
   if (action === "save_notice") {
     const { notice } = body;
     if (!notice || !notice.id) return err("notice with id required");
-    const { error: upsErr } = await adminClient.from("notices").upsert(notice);
-    if (upsErr) return err(upsErr.message, 500);
+    // Descobre colunas reais fazendo select vazio (schema probe)
+    const n = notice as any;
+    // Primeiro tenta insert com todos os campos; se falhar por coluna desconhecida, retorna erro detalhado
+    const { error: upsErr } = await adminClient.from("notices").upsert({
+      id:             n.id,
+      title:          n.title,
+      description:    n.description ?? null,
+      type:           n.type ?? "INFO",
+      startDate:      n.startDate ?? null,
+      endDate:        n.endDate ?? null,
+      targetSquadron: n.targetSquadron ?? null,
+      targetCourse:   n.targetCourse ?? null,
+      targetClass:    n.targetClass ?? null,
+      targetRoles:    n.targetRoles ?? null,
+      createdAt:      n.createdAt ?? new Date().toISOString(),
+      createdBy:      n.createdBy ?? null,
+    });
+    if (upsErr) {
+      console.error("save_notice upsert error:", upsErr.code, upsErr.message);
+      // Tenta versão mínima se houver coluna desconhecida
+      const { error: minErr } = await adminClient.from("notices").upsert({
+        id:          n.id,
+        title:       n.title,
+        description: n.description ?? null,
+        type:        n.type ?? "INFO",
+        startDate:   n.startDate ?? null,
+        endDate:     n.endDate ?? null,
+      });
+      if (minErr) return err(`${minErr.code}: ${minErr.message}`, 500);
+    }
     return ok({ success: true });
   }
 
@@ -298,8 +326,18 @@ Deno.serve(async (req) => {
   if (action === "update_notice") {
     const { id, updates } = body;
     if (!id || !updates) return err("id and updates required");
-    const { error: upErr } = await adminClient.from("notices").update(updates).eq("id", id);
-    if (upErr) return err(upErr.message, 500);
+    const u = updates as any;
+    const safeUpdates: Record<string, unknown> = {};
+    if (u.title       !== undefined) safeUpdates.title       = u.title;
+    if (u.description !== undefined) safeUpdates.description = u.description;
+    if (u.type        !== undefined) safeUpdates.type        = u.type;
+    if (u.startDate   !== undefined) safeUpdates.startDate   = u.startDate;
+    if (u.endDate     !== undefined) safeUpdates.endDate     = u.endDate;
+    const { error: upErr } = await adminClient.from("notices").update(safeUpdates).eq("id", id);
+    if (upErr) {
+      console.error("update_notice error:", upErr.code, upErr.message);
+      return err(`${upErr.code}: ${upErr.message}`, 500);
+    }
     return ok({ success: true });
   }
 
