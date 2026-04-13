@@ -91,7 +91,7 @@ export const AcademicEventForm = ({
       type: category as any,
       description: title.trim(),
       notes: notes.trim() || undefined,
-      targetSquadron: squadron === "ALL" ? "ALL" : squadron,
+      targetSquadron: category === "DAY_OFF" ? "ALL" : (squadron === "ALL" ? "ALL" : squadron),
       targetCourse: null,
       targetClass: null,
       color: initialData?.color,
@@ -141,7 +141,7 @@ export const AcademicEventForm = ({
 
         <div className="px-5 py-4 flex flex-col gap-4">
           {/* Categoria */}
-          {!isEditing && (
+          {(
             <div>
               <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
                 Categoria
@@ -195,8 +195,8 @@ export const AcademicEventForm = ({
             />
           </div>
 
-          {/* Destinatário */}
-          <div>
+          {/* Destinatário — oculto para Day Off (sempre todos) */}
+          {category !== "DAY_OFF" && <div>
             <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
               <Users size={12} className="text-purple-400" />
               Destinatário
@@ -205,7 +205,7 @@ export const AcademicEventForm = ({
               {sqBtn("ALL", "Todos (CCAer)")}
               {SQUADRONS.map((n) => sqBtn(n, `${n}º Esq`))}
             </div>
-          </div>
+          </div>}
 
           {/* Período */}
           <div>
