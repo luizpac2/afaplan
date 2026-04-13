@@ -56,7 +56,7 @@ export const Login = () => {
                     className="mx-auto w-auto h-24 mb-6 object-contain"
                 />
 
-                <h1 className="text-2xl text-slate-900 mb-2">AFA Planner</h1>
+                <h1 className="text-2xl text-slate-900 mb-2">AFA Plan</h1>
                 <p className="text-slate-500 mb-8 text-sm">Faça login para acessar o sistema da Divisão de Ensino.</p>
 
                 {error && (
@@ -75,7 +75,7 @@ export const Login = () => {
                             required
                             value={email}
                             onChange={e => setEmail(e.target.value)}
-                            className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder-slate-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="seu@email.com"
                         />
                     </div>
@@ -88,7 +88,7 @@ export const Login = () => {
                             required
                             value={password}
                             onChange={e => setPassword(e.target.value)}
-                            className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder-slate-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="••••••••"
                         />
                     </div>

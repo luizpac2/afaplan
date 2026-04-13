@@ -167,7 +167,7 @@ export const PendingApproval = () => {
                         </div>
                         <h1 className={`text-2xl  ${theme === 'dark' ? 'text-slate-100' : 'text-slate-900'}`}>Cadastro de Usuário</h1>
                         <p className={`mt-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                            Complete suas informações para solicitar acesso ao AFA Planner.
+                            Complete suas informações para solicitar acesso ao AFA Plan.
                         </p>
                     </div>
 

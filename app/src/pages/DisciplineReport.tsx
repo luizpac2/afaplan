@@ -241,7 +241,7 @@ export const DisciplineReport = () => {
 
         {/* Print Footer */}
         <div className="hidden print:block mt-8 pt-4 border-t border-slate-200 text-center text-[10px] text-slate-400">
-          Relatório gerado pelo AFA Planner em{" "}
+          Relatório gerado pelo AFA Plan em{" "}
           {new Date().toLocaleString("pt-BR")}
         </div>
       </div>

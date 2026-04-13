@@ -107,7 +107,7 @@ export const UserMenu = () => {
                                 navigate('/inbox', {
                                     state: {
                                         compose: true,
-                                        defaultSubject: `Feedback AFA Planner - ${userProfile?.displayName || 'Usuário'}`,
+                                        defaultSubject: `Feedback AFA Plan - ${userProfile?.displayName || 'Usuário'}`,
                                         defaultGroup: 'ADMINS'
                                     }
                                 });

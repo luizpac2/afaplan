@@ -34,7 +34,7 @@ export const sendAuditEmail = async (log: Omit<AuditLogEntry, 'id' | 'timestamp'
     const actionLabel = getActionLabel(log.action);
     const entityLabel = getEntityLabel(log.entity);
 
-    const subject = `[AFA Planner] ${actionLabel} de ${entityLabel}: ${log.entityName || log.entityId}`;
+    const subject = `[AFA Plan] ${actionLabel} de ${entityLabel}: ${log.entityName || log.entityId}`;
 
     let details = `Usuário: ${log.user}\nData/Hora: ${timestamp}\nAção: ${actionLabel}\nEntidade: ${entityLabel}\nNome: ${log.entityName || log.entityId}`;
 

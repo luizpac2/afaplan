@@ -1,6 +1,6 @@
 {
   "name": "afa-planner.web.app/",
-  "short_name": "AFA Planner",
+  "short_name": "AFA Plan",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",

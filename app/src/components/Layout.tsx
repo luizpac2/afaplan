@@ -317,7 +317,7 @@ export const Layout = () => {
 
   const showHelp = () => {
     alert(
-      "Bem-vindo ao AFA Planner!\n\nPara suporte, entre em contato com a Divisão de Ensino.\nRamal: 1234\nEmail: ensino.afa@fab.mil.br",
+      "Bem-vindo ao AFA Plan!\n\nPara suporte, entre em contato com a Divisão de Ensino.\nRamal: 1234\nEmail: ensino.afa@fab.mil.br",
     );
   };
 
@@ -347,7 +347,7 @@ export const Layout = () => {
               <span
                 className={` text-xl leading-tight ${theme === "dark" ? "text-white" : "text-black"}`}
               >
-                AFA Planner
+                AFA Plan
               </span>
               <span
                 className={`text-[10px] uppercase  tracking-wider ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}
@@ -705,7 +705,7 @@ export const Layout = () => {
               <div className="flex flex-col items-center">
                 <p
                   className="text-[10px]  opacity-30 mt-2 hover:opacity-100 transition-opacity"
-                  title="AFA Planner"
+                  title="AFA Plan"
                 >
                   v1.9.0
                 </p>

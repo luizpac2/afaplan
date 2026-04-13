@@ -47,7 +47,7 @@ export const NotificationsPopover = () => {
       setSystemVersionNotif({
         id: "sys_version_update",
         title: "Nova Versão Disponível",
-        message: `O AFA Planner foi atualizado para a versão ${currentVersion}.`,
+        message: `O AFA Plan foi atualizado para a versão ${currentVersion}.`,
         type: "info",
         time: "Nova Atualização",
         read: false,
