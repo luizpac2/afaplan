@@ -218,7 +218,7 @@ export const PanoramicMirror = () => {
           <div className="grid grid-cols-7">
             {/* Empty cells before first day */}
             {Array.from({ length: firstDow }).map((_, i) => (
-              <div key={`e${i}`} className={`min-h-[64px] border-t border-r ${border} ${isDark ? "bg-slate-900/30" : "bg-slate-50/50"}`} />
+              <div key={`e${i}`} className={`min-h-[64px] lg:min-h-[110px] border-t border-r ${border} ${isDark ? "bg-slate-900/30" : "bg-slate-50/50"}`} />
             ))}
 
             {/* Day cells */}
@@ -235,7 +235,7 @@ export const PanoramicMirror = () => {
                 <div
                   key={day}
                   onClick={() => setSelectedDate(isSel ? null : dateStr)}
-                  className={`min-h-[64px] border-t border-r ${border} p-1.5 cursor-pointer transition-colors flex flex-col gap-0.5
+                  className={`min-h-[64px] lg:min-h-[110px] border-t border-r ${border} p-1.5 cursor-pointer transition-colors flex flex-col gap-0.5
                     ${isSel ? (isDark ? "bg-blue-900/30 ring-1 ring-inset ring-blue-500/50" : "bg-blue-50 ring-1 ring-inset ring-blue-300") : ""}
                     ${!isSel && isWknd ? (isDark ? "bg-slate-900/50" : "bg-slate-50/70") : ""}
                     ${!isSel && !isWknd ? (isDark ? "hover:bg-slate-700/40" : "hover:bg-slate-50") : ""}
@@ -248,22 +248,27 @@ export const PanoramicMirror = () => {
                     {day}
                   </span>
 
-                  {/* Event chips */}
-                  {dayEvts.slice(0, 2).map(ev => {
+                  {/* Event chips — mobile: 2, desktop: 6 */}
+                  {dayEvts.slice(0, 6).map((ev, idx) => {
                     const sq = ev.targetSquadron ? Number(ev.targetSquadron) : null;
                     const color = (sq && sq >= 1 && sq <= 4) ? sqColor(sq) : (ev.color ?? "#6366f1");
                     const label = ev.type === "EVALUATION"
                       ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Aval."} ${sq ? SQ_LABELS[sq] : ""}`
                       : (ev.description || ev.location || "Evento");
                     return (
-                      <div key={ev.id} className="rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white"
+                      <div key={ev.id}
+                        className={`rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white${idx >= 2 ? " hidden lg:block" : ""}`}
                         style={{ backgroundColor: color + "cc" }}>
                         {label}
                       </div>
                     );
                   })}
+                  {/* overflow indicator */}
+                  {dayEvts.length > 6 && (
+                    <span className={`text-[9px] ${muted} hidden lg:block`}>+{dayEvts.length - 6}</span>
+                  )}
                   {dayEvts.length > 2 && (
-                    <span className={`text-[9px] ${muted}`}>+{dayEvts.length - 2}</span>
+                    <span className={`text-[9px] ${muted} lg:hidden`}>+{dayEvts.length - 2}</span>
                   )}
                   {/* Notice dot */}
                   {dayNots.length > 0 && (
