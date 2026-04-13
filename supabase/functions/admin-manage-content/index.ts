@@ -210,9 +210,9 @@ Deno.serve(async (req) => {
   if (action === "save_event") {
     const { event } = body;
     if (!event || !event.id) return err("event with id required");
-    const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, instructorTrigram, evaluationType: _et, ...rest } = event as any;
-    // instructorTrigram → instructorId (nome real da coluna no banco)
-    const safeEvent = { ...rest, instructorId: instructorTrigram || rest.instructorId || null };
+    const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, instructorTrigram, evaluationType, ...rest } = event as any;
+    // instructorTrigram → instructorId; string vazia vira null para não violar FK
+    const safeEvent = { ...rest, instructorId: instructorTrigram || null, ...(evaluationType !== undefined ? { evaluationType } : {}) };
     console.log("save_event payload:", JSON.stringify(safeEvent));
     const { data: inserted, error: insErr } = await adminClient
       .from("programacao_aulas")
@@ -239,8 +239,14 @@ Deno.serve(async (req) => {
     if (!id || !updates) return err("id and updates required");
 
     // Strip frontend-only fields; remap instructorTrigram → instructorId
-    const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, instructorTrigram, evaluationType: _et, ...rest } = updates as any;
-    const safeUpdates = { ...rest, ...(instructorTrigram !== undefined ? { instructorId: instructorTrigram } : {}) };
+    const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, instructorTrigram, evaluationType, ...rest } = updates as any;
+    const safeUpdates = {
+      ...rest,
+      // instructorTrigram → instructorId; string vazia vira null para não violar FK
+      ...(instructorTrigram !== undefined ? { instructorId: instructorTrigram || null } : {}),
+      // evaluationType deve ser salvo no banco
+      ...(evaluationType !== undefined ? { evaluationType } : {}),
+    };
     console.log("update_event id:", id, "keys:", Object.keys(safeUpdates));
 
     const { data: updRows, error: upErr } = await adminClient
