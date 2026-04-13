@@ -64,6 +64,7 @@ const MENU_ITEMS: MenuItem[] = [
     submenu: [
       { title: "Início", path: "/", icon: Home },
       { title: "Calendário", path: "/panoramic-view", icon: CalendarIcon },
+      { title: "Gráfico de Gantt", path: "/academic-gantt", icon: BarChart2 },
       { title: "1º Esquadrão", path: "/gantt/1", icon: BarChart2 },
       { title: "2º Esquadrão", path: "/gantt/2", icon: BarChart2 },
       { title: "3º Esquadrão", path: "/gantt/3", icon: BarChart2 },

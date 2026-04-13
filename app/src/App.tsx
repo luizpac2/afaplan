@@ -46,6 +46,7 @@ const ChefeTurmaLancamento = lazy(() => import("./pages/ChefeTurmaLancamento").t
 const FaltasReport = lazy(() => import("./pages/FaltasReport").then(m => ({ default: m.FaltasReport })));
 const DisciplineDashboard = lazy(() => import("./pages/DisciplineDashboard").then(m => ({ default: m.DisciplineDashboard })));
 const GanttProgramming = lazy(() => import("./pages/GanttProgramming").then(m => ({ default: m.GanttProgramming })));
+const AcademicGantt = lazy(() => import("./pages/AcademicGantt").then(m => ({ default: m.AcademicGantt })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center h-64">
@@ -115,6 +116,7 @@ function App() {
                     }
                   />
                   <Route path="panoramic-view" element={<PanoramicMirror />} />
+                  <Route path="academic-gantt" element={<AcademicGantt />} />
                   <Route path="inbox" element={<Inbox />} />
                   <Route path="profile" element={<Profile />} />
 
