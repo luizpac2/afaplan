@@ -79,7 +79,6 @@ export const AcademicGantt = () => {
 
   const currentYear = new Date().getFullYear();
   const [year, setYear]             = useState(currentYear);
-  const [events, setEvents]         = useState<ScheduleEvent[]>([]);
   const [squadron, setSquadron]     = useState<number | "ALL">("ALL");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
   const [hovered, setHovered]       = useState<string | null>(null);
@@ -93,7 +92,17 @@ export const AcademicGantt = () => {
   const bodyRef   = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { fetchYearlyEvents(year).then(setEvents); }, [year, fetchYearlyEvents]);
+  // Subscribe directly to the store's year cache — mutations (add/update/delete)
+  // update yearEventsCache synchronously, so UI reacts automatically.
+  const EMPTY_EVENTS: ScheduleEvent[] = useMemo(() => [], []);
+  const events = useCourseStore(state => state.yearEventsCache[year] ?? EMPTY_EVENTS);
+
+  useEffect(() => {
+    // Only fetch when cache is empty for this year
+    if (!useCourseStore.getState().yearEventsCache[year]) {
+      fetchYearlyEvents(year);
+    }
+  }, [year, fetchYearlyEvents]);
 
   // Sync header horizontal scroll with body
   useEffect(() => {
@@ -199,25 +208,20 @@ export const AcademicGantt = () => {
     return mergeConsecutive(raw);
   }, [events, squadron, typeFilter, cohortTokens]);
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  // ── Handlers — store updates yearEventsCache synchronously, UI reacts automatically
   const handleAdd = (data: Omit<ScheduleEvent, "id">) => {
-    const id = crypto.randomUUID();
-    const ev = { ...data, id };
-    addEvent(ev);
-    setEvents(prev => [...prev, ev]);
+    addEvent({ ...data, id: crypto.randomUUID() });
     setAddingNew(false);
   };
 
   const handleUpdate = (data: Omit<ScheduleEvent, "id">) => {
     if (!editingEvent) return;
     updateEvent(editingEvent.id, data as Partial<ScheduleEvent>);
-    setEvents(prev => prev.map(e => e.id === editingEvent.id ? { ...e, ...data } : e));
     setEditingEvent(null);
   };
 
   const handleDelete = (id: string) => {
     deleteEvent(id);
-    setEvents(prev => prev.filter(e => e.id !== id));
     setEditingEvent(null);
   };
 
