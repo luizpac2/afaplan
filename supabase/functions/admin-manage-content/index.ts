@@ -41,7 +41,8 @@ Deno.serve(async (req) => {
 
   const isSuperAdmin = user.email === "pelicano307@gmail.com";
   const role = (roleRow?.role ?? "").toLowerCase();
-  if (!isSuperAdmin && role !== "gestor" && role !== "super_admin") {
+  const allowedRoles = ["gestor", "super_admin", "admin"];
+  if (!isSuperAdmin && !allowedRoles.includes(role)) {
     return err(`Forbidden (role=${role})`, 403);
   }
 
