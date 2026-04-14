@@ -448,7 +448,7 @@ export const DisciplineGantt = () => {
                   const rightPct = ((row.lastDate.getMonth() +
                     row.lastDate.getDate() / daysInMonth(year, row.lastDate.getMonth())) / 12) * 100;
                   const widthPct = Math.max(0.3, rightPct - leftPct);
-                  const spanDays = Math.round(
+                  const duracaoDias = Math.round(
                     (row.lastDate.getTime() - row.firstDate.getTime()) / 86400000
                   ) + 1;
 
@@ -521,7 +521,7 @@ export const DisciplineGantt = () => {
                             </p>
                             <p className={muted}>
                               {fmtShort(row.firstDate)} → {fmtShort(row.lastDate)}
-                              {" "}({spanDays}d · <strong>{row.classCount}</strong> aulas
+                              {" "}({duracaoDias} dias · <strong>{row.classCount}</strong> aulas
                               {row.totalLoad > 0 ? ` · ${row.totalLoad}h PPC` : ""})
                             </p>
                             <div className="flex items-center gap-2 mt-1">
