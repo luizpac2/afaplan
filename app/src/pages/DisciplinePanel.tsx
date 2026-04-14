@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import {
    Search, CheckCircle2, BookOpen, Clock, GraduationCap,
    X, TrendingUp, Calendar, ChevronDown, FileText, CalendarCheck,
-   Filter,
+   Filter, Users,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -39,8 +39,20 @@ function getTotalPPC(d: Discipline) {
    return Object.values(d.ppcLoads).reduce((s, v) => s + (v || 0), 0);
 }
 
+function clsLabel(cls: CourseClass | undefined, classId: string) {
+   if (!cls) return classId;
+   const tipo = cls.type === 'AVIATION' ? 'Av' : cls.type === 'INTENDANCY' ? 'Int' : 'Inf';
+   return `${cls.year}º Ano · Turma ${cls.name} (${tipo})`;
+}
+
 // ─── ICS Generator ───────────────────────────────────────────────────────────
-function generateICS(disc: Discipline, events: ScheduleEvent[], classMap: Record<string, CourseClass>, instructor: Instructor | undefined) {
+function generateICS(
+   disc: Discipline,
+   events: ScheduleEvent[],
+   classMap: Record<string, CourseClass>,
+   instructor: Instructor | undefined,
+   filePrefix: string,
+) {
    const icsDate = (dateStr: string, time: string) => {
       const [y, m, d] = dateStr.split('-');
       const [h, min] = (time || '08:00').split(':');
@@ -53,14 +65,20 @@ function generateICS(disc: Discipline, events: ScheduleEvent[], classMap: Record
    ];
    events.forEach(ev => {
       const cls = classMap[ev.classId];
-      const clsLabel = cls ? `${cls.year}º Ano - Turma ${cls.name}` : ev.classId;
+      const turma = clsLabel(cls, ev.classId);
+      const desc = [
+         `Disciplina: ${disc.code} - ${disc.name}`,
+         `Turma: ${turma}`,
+         instructor ? `Docente: ${instructor.rank ? instructor.rank + ' ' : ''}${instructor.warName} (${instructor.trigram})` : '',
+         ev.location ? `Local: ${ev.location}` : '',
+      ].filter(Boolean).join('\\n');
       lines.push(
          'BEGIN:VEVENT', `UID:${ev.id}@afaplanner`,
          `DTSTAMP:${icsDate(new Date().toISOString().split('T')[0], '00:00')}`,
          `DTSTART:${icsDate(ev.date, ev.startTime || '08:00')}`,
          `DTEND:${icsDate(ev.date, ev.endTime || '10:00')}`,
-         `SUMMARY:${disc.code} - ${disc.name}`,
-         `DESCRIPTION:Turma: ${clsLabel}${instructor ? `\\nDocente: ${instructor.trigram} - ${instructor.warName}` : ''}${ev.location ? `\\nLocal: ${ev.location}` : ''}`,
+         `SUMMARY:${disc.code} - ${disc.name} [${turma}]`,
+         `DESCRIPTION:${desc}`,
          ev.location ? `LOCATION:${ev.location}` : '',
          'END:VEVENT',
       );
@@ -68,18 +86,24 @@ function generateICS(disc: Discipline, events: ScheduleEvent[], classMap: Record
    lines.push('END:VCALENDAR');
    const blob = new Blob([lines.filter(Boolean).join('\r\n')], { type: 'text/calendar;charset=utf-8' });
    const url = URL.createObjectURL(blob);
-   const a = document.createElement('a'); a.href = url; a.download = `${disc.code}_Programacao.ics`; a.click();
+   const a = document.createElement('a'); a.href = url; a.download = `${filePrefix}_Programacao.ics`; a.click();
    URL.revokeObjectURL(url);
 }
 
 // ─── PDF Generator ────────────────────────────────────────────────────────────
-function generatePDF(disc: Discipline, events: ScheduleEvent[], classMap: Record<string, CourseClass>, instructor: Instructor | undefined) {
+function generatePDF(
+   disc: Discipline,
+   events: ScheduleEvent[],
+   classMap: Record<string, CourseClass>,
+   instructor: Instructor | undefined,
+   filePrefix: string,
+) {
    const doc = new jsPDF();
    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
    doc.text(`${disc.code} — ${disc.name}`, 14, 18);
    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(100);
-   if (instructor) doc.text(`Docente: ${instructor.rank || ''} ${instructor.warName} (${instructor.trigram})`, 14, 25);
-   doc.text(`Campo: ${FIELD_LABELS[disc.trainingField] || disc.trainingField}  |  PPC Total: ${getTotalPPC(disc)}h  |  Aulas agendadas: ${events.length}`, 14, 31);
+   if (instructor) doc.text(`Docente: ${instructor.rank ? instructor.rank + ' ' : ''}${instructor.warName} (${instructor.trigram})`, 14, 25);
+   doc.text(`Campo: ${FIELD_LABELS[disc.trainingField] || disc.trainingField}  |  PPC Total: ${getTotalPPC(disc)}h  |  Aulas: ${events.length}`, 14, 31);
    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 37);
    doc.setTextColor(0);
    const rows = events.map((ev, i) => {
@@ -90,16 +114,102 @@ function generatePDF(disc: Discipline, events: ScheduleEvent[], classMap: Record
          `${String(dd).padStart(2, '0')}/${String(mm).padStart(2, '0')}/${yy}`,
          WEEKDAYS[new Date(yy, mm - 1, dd).getDay()],
          `${ev.startTime || '--'} – ${ev.endTime || '--'}`,
-         cls ? `${cls.year}º ${cls.name} (${cls.type === 'AVIATION' ? 'Av' : cls.type === 'INTENDANCY' ? 'Int' : 'Inf'})` : ev.classId,
-         ev.location || '',
+         clsLabel(cls, ev.classId),
+         ev.location || '—',
       ];
    });
    autoTable(doc, {
-      startY: 43, head: [['#', 'Data', 'Dia', 'Horário', 'Turma', 'Local']],
+      startY: 43,
+      head: [['#', 'Data', 'Dia', 'Horário', 'Turma', 'Local']],
       body: rows, theme: 'striped', headStyles: { fillColor: [37, 99, 235] },
-      styles: { fontSize: 8 }, columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 24 }, 2: { cellWidth: 14 }, 3: { cellWidth: 28 } },
+      styles: { fontSize: 8 },
+      columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 22 }, 2: { cellWidth: 12 }, 3: { cellWidth: 26 }, 4: { cellWidth: 60 } },
    });
-   doc.save(`${disc.code}_Programacao.pdf`);
+   doc.save(`${filePrefix}_Programacao.pdf`);
+}
+
+// ─── PDF for all classes of an instructor ────────────────────────────────────
+function generateInstructorPDF(
+   instructor: Instructor,
+   discsWithEvents: { disc: Discipline; events: ScheduleEvent[] }[],
+   classMap: Record<string, CourseClass>,
+) {
+   const doc = new jsPDF();
+   doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+   doc.text(`Programação — ${instructor.rank ? instructor.rank + ' ' : ''}${instructor.warName} (${instructor.trigram})`, 14, 18);
+   doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(100);
+   doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 25);
+   doc.setTextColor(0);
+
+   let rows: string[][] = [];
+   for (const { disc, events } of discsWithEvents) {
+      for (const ev of events) {
+         const [yy, mm, dd] = ev.date.split('-').map(Number);
+         const cls = classMap[ev.classId];
+         rows.push([
+            `${String(dd).padStart(2, '0')}/${String(mm).padStart(2, '0')}/${yy}`,
+            WEEKDAYS[new Date(yy, mm - 1, dd).getDay()],
+            `${ev.startTime || '--'} – ${ev.endTime || '--'}`,
+            `${disc.code}`,
+            clsLabel(cls, ev.classId),
+            ev.location || '—',
+         ]);
+      }
+   }
+   rows.sort((a, b) => a[0].localeCompare(b[0]));
+
+   autoTable(doc, {
+      startY: 31,
+      head: [['Data', 'Dia', 'Horário', 'Disciplina', 'Turma', 'Local']],
+      body: rows, theme: 'striped', headStyles: { fillColor: [37, 99, 235] },
+      styles: { fontSize: 8 },
+      columnStyles: { 0: { cellWidth: 22 }, 1: { cellWidth: 12 }, 2: { cellWidth: 26 }, 3: { cellWidth: 20 }, 4: { cellWidth: 55 } },
+   });
+   doc.save(`${instructor.trigram}_TodasAulas.pdf`);
+}
+
+function generateInstructorICS(
+   instructor: Instructor,
+   discsWithEvents: { disc: Discipline; events: ScheduleEvent[] }[],
+   classMap: Record<string, CourseClass>,
+) {
+   const icsDate = (dateStr: string, time: string) => {
+      const [y, m, d] = dateStr.split('-');
+      const [h, min] = (time || '08:00').split(':');
+      return `${y}${m}${d}T${h}${min}00`;
+   };
+   const lines = [
+      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//AFA Planner//PT',
+      `X-WR-CALNAME:Aulas — ${instructor.warName}`,
+      'X-WR-TIMEZONE:America/Sao_Paulo', 'CALSCALE:GREGORIAN',
+   ];
+   for (const { disc, events } of discsWithEvents) {
+      events.forEach(ev => {
+         const cls = classMap[ev.classId];
+         const turma = clsLabel(cls, ev.classId);
+         const desc = [
+            `Disciplina: ${disc.code} - ${disc.name}`,
+            `Turma: ${turma}`,
+            `Docente: ${instructor.rank ? instructor.rank + ' ' : ''}${instructor.warName} (${instructor.trigram})`,
+            ev.location ? `Local: ${ev.location}` : '',
+         ].filter(Boolean).join('\\n');
+         lines.push(
+            'BEGIN:VEVENT', `UID:${ev.id}@afaplanner`,
+            `DTSTAMP:${icsDate(new Date().toISOString().split('T')[0], '00:00')}`,
+            `DTSTART:${icsDate(ev.date, ev.startTime || '08:00')}`,
+            `DTEND:${icsDate(ev.date, ev.endTime || '10:00')}`,
+            `SUMMARY:${disc.code} [${turma}]`,
+            `DESCRIPTION:${desc}`,
+            ev.location ? `LOCATION:${ev.location}` : '',
+            'END:VEVENT',
+         );
+      });
+   }
+   lines.push('END:VCALENDAR');
+   const blob = new Blob([lines.filter(Boolean).join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+   const url = URL.createObjectURL(blob);
+   const a = document.createElement('a'); a.href = url; a.download = `${instructor.trigram}_TodasAulas.ics`; a.click();
+   URL.revokeObjectURL(url);
 }
 
 // ─── Schedule Modal ───────────────────────────────────────────────────────────
@@ -111,6 +221,7 @@ function ScheduleModal({ disc, events, classMap, instructor, today, isDark, onCl
    const upcoming  = events.filter(e => e.date >= today);
    const [showAll, setShowAll] = useState(false);
    const displayUpcoming = showAll ? upcoming : upcoming.slice(0, 15);
+   const filePrefix = disc.code.replace(/\//g, '-');
 
    return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -130,11 +241,11 @@ function ScheduleModal({ disc, events, classMap, instructor, today, isDark, onCl
                   )}
                </div>
                <div className="flex items-center gap-2 shrink-0">
-                  <button onClick={() => generatePDF(disc, events, classMap, instructor)} disabled={events.length === 0} title="Baixar PDF"
+                  <button onClick={() => generatePDF(disc, events, classMap, instructor, filePrefix)} disabled={events.length === 0} title="Baixar PDF"
                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20 disabled:opacity-40">
                      <FileText size={13} /> PDF
                   </button>
-                  <button onClick={() => generateICS(disc, events, classMap, instructor)} disabled={events.length === 0} title="Exportar para Google Agenda / iCal"
+                  <button onClick={() => generateICS(disc, events, classMap, instructor, filePrefix)} disabled={events.length === 0} title="Exportar para Google Agenda / iCal"
                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border text-green-600 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-900/20 disabled:opacity-40">
                      <CalendarCheck size={13} /> .ICS
                   </button>
@@ -317,7 +428,6 @@ function DisciplineCard({ disc, instructor, events, today, isDark, onViewSchedul
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export const DisciplinePanel = () => {
    const headerRef = useRef<HTMLDivElement>(null);
-   const toolbarRef = useRef<HTMLDivElement>(null);
    const [headerH, setHeaderH] = useState(56);
 
    const { disciplines, classes, instructors, yearEventsCache, fetchYearlyEvents } = useCourseStore();
@@ -332,6 +442,7 @@ export const DisciplinePanel = () => {
    const [courseFilter, setCourseFilter] = useState('ALL');
    const [yearFilter, setYearFilter]     = useState('ALL');
    const [instrFilter, setInstrFilter]   = useState('ALL');
+   const [classFilter, setClassFilter]   = useState('ALL');
    const [statusFilter, setStatusFilter] = useState('ALL');
    const [showFilters, setShowFilters]   = useState(false);
 
@@ -358,7 +469,20 @@ export const DisciplinePanel = () => {
       [yearEventsCache],
    );
 
+   // Events grouped by discipline, optionally filtered by classFilter
    const eventsByDisc = useMemo(() => {
+      const map: Record<string, ScheduleEvent[]> = {};
+      for (const ev of allEvents) {
+         if (classFilter !== 'ALL' && ev.classId !== classFilter) continue;
+         if (!map[ev.disciplineId]) map[ev.disciplineId] = [];
+         map[ev.disciplineId].push(ev);
+      }
+      for (const id of Object.keys(map)) map[id].sort((a, b) => a.date.localeCompare(b.date));
+      return map;
+   }, [allEvents, classFilter]);
+
+   // Full events by disc (unfiltered by class) for modal
+   const allEventsByDisc = useMemo(() => {
       const map: Record<string, ScheduleEvent[]> = {};
       for (const ev of allEvents) {
          if (!map[ev.disciplineId]) map[ev.disciplineId] = [];
@@ -380,18 +504,41 @@ export const DisciplinePanel = () => {
       return m;
    }, [instructors]);
 
+   // Secondary lookup by warName for disciplines that store instructor name instead of trigram
+   const instructorByWarName = useMemo(() => {
+      const m: Record<string, Instructor> = {};
+      for (const i of instructors) if (i.warName) m[i.warName] = i;
+      return m;
+   }, [instructors]);
+
+   const resolveInstructor = (disc: Discipline): Instructor | undefined =>
+      instructorByTrigram[disc.instructorTrigram || ''] ||
+      instructorByWarName[disc.instructor || ''] ||
+      undefined;
+
    const myInstructor = useMemo(() => {
       if (!isDocente || !userProfile) return null;
       return instructors.find(i => i.email === userProfile.email) || null;
    }, [isDocente, userProfile, instructors]);
 
+   // Auto-set instrFilter for DOCENTE role
+   useEffect(() => {
+      if (isDocente && myInstructor && instrFilter === 'ALL') {
+         setInstrFilter(myInstructor.trigram);
+      }
+   }, [isDocente, myInstructor]);
+
    const filteredDiscs = useMemo(() => {
       const q = discSearch.toLowerCase();
       return [...disciplines].filter(d => {
-         if (isDocente && myInstructor && !myInstructor.enabledDisciplines?.includes(d.id)) return false;
+         // Docente role: only show disciplines they are assigned to
+         if (isDocente && myInstructor) {
+            const tri = d.instructorTrigram || (instructorByWarName[d.instructor || '']?.trigram);
+            if (tri !== myInstructor.trigram) return false;
+         }
          if (instrFilter !== 'ALL') {
-            const instr = instructors.find(i => i.trigram === instrFilter);
-            if (!instr?.enabledDisciplines?.includes(d.id)) return false;
+            const tri = d.instructorTrigram || (instructorByWarName[d.instructor || '']?.trigram);
+            if (tri !== instrFilter) return false;
          }
          if (fieldFilter !== 'ALL' && d.trainingField !== fieldFilter) return false;
          if (courseFilter !== 'ALL' && !d.enabledCourses?.includes(courseFilter as any)) return false;
@@ -405,35 +552,77 @@ export const DisciplinePanel = () => {
          if (q) return d.name.toLowerCase().includes(q) || (d.code || '').toLowerCase().includes(q) || (FIELD_LABELS[d.trainingField] || '').toLowerCase().includes(q);
          return true;
       }).sort((a, b) => (a.code || '').localeCompare(b.code || ''));
-   }, [disciplines, discSearch, fieldFilter, courseFilter, yearFilter, instrFilter, statusFilter, eventsByDisc, today, isDocente, myInstructor, instructors]);
+   }, [disciplines, discSearch, fieldFilter, courseFilter, yearFilter, instrFilter, classFilter, statusFilter, eventsByDisc, today, isDocente, myInstructor, instructors, instructorByWarName]);
 
    const totalScheduled = useMemo(() => filteredDiscs.reduce((s, d) => s + (eventsByDisc[d.id]?.length || 0), 0), [filteredDiscs, eventsByDisc]);
    const totalCompleted = useMemo(() => filteredDiscs.reduce((s, d) => s + (eventsByDisc[d.id]?.filter(e => e.date < today).length || 0), 0), [filteredDiscs, eventsByDisc, today]);
    const totalPPC       = useMemo(() => filteredDiscs.reduce((s, d) => s + getTotalPPC(d), 0), [filteredDiscs]);
-   const hasActiveFilters = fieldFilter !== 'ALL' || courseFilter !== 'ALL' || yearFilter !== 'ALL' || instrFilter !== 'ALL' || statusFilter !== 'ALL';
+   const hasActiveFilters = fieldFilter !== 'ALL' || courseFilter !== 'ALL' || yearFilter !== 'ALL' || instrFilter !== 'ALL' || classFilter !== 'ALL' || statusFilter !== 'ALL';
+
+   // Selected instructor (for bulk download)
+   const selectedInstructor = instrFilter !== 'ALL' ? instructorByTrigram[instrFilter] : undefined;
+   const instrDiscsWithEvents = useMemo(() => {
+      if (!selectedInstructor) return [];
+      return filteredDiscs
+         .map(d => ({ disc: d, events: allEventsByDisc[d.id] || [] }))
+         .filter(x => x.events.length > 0);
+   }, [selectedInstructor, filteredDiscs, allEventsByDisc]);
 
    const filterSelectCls = `px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200'}`;
+
+   // Sorted classes for filter dropdown
+   const sortedClasses = useMemo(() =>
+      [...classes].sort((a, b) => a.year - b.year || a.name.localeCompare(b.name)),
+   [classes]);
 
    return (
       <div className={`w-full min-h-screen ${isDark ? 'bg-slate-950 text-slate-100' : 'bg-gray-50 text-slate-900'}`}>
 
          {/* Header */}
          <div ref={headerRef} className={`sticky top-0 z-50 px-4 md:px-6 border-b backdrop-blur-md ${isDark ? 'bg-slate-950/95 border-slate-800' : 'bg-white/95 border-slate-200'}`}>
-            <div className="flex items-center justify-between gap-4 py-2.5">
+            <div className="flex items-center justify-between gap-4 py-2.5 flex-wrap">
                <div className="flex items-center gap-3">
-                  <h1 className="text-lg font-bold tracking-tight">Painel do Docente</h1>
+                  <h1 className="text-lg font-bold tracking-tight">Painel de Disciplinas</h1>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>{filteredDiscs.length} disciplinas</span>
                </div>
-               <button onClick={() => setShowFilters(v => !v)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-all ${showFilters || hasActiveFilters ? (isDark ? 'bg-blue-900/30 text-blue-400 border-blue-800' : 'bg-blue-50 text-blue-600 border-blue-200') : (isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-600 shadow-sm')}`}>
-                  <Filter size={13} /> Filtros
-                  {hasActiveFilters && <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-[9px] flex items-center justify-center font-bold">!</span>}
-               </button>
+               <div className="flex items-center gap-2">
+                  {/* Docente quick selector */}
+                  {!isDocente && (
+                     <div className="flex items-center gap-1.5">
+                        <Users size={14} className="text-slate-400 shrink-0" />
+                        <select value={instrFilter} onChange={e => setInstrFilter(e.target.value)}
+                           className={`pr-7 py-1.5 pl-2 rounded-lg border text-sm outline-none ${instrFilter !== 'ALL' ? (isDark ? 'bg-blue-900/30 text-blue-300 border-blue-700' : 'bg-blue-50 text-blue-700 border-blue-300') : (isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-700')}`}>
+                           <option value="ALL">Todos os docentes</option>
+                           {[...instructors].sort((a, b) => a.warName.localeCompare(b.warName)).map(i => (
+                              <option key={i.trigram} value={i.trigram}>{i.trigram} — {i.warName}</option>
+                           ))}
+                        </select>
+                     </div>
+                  )}
+                  {/* Bulk download when instructor selected */}
+                  {selectedInstructor && instrDiscsWithEvents.length > 0 && (
+                     <>
+                        <button onClick={() => generateInstructorPDF(selectedInstructor, instrDiscsWithEvents, classMap)}
+                           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20">
+                           <FileText size={13} /> PDF Geral
+                        </button>
+                        <button onClick={() => generateInstructorICS(selectedInstructor, instrDiscsWithEvents, classMap)}
+                           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border text-green-600 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-900/20">
+                           <CalendarCheck size={13} /> ICS Geral
+                        </button>
+                     </>
+                  )}
+                  <button onClick={() => setShowFilters(v => !v)}
+                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-all ${showFilters || hasActiveFilters ? (isDark ? 'bg-blue-900/30 text-blue-400 border-blue-800' : 'bg-blue-50 text-blue-600 border-blue-200') : (isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-600 shadow-sm')}`}>
+                     <Filter size={13} /> Filtros
+                     {hasActiveFilters && <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-[9px] flex items-center justify-center font-bold">!</span>}
+                  </button>
+               </div>
             </div>
          </div>
 
          {/* Toolbar */}
-         <div ref={toolbarRef} className={`sticky z-40 px-4 md:px-6 py-3 border-b backdrop-blur-md ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`} style={{ top: headerH }}>
+         <div className={`sticky z-40 px-4 md:px-6 py-3 border-b backdrop-blur-md ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`} style={{ top: headerH }}>
             {/* Search */}
             <div className="flex gap-2 items-center mb-2">
                <div className="relative flex-1">
@@ -447,7 +636,7 @@ export const DisciplinePanel = () => {
 
             {/* Expanded filters */}
             {showFilters && (
-               <div className={`rounded-lg border p-3 mb-2 grid grid-cols-2 md:grid-cols-5 gap-2 ${isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+               <div className={`rounded-lg border p-3 mb-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 ${isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
                   <div>
                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Campo</label>
                      <select value={fieldFilter} onChange={e => setFieldFilter(e.target.value)} className={filterSelectCls + ' w-full'}>
@@ -476,11 +665,11 @@ export const DisciplinePanel = () => {
                      </select>
                   </div>
                   <div>
-                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Docente</label>
-                     <select value={instrFilter} onChange={e => setInstrFilter(e.target.value)} className={filterSelectCls + ' w-full'}>
-                        <option value="ALL">Todos</option>
-                        {[...instructors].sort((a, b) => a.warName.localeCompare(b.warName)).map(i => (
-                           <option key={i.trigram} value={i.trigram}>{i.trigram} — {i.warName}</option>
+                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Turma</label>
+                     <select value={classFilter} onChange={e => setClassFilter(e.target.value)} className={filterSelectCls + ' w-full'}>
+                        <option value="ALL">Todas</option>
+                        {sortedClasses.map(c => (
+                           <option key={c.id} value={c.id}>{c.year}º Ano · {c.name}</option>
                         ))}
                      </select>
                   </div>
@@ -495,6 +684,12 @@ export const DisciplinePanel = () => {
                         <option value="DONE">PPC concluído</option>
                      </select>
                   </div>
+                  <div className="flex items-end">
+                     <button onClick={() => { setFieldFilter('ALL'); setCourseFilter('ALL'); setYearFilter('ALL'); setInstrFilter('ALL'); setClassFilter('ALL'); setStatusFilter('ALL'); }}
+                        className="w-full py-2 px-3 rounded-lg text-xs font-medium text-red-500 border border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20">
+                        Limpar filtros
+                     </button>
+                  </div>
                </div>
             )}
 
@@ -506,10 +701,10 @@ export const DisciplinePanel = () => {
                <span className="flex items-center gap-1 text-green-500"><CheckCircle2 size={10} /> <strong>{totalCompleted}</strong> realizadas</span>
                <span className="flex items-center gap-1 text-blue-500"><Clock size={10} /> <strong>{totalScheduled - totalCompleted}</strong> restantes</span>
                {totalPPC > 0 && <span className="flex items-center gap-1"><TrendingUp size={10} /> <strong className={isDark ? 'text-slate-200' : 'text-slate-700'}>{Math.round((totalScheduled / totalPPC) * 100)}%</strong> do PPC ({totalPPC}h)</span>}
-               {hasActiveFilters && (
-                  <button onClick={() => { setFieldFilter('ALL'); setCourseFilter('ALL'); setYearFilter('ALL'); setInstrFilter('ALL'); setStatusFilter('ALL'); }} className="ml-auto flex items-center gap-1 text-red-400 hover:text-red-500">
-                     <X size={11} /> Limpar filtros
-                  </button>
+               {classFilter !== 'ALL' && classMap[classFilter] && (
+                  <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${isDark ? 'bg-amber-900/30 text-amber-400' : 'bg-amber-50 text-amber-700'}`}>
+                     Turma: {classMap[classFilter].year}º Ano · {classMap[classFilter].name}
+                  </span>
                )}
             </div>
          </div>
@@ -527,7 +722,7 @@ export const DisciplinePanel = () => {
                   {filteredDiscs.map(disc => (
                      <DisciplineCard
                         key={disc.id} disc={disc}
-                        instructor={instructorByTrigram[disc.instructorTrigram || disc.instructor || '']}
+                        instructor={resolveInstructor(disc)}
                         events={eventsByDisc[disc.id] || []}
                         today={today} isDark={isDark}
                         onViewSchedule={() => setSelectedDisc(disc)}
@@ -537,13 +732,15 @@ export const DisciplinePanel = () => {
             )}
          </div>
 
-         {/* Schedule modal */}
+         {/* Schedule modal — shows events filtered by classFilter */}
          {selectedDisc && (
             <ScheduleModal
                disc={selectedDisc}
-               events={eventsByDisc[selectedDisc.id] || []}
+               events={classFilter !== 'ALL'
+                  ? (allEventsByDisc[selectedDisc.id] || []).filter(e => e.classId === classFilter)
+                  : (allEventsByDisc[selectedDisc.id] || [])}
                classMap={classMap}
-               instructor={instructorByTrigram[selectedDisc.instructorTrigram || selectedDisc.instructor || '']}
+               instructor={resolveInstructor(selectedDisc)}
                today={today} isDark={isDark}
                onClose={() => setSelectedDisc(null)}
             />
