@@ -63,33 +63,35 @@ Deno.serve(async (req) => {
         if (e2) console.error("disciplines upsert error:", e2.message);
       }
     } else if (op === "update" && payload) {
-      // Monta payload com colunas reais da tabela disciplines (sigla, nome, carga_horaria, campo, data)
+      // Colunas reais da tabela `disciplines`: code, name, load_hours, data (jsonb)
+      // NÃO enviar colunas inexistentes (color, sigla, nome, campo, carga_horaria)
       const p = payload as any;
       const rest: Record<string, unknown> = {};
-      if (p.name       !== undefined) rest.nome           = p.name;
-      if (p.nome       !== undefined) rest.nome           = p.nome;
-      if (p.load_hours !== undefined) rest.carga_horaria  = p.load_hours;
-      if (p.carga_horaria !== undefined) rest.carga_horaria = p.carga_horaria;
-      // trainingField pode vir direto ou dentro de data.trainingField
-      const tf = p.trainingField ?? p.data?.trainingField;
-      if (tf !== undefined) rest.campo = tf;
-      // data jsonb (armazena tudo que não é coluna direta)
-      if (p.data !== undefined) rest.data = p.data;
+      if (p.name       !== undefined) rest.name       = p.name;
+      if (p.load_hours !== undefined) rest.load_hours = p.load_hours;
+      // data jsonb — garante que color e trainingField ficam dentro do data
+      if (p.data !== undefined) {
+        const existingData = typeof p.data === "object" ? p.data : {};
+        rest.data = {
+          ...existingData,
+          ...(p.color !== undefined ? { color: p.color } : {}),
+        };
+      }
 
       console.log("disciplines update payload:", JSON.stringify(rest), "lookup code:", code);
 
-      // Tenta por 'sigla' primeiro (coluna canônica)
+      // Tenta por 'code' primeiro (coluna canônica da tabela EN)
       const { data: r1, error: e1 } = await adminClient.from("disciplines")
-        .update(rest).eq("sigla", code).select("id");
-      console.log("update by sigla — rows:", r1?.length ?? 0, "error:", e1?.message ?? "none");
+        .update(rest).eq("code", code).select("id");
+      console.log("update by code — rows:", r1?.length ?? 0, "error:", e1?.message ?? "none");
 
       if (!e1 && (!r1 || r1.length === 0)) {
-        // Fallback: tenta por 'code' (caso exista essa coluna)
+        // Fallback: tenta por 'sigla' (caso a tabela use esse nome)
         const { data: r2, error: e2 } = await adminClient.from("disciplines")
-          .update(rest).eq("code", code).select("id");
-        console.log("update by code — rows:", r2?.length ?? 0, "error:", e2?.message ?? "none");
+          .update(rest).eq("sigla", code).select("id");
+        console.log("update by sigla — rows:", r2?.length ?? 0, "error:", e2?.message ?? "none");
         if (e2) throw new Error(`disciplines update failed: ${e2.message}`);
-        if (!r2 || r2.length === 0) throw new Error(`disciplines: nenhuma linha encontrada para sigla/code="${code}"`);
+        if (!r2 || r2.length === 0) throw new Error(`disciplines: nenhuma linha encontrada para code/sigla="${code}"`);
       } else if (e1) {
         throw new Error(`disciplines update error: ${e1.message}`);
       }
