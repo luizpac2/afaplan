@@ -85,7 +85,6 @@ function mergeConsecutive(events: GanttEvent[]): GanttEvent[] {
 const LABEL_W = 240;
 const ROW_H   = 36;
 const HEAD_H  = 32;
-const MIN_TW  = 700; // minimum timeline pixel width
 
 const ALL_TYPES = ["ACADEMIC", "EVALUATION", "DAY_OFF", "COMMEMORATIVE", "SPORTS", "INFORMATIVE", "HOLIDAY"] as const;
 const SQUADRONS = [1, 2, 3, 4] as const;
@@ -107,8 +106,6 @@ export const AcademicGantt = () => {
   const [selTypes, setSelTypes]       = useState<Set<string>>(new Set());
   const [selSquadrons, setSelSquadrons] = useState<Set<number>>(new Set());
 
-  // Timeline width measured from body scroll container
-  const [timelineWidth, setTimelineWidth] = useState(MIN_TW);
   const bodyRef   = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
 
@@ -132,18 +129,6 @@ export const AcademicGantt = () => {
     return () => body.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Measure timeline width from the body scroll container itself
-  useEffect(() => {
-    const el = bodyRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      const w = entry.contentRect.width - LABEL_W;
-      setTimelineWidth(Math.max(MIN_TW, w));
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
   // Cohort color map
   const cohortTokens = useMemo(() => {
     const r: Record<number, ReturnType<typeof getCohortColorTokens>> = {};
@@ -163,33 +148,32 @@ export const AcademicGantt = () => {
     return m;
   }, [events]);
 
-  // ── Equal-width month layout ─────────────────────────────────────────────
-  const monthWidth = timelineWidth / 12;
-
-  const dateToX = useCallback((date: Date): number => {
+  // ── Percentage-based month layout (fills available width exactly) ────────
+  // dateToPercent: returns 0-100 position within the timeline
+  const dateToPercent = useCallback((date: Date): number => {
     const m = date.getMonth();
     const d = date.getDate();
-    return m * monthWidth + ((d - 1) / daysInMonth(year, m)) * monthWidth;
-  }, [monthWidth, year]);
+    return ((m + (d - 1) / daysInMonth(year, m)) / 12) * 100;
+  }, [year]);
 
-  const barLeft  = useCallback((ev: GanttEvent) => dateToX(ev.start), [dateToX]);
-  const barWidth = useCallback((ev: GanttEvent) => {
+  const barLeftPct = useCallback((ev: GanttEvent) => dateToPercent(ev.start), [dateToPercent]);
+  const barWidthPct = useCallback((ev: GanttEvent) => {
     const em = ev.end.getMonth(), ed = ev.end.getDate();
-    const rightEdge = em * monthWidth + (ed / daysInMonth(year, em)) * monthWidth;
-    return Math.max(4, rightEdge - dateToX(ev.start));
-  }, [dateToX, monthWidth, year]);
+    const rightPct = ((em + ed / daysInMonth(year, em)) / 12) * 100;
+    return Math.max(0.3, rightPct - dateToPercent(ev.start));
+  }, [dateToPercent, year]);
 
   const monthTicks = useMemo(() => Array.from({ length: 12 }, (_, m) => ({
     label: MONTHS_PT[m], m,
-    left:  m * monthWidth,
-    width: monthWidth,
-  })), [monthWidth]);
+    leftPct:  (m / 12) * 100,
+    widthPct: (1 / 12) * 100,
+  })), []);
 
-  const todayLeft = useMemo(() => {
+  const todayPct = useMemo(() => {
     const t = new Date(); t.setHours(0,0,0,0);
     if (t.getFullYear() !== year) return null;
-    return dateToX(t);
-  }, [year, dateToX]);
+    return dateToPercent(t);
+  }, [year, dateToPercent]);
 
   // ── Gantt events ─────────────────────────────────────────────────────────
   const ganttEvents = useMemo((): GanttEvent[] => {
@@ -366,12 +350,12 @@ export const AcademicGantt = () => {
             {/* Sticky month header — OUTSIDE overflow-x-auto, synced via JS */}
             <div className={`sticky top-0 z-30 border-b ${border} rounded-t-xl`} style={{ overflow: "hidden" }}>
               <div ref={headerRef} style={{ overflow: "hidden", pointerEvents: "none" }}>
-                <div style={{ display: "flex", width: LABEL_W + timelineWidth }}>
+                <div style={{ display: "flex" }}>
                   <div className={`flex-shrink-0 border-r ${border} ${cornerBg}`} style={{ width: LABEL_W, height: HEAD_H }} />
-                  <div className="relative" style={{ width: timelineWidth, height: HEAD_H }}>
+                  <div className="relative flex-1" style={{ height: HEAD_H }}>
                     {monthTicks.map(t => (
                       <div key={t.m} className={`absolute top-0 bottom-0 flex items-center border-r ${border}`}
-                        style={{ left: t.left, width: t.width, background: headBg(t.m) }}>
+                        style={{ left: `${t.leftPct}%`, width: `${t.widthPct}%`, background: headBg(t.m) }}>
                         <span className={`text-[10px] font-bold ml-1.5 ${muted}`}>{t.label}</span>
                       </div>
                     ))}
@@ -380,13 +364,13 @@ export const AcademicGantt = () => {
               </div>
             </div>
 
-            {/* Scrollable body — ResizeObserver measures this div */}
+            {/* Scrollable body */}
             <div ref={bodyRef} className="overflow-x-auto">
-              <div style={{ width: LABEL_W + timelineWidth }}>
+              <div style={{ minWidth: 640 }}>
                 {ganttEvents.map((ev) => {
                   const isHov    = hovered === ev.id;
-                  const left     = barLeft(ev);
-                  const width    = barWidth(ev);
+                  const leftPct  = barLeftPct(ev);
+                  const widthPct = barWidthPct(ev);
                   const isMulti  = diffDays(ev.start, ev.end) > 0;
                   const isDayOff = ev.type === "DAY_OFF";
 
@@ -413,24 +397,24 @@ export const AcademicGantt = () => {
                         )}
                       </div>
 
-                      {/* Timeline */}
-                      <div className="relative flex-shrink-0" style={{ width: timelineWidth, height: ROW_H }}>
+                      {/* Timeline — flex-1 fills remaining card width */}
+                      <div className="relative flex-1" style={{ height: ROW_H }}>
                         {/* Month bands */}
                         {monthTicks.map(t => (
                           <div key={t.m} className="absolute top-0 bottom-0"
-                            style={{ left: t.left, width: t.width, background: bandBg(t.m) }} />
+                            style={{ left: `${t.leftPct}%`, width: `${t.widthPct}%`, background: bandBg(t.m) }} />
                         ))}
 
                         {/* Today line */}
-                        {todayLeft !== null && (
-                          <div className="absolute top-0 bottom-0 w-px bg-red-500/60 z-10" style={{ left: todayLeft }} />
+                        {todayPct !== null && (
+                          <div className="absolute top-0 bottom-0 w-px bg-red-500/60 z-10" style={{ left: `${todayPct}%` }} />
                         )}
 
                         {/* Bar */}
                         <div
                           className={`absolute top-1/2 -translate-y-1/2 rounded-md flex items-center px-1.5 overflow-hidden transition-all duration-150 ${canEdit ? "cursor-pointer" : ""}`}
                           style={{
-                            left, width, height: ROW_H - 10, zIndex: 5,
+                            left: `${leftPct}%`, width: `${widthPct}%`, height: ROW_H - 10, zIndex: 5,
                             backgroundColor: isDayOff
                               ? `rgba(239,68,68,${isHov ? 0.4 : 0.2})`
                               : ev.color + (isHov ? "ff" : "cc"),
@@ -439,7 +423,7 @@ export const AcademicGantt = () => {
                           }}
                           onClick={() => handleBarClick(ev)}
                         >
-                          {width > 40 && (
+                          {widthPct > 3 && (
                             <span className={`text-[9px] font-semibold truncate leading-tight drop-shadow ${isDayOff ? "text-red-500 dark:text-red-300" : "text-white"}`}>
                               {isMulti ? `${fmtShort(ev.start)} – ${fmtShort(ev.end)}` : fmtShort(ev.start)}
                             </span>
@@ -449,7 +433,7 @@ export const AcademicGantt = () => {
                         {/* Tooltip */}
                         {isHov && (
                           <div className={`absolute z-50 top-full mt-1 rounded-lg border shadow-xl px-3 py-2 text-[11px] pointer-events-none whitespace-nowrap ${isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}
-                            style={{ left: Math.min(left, timelineWidth - 220) }}>
+                            style={{ left: `min(${leftPct}%, calc(100% - 220px))` }}>
                             <p className="font-semibold">{ev.label}</p>
                             <p className={muted}>
                               {fmtShort(ev.start)}{isMulti ? ` → ${fmtShort(ev.end)} (${diffDays(ev.start, ev.end) + 1}d)` : ""}
