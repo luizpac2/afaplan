@@ -48,6 +48,7 @@ const DisciplineDashboard = lazy(() => import("./pages/DisciplineDashboard").the
 const GanttProgramming = lazy(() => import("./pages/GanttProgramming").then(m => ({ default: m.GanttProgramming })));
 const AcademicGantt    = lazy(() => import("./pages/AcademicGantt").then(m => ({ default: m.AcademicGantt })));
 const DisciplineGantt  = lazy(() => import("./pages/DisciplineGantt").then(m => ({ default: m.DisciplineGantt })));
+const DisciplinePanel  = lazy(() => import("./pages/DisciplinePanel").then(m => ({ default: m.DisciplinePanel })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center h-64">
@@ -119,6 +120,7 @@ function App() {
                   <Route path="panoramic-view" element={<PanoramicMirror />} />
                   <Route path="academic-gantt" element={<AcademicGantt />} />
                   <Route path="discipline-gantt" element={<DisciplineGantt />} />
+                  <Route path="discipline-panel" element={<DisciplinePanel />} />
                   <Route path="inbox" element={<Inbox />} />
                   <Route path="profile" element={<Profile />} />
 

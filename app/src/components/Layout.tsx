@@ -66,6 +66,7 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "Calendário", path: "/panoramic-view", icon: CalendarIcon },
       { title: "Gantt de Eventos", path: "/academic-gantt", icon: BarChart2 },
       { title: "Gantt de Disciplinas", path: "/discipline-gantt", icon: BarChart2 },
+      { title: "Painel do Docente", path: "/discipline-panel", icon: BookOpen },
       { title: "1º Esquadrão - Aulas", path: "/gantt/1", icon: BarChart2 },
       { title: "2º Esquadrão - Aulas", path: "/gantt/2", icon: BarChart2 },
       { title: "3º Esquadrão - Aulas", path: "/gantt/3", icon: BarChart2 },
