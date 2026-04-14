@@ -38,7 +38,8 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 interface GanttEvent {
-  id: string;
+  id: string;           // id do primeiro evento fundido (chave React)
+  mergedIds: string[];  // todos os ids fundidos nesta barra
   label: string;
   start: Date;
   end: Date;
@@ -64,6 +65,10 @@ function fmtShort(d: Date): string {
   return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;
 }
 
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
 function mergeConsecutive(events: GanttEvent[]): GanttEvent[] {
   const sorted = [...events].sort((a, b) => a.start.getTime() - b.start.getTime());
   const merged: GanttEvent[] = [];
@@ -75,8 +80,9 @@ function mergeConsecutive(events: GanttEvent[]): GanttEvent[] {
     }
     if (last && diffDays(last.end, ev.start) <= 1) {
       if (ev.end > last.end) last.end = ev.end;
+      last.mergedIds.push(...ev.mergedIds);
     } else {
-      merged.push({ ...ev });
+      merged.push({ ...ev, mergedIds: [...ev.mergedIds] });
     }
   }
   return merged;
@@ -196,7 +202,7 @@ export const AcademicGantt = () => {
         const color = (e.type === "ACADEMIC" || e.disciplineId === "ACADEMIC") && sqValid
           ? sqColor(sqNum!)
           : (TYPE_COLORS[e.type ?? ""] ?? TYPE_COLORS.ACADEMIC);
-        return { id: e.id, label, start, end, color, squadron: sqValid ? sqNum : null, type: e.type ?? "ACADEMIC" };
+        return { id: e.id, mergedIds: [e.id], label, start, end, color, squadron: sqValid ? sqNum : null, type: e.type ?? "ACADEMIC" };
       })
       .filter(e => {
         // Type filter (multi-select, empty = all)
@@ -221,11 +227,42 @@ export const AcademicGantt = () => {
     return next;
   });
 
+  // ids de todos os sub-eventos fundidos na barra selecionada
+  const [editingMergedIds, setEditingMergedIds] = useState<string[]>([]);
+
   // ── Handlers ─────────────────────────────────────────────────────────────
-  const handleAdd    = (data: Omit<ScheduleEvent, "id">) => { addEvent({ ...data, id: crypto.randomUUID() }); setAddingNew(false); };
-  const handleUpdate = (data: Omit<ScheduleEvent, "id">) => { if (!editingEvent) return; updateEvent(editingEvent.id, data as Partial<ScheduleEvent>); setEditingEvent(null); };
-  const handleDelete = (id: string) => { deleteEvent(id); setEditingEvent(null); };
-  const handleBarClick = (ev: GanttEvent) => { if (!canEdit) return; const o = eventsById[ev.id]; if (o) setEditingEvent(o); };
+  const handleAdd = (data: Omit<ScheduleEvent, "id">) => {
+    addEvent({ ...data, id: crypto.randomUUID() });
+    setAddingNew(false);
+  };
+
+  const handleUpdate = (data: Omit<ScheduleEvent, "id">) => {
+    if (!editingEvent) return;
+    // Se havia múltiplos sub-eventos fundidos, deleta os extras e atualiza o principal
+    const [primary, ...extras] = editingMergedIds;
+    extras.forEach(xid => deleteEvent(xid));
+    // Garante que endDate cobre o span visual completo (start..end da barra merged)
+    updateEvent(primary ?? editingEvent.id, data as Partial<ScheduleEvent>);
+    setEditingEvent(null);
+    setEditingMergedIds([]);
+  };
+
+  const handleDelete = (_id: string) => {
+    // Deleta todos os sub-eventos que estavam fundidos na barra
+    editingMergedIds.forEach(xid => deleteEvent(xid));
+    setEditingEvent(null);
+    setEditingMergedIds([]);
+  };
+
+  const handleBarClick = (ev: GanttEvent) => {
+    if (!canEdit) return;
+    const o = eventsById[ev.id];
+    if (!o) return;
+    // Preenche endDate com o fim visual da barra merged (cobre todos os sub-eventos)
+    const mergedEndDate = isoDate(ev.end);
+    setEditingEvent({ ...o, endDate: mergedEndDate } as any);
+    setEditingMergedIds(ev.mergedIds);
+  };
 
   // ── Styles ────────────────────────────────────────────────────────────────
   const card     = isDark ? "bg-slate-800 border-slate-700"  : "bg-white border-slate-200 shadow-sm";
