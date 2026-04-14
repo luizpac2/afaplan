@@ -547,6 +547,8 @@ export const DisciplinePanel = () => {
          if (courseFilter !== 'ALL' && !d.enabledCourses?.includes(courseFilter as any)) return false;
          if (yearFilter !== 'ALL' && !d.enabledYears?.includes(Number(yearFilter) as any)) return false;
          const evs = eventsByDisc[d.id] || [];
+         // Quando turma selecionada, oculta disciplinas sem aulas naquela turma
+         if (classFilter !== 'ALL' && evs.length === 0) return false;
          if (statusFilter === 'HAS_EVENTS'     && evs.length === 0) return false;
          if (statusFilter === 'NO_EVENTS'      && evs.length > 0)  return false;
          if (statusFilter === 'IN_PROGRESS') { const comp = evs.filter(e => e.date < today).length; if (comp === 0 || comp >= evs.length) return false; }
