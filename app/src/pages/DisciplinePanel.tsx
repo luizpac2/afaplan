@@ -623,20 +623,28 @@ export const DisciplinePanel = () => {
 
          {/* Toolbar */}
          <div className={`sticky z-40 px-4 md:px-6 py-3 border-b backdrop-blur-md ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`} style={{ top: headerH }}>
-            {/* Search */}
+            {/* Search + Turma filter (always visible) */}
             <div className="flex gap-2 items-center mb-2">
                <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-                  <input type="text" placeholder="Buscar por nome, código ou campo do conhecimento..."
+                  <input type="text" placeholder="Buscar por nome, código ou campo..."
                      value={discSearch} onChange={e => setDiscSearch(e.target.value)}
                      className={`w-full pl-9 pr-8 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-200 placeholder-slate-400'}`} />
                   {discSearch && <button onClick={() => setDiscSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X size={14} /></button>}
                </div>
+               {/* Turma de aula — sempre visível */}
+               <select value={classFilter} onChange={e => setClassFilter(e.target.value)}
+                  className={`shrink-0 py-2 pl-3 pr-8 rounded-lg border text-sm outline-none ${classFilter !== 'ALL' ? (isDark ? 'bg-amber-900/30 text-amber-300 border-amber-700' : 'bg-amber-50 text-amber-700 border-amber-300') : (isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-700')}`}>
+                  <option value="ALL">Todas as turmas</option>
+                  {sortedClasses.map(c => (
+                     <option key={c.id} value={c.id}>Turma {c.name} · {c.year}º Ano</option>
+                  ))}
+               </select>
             </div>
 
-            {/* Expanded filters */}
+            {/* Expanded filters (secondary) */}
             {showFilters && (
-               <div className={`rounded-lg border p-3 mb-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 ${isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+               <div className={`rounded-lg border p-3 mb-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 ${isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
                   <div>
                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Campo</label>
                      <select value={fieldFilter} onChange={e => setFieldFilter(e.target.value)} className={filterSelectCls + ' w-full'}>
@@ -662,15 +670,6 @@ export const DisciplinePanel = () => {
                         <option value="ALL">Todos</option>
                         <option value="1">1º Ano</option><option value="2">2º Ano</option>
                         <option value="3">3º Ano</option><option value="4">4º Ano</option>
-                     </select>
-                  </div>
-                  <div>
-                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Turma</label>
-                     <select value={classFilter} onChange={e => setClassFilter(e.target.value)} className={filterSelectCls + ' w-full'}>
-                        <option value="ALL">Todas</option>
-                        {sortedClasses.map(c => (
-                           <option key={c.id} value={c.id}>{c.year}º Ano · {c.name}</option>
-                        ))}
                      </select>
                   </div>
                   <div>
