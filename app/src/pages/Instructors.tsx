@@ -397,7 +397,6 @@ export const Instructors = () => {
    const inputCls = `w-full px-3 py-1.5 rounded border focus:ring-1 focus:ring-blue-500 text-sm ${isDark ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-slate-200'}`;
    const selectCls = `w-full px-2 py-1.5 rounded border text-sm ${isDark ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-slate-200'}`;
 
-   const toolbarTop = pageHeaderH;
    const regularTableHeadTop = pageHeaderH + toolbarH;
    const bulkActionsTop = pageHeaderH + bulkHeaderH;
    const bulkTableHeadTop = pageHeaderH + bulkHeaderH + bulkActionsH;
