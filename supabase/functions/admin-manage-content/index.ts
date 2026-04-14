@@ -211,25 +211,16 @@ Deno.serve(async (req) => {
     const { event } = body;
     if (!event || !event.id) return err("event with id required");
     const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, instructorTrigram, evaluationType, ...rest } = event as any;
-    // instructorTrigram → instructorId; string vazia vira null para não violar FK
     const safeEvent = { ...rest, instructorId: instructorTrigram || null, ...(evaluationType !== undefined ? { evaluationType } : {}) };
-    console.log("save_event payload:", JSON.stringify(safeEvent));
-    const { data: inserted, error: insErr } = await adminClient
+    console.log("save_event upsert payload:", JSON.stringify(safeEvent));
+    // Upsert by id — cria se não existir, atualiza se já existir (evita duplicatas)
+    const { error: upsErr } = await adminClient
       .from("programacao_aulas")
-      .insert(safeEvent)
-      .select("id");
-    if (insErr) {
-      console.error("save_event insert error code:", insErr.code, "msg:", insErr.message, "details:", insErr.details, "hint:", insErr.hint);
-      // Tenta upsert como fallback (registro já existe)
-      const { error: upsErr } = await adminClient
-        .from("programacao_aulas")
-        .upsert(safeEvent);
-      if (upsErr) {
-        console.error("save_event upsert error code:", upsErr.code, "msg:", upsErr.message, "details:", upsErr.details);
-        return err(`${upsErr.code}: ${upsErr.message}`, 500);
-      }
+      .upsert(safeEvent, { onConflict: "id" });
+    if (upsErr) {
+      console.error("save_event upsert error:", upsErr.code, upsErr.message, upsErr.details);
+      return err(`${upsErr.code}: ${upsErr.message}`, 500);
     }
-    console.log("save_event inserted:", inserted?.length ?? 0);
     return ok({ success: true });
   }
 
@@ -240,7 +231,7 @@ Deno.serve(async (req) => {
 
     // Mapeia apenas campos conhecidos da tabela — evita enviar campos inválidos
     const u = updates as any;
-    const safeUpdates: Record<string, unknown> = {};
+    const safeUpdates: Record<string, unknown> = { id };
     if (u.date             !== undefined) safeUpdates.date            = u.date;
     if (u.startTime        !== undefined) safeUpdates.startTime       = u.startTime;
     if (u.endTime          !== undefined) safeUpdates.endTime         = u.endTime;
@@ -256,21 +247,18 @@ Deno.serve(async (req) => {
     if (u.targetCourse     !== undefined) safeUpdates.targetCourse    = u.targetCourse;
     if (u.targetClass      !== undefined) safeUpdates.targetClass     = u.targetClass;
     if (u.endDate          !== undefined) safeUpdates.endDate         = u.endDate;
-    // instructorTrigram → instructorId; string vazia vira null para não violar FK
     if (u.instructorTrigram !== undefined) safeUpdates.instructorId   = u.instructorTrigram || null;
-    console.log("update_event id:", id, "payload:", JSON.stringify(safeUpdates));
+    console.log("update_event upsert id:", id, "payload:", JSON.stringify(safeUpdates));
 
-    const { data: updRows, error: upErr } = await adminClient
+    // Upsert by id: atualiza se existir, cria se não existir (nunca deixa 0 linhas afetadas)
+    const { error: upErr } = await adminClient
       .from("programacao_aulas")
-      .update(safeUpdates)
-      .eq("id", id)
-      .select("id");
+      .upsert(safeUpdates, { onConflict: "id" });
     if (upErr) {
       console.error("update_event error:", upErr.code, upErr.message, upErr.details);
       return err(upErr.message, 500);
     }
-    console.log("update_event rows updated:", updRows?.length ?? 0);
-    return ok({ success: true, updated: updRows?.length ?? 0 });
+    return ok({ success: true });
   }
 
   // ── delete_event ────────────────────────────────────────────────────────────
