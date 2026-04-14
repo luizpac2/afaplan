@@ -154,34 +154,36 @@ export const DisciplineGantt = () => {
       e.disciplineId !== "ACADEMIC"
     );
 
-    // Group by (disciplineId, classId)
-    const groups = new Map<string, typeof classEvents>();
+    // Group by (disciplineId, sqYear) — merge all turmas of same squadron
+    const groups = new Map<string, { evts: typeof classEvents; courses: Set<string> }>();
     classEvents.forEach(e => {
-      const key = `${e.disciplineId}__${e.classId}`;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(e);
+      const sqYear = parseInt(e.classId?.charAt(0) ?? "");
+      if (isNaN(sqYear) || sqYear < 1 || sqYear > 4) return;
+      const key = `${e.disciplineId}__${sqYear}`;
+      if (!groups.has(key)) groups.set(key, { evts: [], courses: new Set() });
+      const g = groups.get(key)!;
+      g.evts.push(e);
+      // Infer course from class letter via classTypeMap
+      const letter = e.classId?.charAt(1) ?? "";
+      const ct = classTypeMap[`${sqYear}${letter}`];
+      if (ct) g.courses.add(ct);
     });
 
     const rows: DisciplineRow[] = [];
 
-    groups.forEach((evts, key) => {
+    groups.forEach(({ evts, courses }, key) => {
       const sepIdx       = key.indexOf("__");
       const disciplineId = key.slice(0, sepIdx);
-      const classId      = key.slice(sepIdx + 2);
+      const sqYear       = parseInt(key.slice(sepIdx + 2));
       const disc = disciplineMap[disciplineId];
-      if (!disc || !classId) return;
+      if (!disc) return;
 
-      // Extract year digit and class letter from classId (e.g. "1A", "3B")
-      const sqYear    = parseInt(classId.charAt(0));
-      const classLetter = classId.charAt(1);
-      if (isNaN(sqYear) || sqYear < 1 || sqYear > 4) return;
-
-      // Course from CourseClass lookup, fallback to discipline's first enabledCourse
-      const course = classTypeMap[`${sqYear}${classLetter}`]
+      // Primary course: first detected, fallback to discipline's enabledCourses
+      const course = courses.values().next().value
         ?? disc.enabledCourses?.[0]
         ?? "AVIATION";
 
-      // Date span
+      // Date span across ALL turmas
       let tMin = Infinity, tMax = -Infinity;
       evts.forEach(e => {
         const t = parseLocalDate(e.date).getTime();
@@ -203,7 +205,7 @@ export const DisciplineGantt = () => {
         disciplineId,
         name: disc.name,
         code: disc.code,
-        classId,
+        classId: `${sqYear}º Esq`,   // label only — no per-turma split
         sqYear,
         course,
         trainingField: disc.trainingField,
@@ -515,12 +517,11 @@ export const DisciplineGantt = () => {
                             <p className="font-semibold">{row.name}</p>
                             <p className={muted}>
                               <span className="font-mono text-[10px]">{row.code}</span>
-                              {" · "}Turma <strong>{row.classId}</strong>
                               {" · "}{row.sqYear}º Esquadrão
                             </p>
                             <p className={muted}>
                               {fmtShort(row.firstDate)} → {fmtShort(row.lastDate)}
-                              {" "}({spanDays}d span · <strong>{row.classCount}</strong> aulas
+                              {" "}({spanDays}d · <strong>{row.classCount}</strong> aulas
                               {row.totalLoad > 0 ? ` · ${row.totalLoad}h PPC` : ""})
                             </p>
                             <div className="flex items-center gap-2 mt-1">
