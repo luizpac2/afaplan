@@ -140,12 +140,14 @@ Deno.serve(async (req) => {
   }
 
   // ── update_discipline ───────────────────────────────────────────────────────
+  // Usa upsert em vez de update para não depender do schema exato de colunas.
+  // O upsert já funciona (é o mesmo caminho de upsert_discipline).
   if (action === "update_discipline") {
     const { code, updates } = body;
     if (!code || !updates) return err("code and updates required");
-    console.log("update_discipline code:", code, "keys:", Object.keys(updates));
+    console.log("update_discipline→upsert code:", code, "keys:", Object.keys(updates));
     try {
-      await writeDisciplinesEN("update", code as string, updates as Record<string, unknown>);
+      await writeDisciplinesEN("upsert", code as string, { ...(updates as Record<string, unknown>), code });
       await writeDisciplinasPT("update", code as string, updates as Record<string, unknown>);
     } catch (e: any) { return err(e.message, 500); }
     return ok({ success: true });
