@@ -103,7 +103,7 @@ interface CourseState {
   // Notice actions
   addNotice: (notice: SystemNotice) => void;
   updateNotice: (id: string, updates: Partial<SystemNotice>) => void;
-  deleteNotice: (id: string) => void;
+  deleteNotice: (id: string) => Promise<void>;
 
   // Visual config actions
   setVisualConfigs: (configs: VisualConfig[]) => void;
@@ -232,12 +232,19 @@ export const useCourseStore = create<CourseState>((set) => ({
     contentFn("update_notice", { id, updates }).catch((e) => console.error("updateNotice failed:", e));
   },
 
-  deleteNotice: (id) => {
+  deleteNotice: async (id) => {
     const state = useCourseStore.getState();
     const notice = state.notices.find((n) => n.id === id);
-    set((state) => ({ notices: state.notices.filter((n) => n.id !== id) }));
-    if (notice) logAction({ action: "DELETE", entity: "NOTICE", entityId: id, entityName: notice.title });
-    contentFn("delete_notice", { id }).catch((e) => console.error("deleteNotice failed:", e));
+    // Optimistic remove
+    set((s) => ({ notices: s.notices.filter((n) => n.id !== id) }));
+    try {
+      await contentFn("delete_notice", { id });
+      if (notice) logAction({ action: "DELETE", entity: "NOTICE", entityId: id, entityName: notice.title });
+    } catch (e) {
+      console.error("deleteNotice failed:", e);
+      // Revert optimistic remove
+      if (notice) set((s) => ({ notices: [...s.notices, notice] }));
+    }
   },
 
   setNotices: (notices) => set({ notices }),

@@ -1,15 +1,137 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, Trash2, Edit2, History, PenLine, Save, Undo2, ChevronUp, CheckCircle2, AlertCircle, Zap } from 'lucide-react';
+import {
+   Search, Plus, Trash2, Edit2, History, PenLine, Save, Undo2,
+   ChevronUp, CheckCircle2, AlertCircle, Zap, BookOpen, Users,
+   Clock, GraduationCap, X, TrendingUp, Calendar,
+} from 'lucide-react';
 import { useCourseStore } from '../store/useCourseStore';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import type { Instructor, InstructorOccurrence, InstructorVenture, AcademicTitle } from '../types';
+import type { Instructor, InstructorOccurrence, InstructorVenture, AcademicTitle, Discipline } from '../types';
 import { Badge } from '../components/common/Badge';
 
 type BulkInstructorEdits = Record<string, Partial<Pick<Instructor, 'venture' | 'maxTitle' | 'weeklyLoadLimit' | 'specialty' | 'rank'>>>;
+type Tab = 'disciplines' | 'instructors';
 
+// ─── Discipline Card ──────────────────────────────────────────────────────────
+interface DisciplineCardProps {
+   disc: Discipline;
+   instructor: Instructor | undefined;
+   scheduled: number;
+   completed: number;
+   ppcTotal: number;
+   theme: string;
+   canEdit: boolean;
+   onEdit: () => void;
+}
+
+const trainingFieldLabels: Record<string, string> = {
+   MILITARY: 'Militar', TECHNICAL: 'Técnico', HUMANISTIC: 'Humanístico',
+   PHYSICAL: 'Físico', OPERATIONAL: 'Operacional', COMPLEMENTARY: 'Complementar',
+};
+const trainingFieldColors: Record<string, string> = {
+   MILITARY: 'text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-900/20 dark:border-red-800',
+   TECHNICAL: 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-900/20 dark:border-blue-800',
+   HUMANISTIC: 'text-purple-600 bg-purple-50 border-purple-200 dark:text-purple-400 dark:bg-purple-900/20 dark:border-purple-800',
+   PHYSICAL: 'text-green-600 bg-green-50 border-green-200 dark:text-green-400 dark:bg-green-900/20 dark:border-green-800',
+   OPERATIONAL: 'text-orange-600 bg-orange-50 border-orange-200 dark:text-orange-400 dark:bg-orange-900/20 dark:border-orange-800',
+   COMPLEMENTARY: 'text-slate-600 bg-slate-50 border-slate-200 dark:text-slate-400 dark:bg-slate-700 dark:border-slate-600',
+};
+
+function DisciplineCard({ disc, instructor, scheduled, completed, ppcTotal, theme, canEdit, onEdit }: DisciplineCardProps) {
+   const remaining = Math.max(0, scheduled - completed);
+   const pct = ppcTotal > 0 ? Math.min(100, Math.round((scheduled / ppcTotal) * 100)) : 0;
+   const fieldColor = trainingFieldColors[disc.trainingField] || trainingFieldColors.COMPLEMENTARY;
+   const isDark = theme === 'dark';
+
+   return (
+      <div className={`rounded-xl border shadow-sm flex flex-col overflow-hidden transition-shadow hover:shadow-md ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+         {/* Top accent */}
+         <div className={`h-1 w-full ${pct >= 100 ? 'bg-green-500' : pct >= 60 ? 'bg-blue-500' : pct >= 30 ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
+
+         {/* Header */}
+         <div className="px-4 pt-3 pb-2 flex items-start justify-between gap-2">
+            <div className="min-w-0">
+               <div className="flex items-center gap-2 mb-0.5">
+                  <span className="font-mono text-xs font-bold text-blue-500">{disc.code}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${fieldColor}`}>
+                     {trainingFieldLabels[disc.trainingField] || disc.trainingField}
+                  </span>
+               </div>
+               <p className={`text-sm font-semibold leading-tight truncate ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{disc.name}</p>
+            </div>
+            {canEdit && (
+               <button onClick={onEdit} className="shrink-0 p-1.5 text-slate-400 hover:text-blue-500 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                  <Edit2 size={13} />
+               </button>
+            )}
+         </div>
+
+         {/* Instructor */}
+         <div className={`px-4 py-1.5 flex items-center gap-2 border-t border-b ${isDark ? 'border-slate-700 bg-slate-800/50' : 'border-slate-100 bg-slate-50/60'}`}>
+            <GraduationCap size={12} className="text-slate-400 shrink-0" />
+            {instructor ? (
+               <span className="text-xs text-slate-600 dark:text-slate-300 truncate">
+                  <span className="font-mono font-bold text-blue-500">{instructor.trigram}</span>
+                  {' — '}{instructor.warName}
+                  {instructor.rank ? <span className="text-slate-400"> · {instructor.rank}</span> : null}
+               </span>
+            ) : (
+               <span className="text-xs text-slate-400 italic">Sem docente atribuído</span>
+            )}
+         </div>
+
+         {/* Metrics */}
+         <div className="px-4 py-3 grid grid-cols-3 gap-2 text-center">
+            <div>
+               <p className={`text-lg font-bold leading-none ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{scheduled}</p>
+               <p className="text-[10px] text-slate-400 mt-0.5">Agendadas</p>
+            </div>
+            <div>
+               <p className={`text-lg font-bold leading-none ${completed > 0 ? 'text-green-500' : (isDark ? 'text-slate-500' : 'text-slate-300')}`}>{completed}</p>
+               <p className="text-[10px] text-slate-400 mt-0.5">Realizadas</p>
+            </div>
+            <div>
+               <p className={`text-lg font-bold leading-none ${remaining > 0 ? 'text-amber-500' : (isDark ? 'text-slate-500' : 'text-slate-300')}`}>{remaining}</p>
+               <p className="text-[10px] text-slate-400 mt-0.5">Restantes</p>
+            </div>
+         </div>
+
+         {/* PPC progress */}
+         {ppcTotal > 0 && (
+            <div className="px-4 pb-3">
+               <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-slate-400 flex items-center gap-1"><Clock size={9} /> PPC: {ppcTotal}h</span>
+                  <span className={`text-[10px] font-bold ${pct >= 100 ? 'text-green-500' : pct >= 60 ? 'text-blue-500' : 'text-amber-500'}`}>{pct}%</span>
+               </div>
+               <div className={`h-1.5 rounded-full ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                  <div
+                     className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-green-500' : pct >= 60 ? 'bg-blue-500' : pct >= 30 ? 'bg-amber-500' : 'bg-slate-300'}`}
+                     style={{ width: `${pct}%` }}
+                  />
+               </div>
+            </div>
+         )}
+
+         {/* Courses */}
+         {disc.enabledCourses?.length > 0 && (
+            <div className={`px-4 py-2 border-t flex flex-wrap gap-1 ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+               {disc.enabledCourses.map(c => (
+                  <span key={c} className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${c === 'AVIATION' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' : c === 'INTENDANCY' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
+                     {c === 'AVIATION' ? 'Aviação' : c === 'INTENDANCY' ? 'Intendência' : 'Infantaria'}
+                  </span>
+               ))}
+               {disc.enabledYears?.map(y => (
+                  <span key={y} className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-medium">{y}º Ano</span>
+               ))}
+            </div>
+         )}
+      </div>
+   );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export const Instructors = () => {
-   // --- Sticky refs ---
    const pageHeaderRef = useRef<HTMLDivElement>(null);
    const toolbarRef = useRef<HTMLDivElement>(null);
    const bulkHeaderRef = useRef<HTMLDivElement>(null);
@@ -18,10 +140,27 @@ export const Instructors = () => {
    const [toolbarH, setToolbarH] = useState(96);
    const [bulkHeaderH, setBulkHeaderH] = useState(64);
    const [bulkActionsH, setBulkActionsH] = useState(100);
-   const { instructors, addInstructor, updateInstructor, deleteInstructor, addOccurrence, disciplines, classes } = useCourseStore();
+
+   const {
+      instructors, addInstructor, updateInstructor, deleteInstructor, addOccurrence,
+      disciplines, classes, yearEventsCache, fetchYearlyEvents,
+   } = useCourseStore();
    const { theme } = useTheme();
    const { userProfile } = useAuth();
+   const isDark = theme === 'dark';
 
+   const canEdit = useMemo(() => ['SUPER_ADMIN', 'ADMIN'].includes(userProfile?.role || ''), [userProfile]);
+   const isDocente = userProfile?.role === 'DOCENTE';
+
+   const [activeTab, setActiveTab] = useState<Tab>('disciplines');
+
+   // ── Discipline panel state ───────────────────────────────────────────────
+   const [discSearch, setDiscSearch] = useState('');
+   const [fieldFilter, setFieldFilter] = useState('ALL');
+   const [courseFilter, setCourseFilter] = useState('ALL');
+   const [yearFilter, setYearFilter] = useState('ALL');
+
+   // ── Instructor table state ───────────────────────────────────────────────
    const [searchTerm, setSearchTerm] = useState('');
    const [debouncedSearch, setDebouncedSearch] = useState('');
    useEffect(() => { const t = setTimeout(() => setDebouncedSearch(searchTerm), 300); return () => clearTimeout(t); }, [searchTerm]);
@@ -37,7 +176,7 @@ export const Instructors = () => {
    const [selectedDisciplines, setSelectedDisciplines] = useState<string[]>([]);
    const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
 
-   // --- Bulk edit ---
+   // ── Bulk edit ────────────────────────────────────────────────────────────
    const [bulkEditOpen, setBulkEditOpen] = useState(false);
    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
    const [bulkEdits, setBulkEdits] = useState<BulkInstructorEdits>({});
@@ -54,18 +193,80 @@ export const Instructors = () => {
             if (e.target === bulkActionsRef.current) setBulkActionsH(h);
          }
       });
-      [pageHeaderRef, toolbarRef, bulkHeaderRef, bulkActionsRef].forEach(r => { 
-         if (r.current) obs.observe(r.current); 
-      });
+      [pageHeaderRef, toolbarRef, bulkHeaderRef, bulkActionsRef].forEach(r => { if (r.current) obs.observe(r.current); });
       return () => obs.disconnect();
-   }, [bulkEditOpen]);
+   }, [bulkEditOpen, activeTab]);
 
-   const canEdit = useMemo(() => ['SUPER_ADMIN', 'ADMIN'].includes(userProfile?.role || ''), [userProfile]);
+   // Fetch current year events
+   useEffect(() => {
+      const year = new Date().getFullYear();
+      if (!yearEventsCache[year]) fetchYearlyEvents(year);
+   }, []);
 
-   // --- Filters ---
+   // ── Event metrics per discipline ─────────────────────────────────────────
+   const today = new Date().toISOString().split('T')[0];
+
+   const discMetrics = useMemo(() => {
+      const allEvents = Object.values(yearEventsCache).flat();
+      const map: Record<string, { scheduled: number; completed: number }> = {};
+      for (const ev of allEvents) {
+         if (!ev.disciplineId || ev.disciplineId === 'ACADEMIC') continue;
+         if (!map[ev.disciplineId]) map[ev.disciplineId] = { scheduled: 0, completed: 0 };
+         map[ev.disciplineId].scheduled++;
+         if (ev.date <= today) map[ev.disciplineId].completed++;
+      }
+      return map;
+   }, [yearEventsCache, today]);
+
+   // ── Instructor lookup map ────────────────────────────────────────────────
+   const instructorByTrigram = useMemo(() => {
+      const m: Record<string, Instructor> = {};
+      for (const i of instructors) m[i.trigram] = i;
+      return m;
+   }, [instructors]);
+
+   // ── Filtered disciplines ─────────────────────────────────────────────────
+   const myInstructor = useMemo(() => {
+      if (!isDocente || !userProfile) return null;
+      return instructors.find(i => i.email === userProfile.email) || null;
+   }, [isDocente, userProfile, instructors]);
+
+   const filteredDiscs = useMemo(() => {
+      const q = discSearch.toLowerCase();
+      return [...disciplines]
+         .filter(d => {
+            if (isDocente && myInstructor) {
+               if (!myInstructor.enabledDisciplines?.includes(d.id)) return false;
+            }
+            if (fieldFilter !== 'ALL' && d.trainingField !== fieldFilter) return false;
+            if (courseFilter !== 'ALL' && !d.enabledCourses?.includes(courseFilter as any)) return false;
+            if (yearFilter !== 'ALL' && !d.enabledYears?.includes(Number(yearFilter) as any)) return false;
+            if (q) {
+               return (
+                  d.name.toLowerCase().includes(q) ||
+                  (d.code || '').toLowerCase().includes(q) ||
+                  (trainingFieldLabels[d.trainingField] || '').toLowerCase().includes(q)
+               );
+            }
+            return true;
+         })
+         .sort((a, b) => (a.code || '').localeCompare(b.code || ''));
+   }, [disciplines, discSearch, fieldFilter, courseFilter, yearFilter, isDocente, myInstructor]);
+
+   // Total PPC hours for a discipline (sum across all ppcLoads keys)
+   const getTotalPPC = (d: Discipline) => {
+      if (!d.ppcLoads) return 0;
+      return Object.values(d.ppcLoads).reduce((s, v) => s + (v || 0), 0);
+   };
+
+   // ── Summary stats ────────────────────────────────────────────────────────
+   const totalScheduled = useMemo(() => filteredDiscs.reduce((s, d) => s + (discMetrics[d.id]?.scheduled || 0), 0), [filteredDiscs, discMetrics]);
+   const totalCompleted = useMemo(() => filteredDiscs.reduce((s, d) => s + (discMetrics[d.id]?.completed || 0), 0), [filteredDiscs, discMetrics]);
+   const totalPPC = useMemo(() => filteredDiscs.reduce((s, d) => s + getTotalPPC(d), 0), [filteredDiscs]);
+
+   // ── Instructor table filters ─────────────────────────────────────────────
    const filteredInstructors = useMemo(() => {
       return [...instructors].sort((a, b) => a.warName.localeCompare(b.warName)).filter(i => {
-         // Smart search
          if (debouncedSearch.startsWith('!')) {
             const target = debouncedSearch.substring(1).toLowerCase();
             if (target === 'disciplina') return !i.enabledDisciplines?.length;
@@ -88,7 +289,7 @@ export const Instructors = () => {
 
    const getVentureLabel = (venture: InstructorVenture) => ({ EFETIVO: 'Efetivo', PRESTADOR_TAREFA: 'PTTC', CIVIL: 'Civil', QOCON: 'QOCon' })[venture];
 
-   // --- Bulk edit helpers ---
+   // ── Bulk edit helpers ────────────────────────────────────────────────────
    const changedCount = Object.keys(bulkEdits).length;
 
    const setBulkField = useCallback((id: string, field: keyof Pick<Instructor, 'venture' | 'maxTitle' | 'weeklyLoadLimit' | 'specialty' | 'rank'>, value: string | number) => {
@@ -112,7 +313,6 @@ export const Instructors = () => {
    };
 
    const isFieldChanged = (id: string, field: string) => bulkEdits[id]?.[field as keyof typeof bulkEdits[string]] !== undefined;
-
    const discardEdits = () => { setBulkEdits({}); setSaveResult(null); };
 
    const saveBulkEdits = async () => {
@@ -137,7 +337,7 @@ export const Instructors = () => {
    const handleBulkDelete = async () => {
       const targets = selectedIds.size > 0 ? Array.from(selectedIds) : [];
       if (!targets.length) { alert('Selecione pelo menos um docente.'); return; }
-      if (!confirm(`Excluir ${targets.length} docente(s)? Esta ação não pode ser desfeita.`)) return;
+      if (!confirm(`Excluir ${targets.length} docente(s)?`)) return;
       for (const trigram of targets) await deleteInstructor(trigram);
       setSelectedIds(new Set());
    };
@@ -149,7 +349,7 @@ export const Instructors = () => {
       setSelectedIds(s);
    };
 
-   // --- Instructor form handlers ---
+   // ── Instructor form ──────────────────────────────────────────────────────
    const handleSaveInstructor = (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       const fd = new FormData(e.currentTarget);
@@ -194,342 +394,375 @@ export const Instructors = () => {
       setIsOccurrenceModalOpen(false); setSelectedInstructorForOccurrence(null);
    };
 
-   const inputCls = `w-full px-3 py-1.5 rounded border focus:ring-1 focus:ring-blue-500 text-sm ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-slate-200'}`;
-   const selectCls = `w-full px-2 py-1.5 rounded border text-sm ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-slate-200'}`;
+   const inputCls = `w-full px-3 py-1.5 rounded border focus:ring-1 focus:ring-blue-500 text-sm ${isDark ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-slate-200'}`;
+   const selectCls = `w-full px-2 py-1.5 rounded border text-sm ${isDark ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-slate-200'}`;
 
-   // Computed sticky tops
    const toolbarTop = pageHeaderH;
    const regularTableHeadTop = pageHeaderH + toolbarH;
    const bulkActionsTop = pageHeaderH + bulkHeaderH;
    const bulkTableHeadTop = pageHeaderH + bulkHeaderH + bulkActionsH;
 
-   return (
-      <div className={`w-full min-h-screen ${theme === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-gray-50 text-slate-900'}`}>
+   const hasActiveFilters = fieldFilter !== 'ALL' || courseFilter !== 'ALL' || yearFilter !== 'ALL';
 
-         {/* ─── PAGE HEADER (sticky) ─── */}
-         <div ref={pageHeaderRef} className={`sticky top-0 z-50 px-4 md:px-6 py-3 border-b flex items-center justify-between gap-4 backdrop-blur-md ${theme === 'dark' ? 'bg-slate-950/95 border-slate-800' : 'bg-white/95 border-slate-200'}`}>
-            <div className="flex items-baseline gap-3">
-               <h1 className="text-xl font-bold tracking-tight">Docentes</h1>
-               <p className={`hidden sm:block text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Gestão de instrutores, especialidades e turmas.</p>
-            </div>
-            <div className="flex items-center gap-2">
-               {canEdit && (
-                  <>
+   return (
+      <div className={`w-full min-h-screen ${isDark ? 'bg-slate-950 text-slate-100' : 'bg-gray-50 text-slate-900'}`}>
+
+         {/* ─── PAGE HEADER ─── */}
+         <div ref={pageHeaderRef} className={`sticky top-0 z-50 px-4 md:px-6 border-b backdrop-blur-md ${isDark ? 'bg-slate-950/95 border-slate-800' : 'bg-white/95 border-slate-200'}`}>
+            <div className="flex items-center justify-between gap-4 py-2.5">
+               <div className="flex items-center gap-4">
+                  <h1 className="text-lg font-bold tracking-tight">Docentes</h1>
+                  {/* Tabs */}
+                  <div className={`flex rounded-lg p-0.5 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
                      <button
-                        onClick={() => { setBulkEditOpen(!bulkEditOpen); setSaveResult(null); }}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-sm whitespace-nowrap border ${bulkEditOpen
-                           ? (theme === 'dark' ? 'bg-amber-900/30 text-amber-400 border-amber-800' : 'bg-amber-50 text-amber-700 border-amber-200 shadow-inner')
-                           : (theme === 'dark' ? 'bg-slate-800 text-slate-200 border-slate-700' : 'bg-white text-slate-700 border-slate-200 shadow-sm')}`}
+                        onClick={() => setActiveTab('disciplines')}
+                        className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all ${activeTab === 'disciplines' ? (isDark ? 'bg-slate-700 text-slate-100 shadow' : 'bg-white text-slate-800 shadow-sm') : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                      >
-                        <PenLine size={14} />
-                        Edição em Massa
-                        {changedCount > 0 && <span className="bg-amber-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{changedCount}</span>}
+                        <BookOpen size={12} /> Disciplinas
                      </button>
-                     <button
-                        onClick={() => { setEditingInstructor(null); setSelectedDisciplines([]); setSelectedClasses([]); setIsInstructorModalOpen(true); }}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-sm text-sm font-medium whitespace-nowrap"
-                     >
-                        <Plus size={16} /> Novo
-                     </button>
-                  </>
-               )}
+                     {canEdit && (
+                        <button
+                           onClick={() => setActiveTab('instructors')}
+                           className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all ${activeTab === 'instructors' ? (isDark ? 'bg-slate-700 text-slate-100 shadow' : 'bg-white text-slate-800 shadow-sm') : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                        >
+                           <Users size={12} /> Docentes
+                        </button>
+                     )}
+                  </div>
+               </div>
+               <div className="flex items-center gap-2">
+                  {activeTab === 'instructors' && canEdit && (
+                     <>
+                        <button
+                           onClick={() => { setBulkEditOpen(!bulkEditOpen); setSaveResult(null); }}
+                           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-sm border ${bulkEditOpen ? (isDark ? 'bg-amber-900/30 text-amber-400 border-amber-800' : 'bg-amber-50 text-amber-700 border-amber-200') : (isDark ? 'bg-slate-800 text-slate-200 border-slate-700' : 'bg-white text-slate-700 border-slate-200 shadow-sm')}`}
+                        >
+                           <PenLine size={14} /> Edição em Massa
+                           {changedCount > 0 && <span className="bg-amber-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{changedCount}</span>}
+                        </button>
+                        <button
+                           onClick={() => { setEditingInstructor(null); setSelectedDisciplines([]); setSelectedClasses([]); setIsInstructorModalOpen(true); }}
+                           className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-sm text-sm font-medium"
+                        >
+                           <Plus size={16} /> Novo
+                        </button>
+                     </>
+                  )}
+               </div>
             </div>
          </div>
 
-         {/* ─── BULK EDIT MODE ─── */}
-         {canEdit && bulkEditOpen && (
-            <div className={`border-b ${theme === 'dark' ? 'bg-slate-800 border-amber-900/30' : 'bg-amber-50/10 border-amber-200/30'}`}>
-               {/* Bulk Header (sticky) */}
-               <div ref={bulkHeaderRef} className={`sticky z-40 px-4 md:px-6 py-3 border-b flex items-center justify-between backdrop-blur-md ${theme === 'dark' ? 'bg-slate-950/95 border-amber-900/60' : 'bg-amber-50/95 border-amber-200/60'}`} style={{ top: pageHeaderH }}>
-                  <div className="flex items-center gap-3">
-                     <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center shadow-sm"><PenLine size={16} className="text-white" /></div>
-                     <div>
-                        <h2 className={`text-sm font-semibold ${theme === 'dark' ? 'text-amber-100' : 'text-slate-800'}`}>Edição em Massa</h2>
-                        <p className={`text-xs ${theme === 'dark' ? 'text-amber-200/70' : 'text-slate-500'}`}>Edite diretamente na tabela. Alterações pendentes até salvar.</p>
-                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                     <button onClick={handleBulkDelete} disabled={selectedIds.size === 0 || isSaving}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-50 transition-colors shadow-sm">
-                        <Trash2 size={13} /> Excluir Selecionados
-                     </button>
-                     {changedCount > 0 && (
-                        <>
-                           <span className="text-sm font-medium text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-3 py-1 rounded-full">{changedCount} alterado{changedCount !== 1 ? 's' : ''}</span>
-                           <button onClick={discardEdits} className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg transition-colors ${theme === 'dark' ? 'text-slate-300 bg-slate-800 border-slate-700 hover:bg-slate-700' : 'text-slate-600 bg-white border-slate-200 hover:bg-slate-50'}`}>
-                              <Undo2 size={13} /> Descartar
+         {/* ══════════════════════════════════════════════════════════════════
+             TAB: DISCIPLINAS
+         ═══════════════════════════════════════════════════════════════════ */}
+         {activeTab === 'disciplines' && (
+            <div className="flex flex-col">
+               {/* Toolbar */}
+               <div ref={toolbarRef} className={`sticky z-40 px-4 md:px-6 py-3 border-b backdrop-blur-md ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`} style={{ top: pageHeaderH }}>
+                  <div className="flex flex-col gap-2">
+                     {/* Search row */}
+                     <div className="flex gap-2 items-center">
+                        <div className="relative flex-1">
+                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                           <input
+                              type="text"
+                              placeholder="Buscar disciplina por nome, código ou campo..."
+                              value={discSearch}
+                              onChange={e => setDiscSearch(e.target.value)}
+                              className={`w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-200 placeholder-slate-400'}`}
+                           />
+                           {discSearch && (
+                              <button onClick={() => setDiscSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                 <X size={14} />
+                              </button>
+                           )}
+                        </div>
+                        <select value={fieldFilter} onChange={e => setFieldFilter(e.target.value)} className={`px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200'}`}>
+                           <option value="ALL">Campo: Todos</option>
+                           {Object.entries(trainingFieldLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                        </select>
+                        <select value={courseFilter} onChange={e => setCourseFilter(e.target.value)} className={`px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200'}`}>
+                           <option value="ALL">Curso: Todos</option>
+                           <option value="AVIATION">Aviação</option>
+                           <option value="INTENDANCY">Intendência</option>
+                           <option value="INFANTRY">Infantaria</option>
+                        </select>
+                        <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className={`px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200'}`}>
+                           <option value="ALL">Ano: Todos</option>
+                           <option value="1">1º Ano</option>
+                           <option value="2">2º Ano</option>
+                           <option value="3">3º Ano</option>
+                           <option value="4">4º Ano</option>
+                        </select>
+                        {hasActiveFilters && (
+                           <button onClick={() => { setFieldFilter('ALL'); setCourseFilter('ALL'); setYearFilter('ALL'); }} className="px-3 py-2 text-xs text-red-500 hover:text-red-700 border border-red-200 rounded-lg flex items-center gap-1">
+                              <X size={12} /> Limpar
                            </button>
-                           <button onClick={saveBulkEdits} disabled={isSaving}
-                              className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 shadow-sm">
-                              <Save size={13} /> {isSaving ? 'Salvando...' : 'Salvar Tudo'}
-                           </button>
-                        </>
-                     )}
-                     <button onClick={() => setBulkEditOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-white/60 dark:hover:bg-slate-800/60 ml-1">
-                        <ChevronUp size={18} />
-                     </button>
-                  </div>
-               </div>
+                        )}
+                     </div>
 
-               {/* Save result */}
-               {saveResult && (
-                  <div className={`mx-5 mt-3 px-4 py-2.5 rounded-lg flex items-center gap-2 text-sm font-medium ${saveResult.success === saveResult.total ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200' : 'bg-red-100 dark:bg-red-900/30 text-red-800 border border-red-200'}`}>
-                     {saveResult.success === saveResult.total ? <><CheckCircle2 size={16} /> {saveResult.success} docente{saveResult.success !== 1 ? 's' : ''} atualizados com sucesso!</> : <><AlertCircle size={16} /> {saveResult.success}/{saveResult.total} salvos. Alguns falharam.</>}
-                  </div>
-               )}
-
-               {/* Smart actions bar (sticky) */}
-               <div ref={bulkActionsRef} className={`sticky z-30 px-4 md:px-6 py-3 border-b backdrop-blur-sm ${theme === 'dark' ? 'bg-slate-950/95 border-amber-900/50' : 'bg-amber-50/95 border-amber-100/50'}`} style={{ top: bulkActionsTop }}>
-                  <div className="text-[10px] text-amber-700 dark:text-amber-500 uppercase tracking-widest mb-2 flex items-center gap-2 font-bold">
-                     <PenLine size={12} /> Ações Inteligentes {selectedIds.size > 0 ? `(${selectedIds.size} selecionados)` : `(${filteredInstructors.length} filtrados)`}
-                  </div>
-                  <div className="flex flex-nowrap overflow-x-auto pb-1 gap-6 items-center">
-                     {/* Smart venture */}
-                     <div className="flex-none w-[200px]">
-                        <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold mb-1.5 uppercase tracking-wider">Definir Vínculo:</label>
-                        <div className="flex gap-1">
-                           <select id="smart-venture" className={`w-full px-2 py-1.5 text-xs border rounded-lg outline-none ${theme === 'dark' ? 'bg-slate-700 text-slate-100 border-slate-600' : 'bg-white border-slate-200'}`}>
-                              <option value="EFETIVO">Efetivo</option>
-                              <option value="PRESTADOR_TAREFA">PTTC</option>
-                              <option value="CIVIL">Civil</option>
-                              <option value="QOCON">QOCon</option>
-                           </select>
-                           <button onClick={() => {
-                              const val = (document.getElementById('smart-venture') as HTMLSelectElement).value;
-                              const targets = selectedIds.size > 0 ? Array.from(selectedIds) : filteredInstructors.map(i => i.trigram);
-                              targets.forEach(id => setBulkField(id, 'venture', val));
-                           }} className="shrink-0 px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-xs font-bold shadow-sm">Aplicar</button>
-                        </div>
-                     </div>
-                     {/* Smart title */}
-                     <div className="flex-none w-[180px]">
-                        <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold mb-1.5 uppercase tracking-wider">Definir Titulação:</label>
-                        <div className="flex gap-1">
-                           <select id="smart-title" className={`w-full px-2 py-1.5 text-xs border rounded-lg outline-none ${theme === 'dark' ? 'bg-slate-700 text-slate-100 border-slate-600' : 'bg-white border-slate-200'}`}>
-                              <option value="GRADUADO">Graduado</option>
-                              <option value="ESPECIALISTA">Especialista</option>
-                              <option value="MESTRE">Mestre</option>
-                              <option value="DOUTOR">Doutor</option>
-                           </select>
-                           <button onClick={() => {
-                              const val = (document.getElementById('smart-title') as HTMLSelectElement).value;
-                              const targets = selectedIds.size > 0 ? Array.from(selectedIds) : filteredInstructors.map(i => i.trigram);
-                              targets.forEach(id => setBulkField(id, 'maxTitle', val));
-                           }} className="shrink-0 px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-xs font-bold shadow-sm">Aplicar</button>
-                        </div>
-                     </div>
-                     {/* Smart CH */}
-                     <div className="flex-none w-[160px]">
-                        <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold mb-1.5 uppercase tracking-wider">Definir CH Semanal:</label>
-                        <div className="flex gap-1">
-                           <input id="smart-ch" type="number" min="0" max="40" placeholder="h/sem" className={`w-full px-2 py-1.5 text-xs border rounded-lg outline-none ${theme === 'dark' ? 'bg-slate-700 text-slate-100 border-slate-600' : 'bg-white border-slate-200'}`} />
-                           <button onClick={() => {
-                              const val = parseInt((document.getElementById('smart-ch') as HTMLInputElement).value) || 0;
-                              const targets = selectedIds.size > 0 ? Array.from(selectedIds) : filteredInstructors.map(i => i.trigram);
-                              targets.forEach(id => setBulkField(id, 'weeklyLoadLimit', val));
-                              (document.getElementById('smart-ch') as HTMLInputElement).value = '';
-                           }} className="shrink-0 px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-xs font-bold shadow-sm">Ok</button>
-                        </div>
-                     </div>
-                     {/* Smart specialty */}
-                     <div className="flex-none w-[220px]">
-                        <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold mb-1.5 uppercase tracking-wider">Definir Especialidade:</label>
-                        <div className="flex gap-1">
-                           <input id="smart-specialty" type="text" placeholder="Ex: Matemática" className={`w-full px-2 py-1.5 text-xs border rounded-lg outline-none ${theme === 'dark' ? 'bg-slate-700 text-slate-100 border-slate-600' : 'bg-white border-slate-200'}`} />
-                           <button onClick={() => {
-                              const val = (document.getElementById('smart-specialty') as HTMLInputElement).value;
-                              if (!val) return;
-                              const targets = selectedIds.size > 0 ? Array.from(selectedIds) : filteredInstructors.map(i => i.trigram);
-                              targets.forEach(id => setBulkField(id, 'specialty', val));
-                              (document.getElementById('smart-specialty') as HTMLInputElement).value = '';
-                           }} className="shrink-0 px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-xs font-bold shadow-sm">Aplicar</button>
-                        </div>
+                     {/* Summary stats */}
+                     <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+                        <span className="flex items-center gap-1"><BookOpen size={11} /> <strong className={isDark ? 'text-slate-200' : 'text-slate-700'}>{filteredDiscs.length}</strong> disciplinas</span>
+                        <span className="flex items-center gap-1"><Calendar size={11} /> <strong className={isDark ? 'text-slate-200' : 'text-slate-700'}>{totalScheduled}</strong> agendadas</span>
+                        <span className="flex items-center gap-1 text-green-600 dark:text-green-400"><CheckCircle2 size={11} /> <strong>{totalCompleted}</strong> realizadas</span>
+                        <span className="flex items-center gap-1"><Clock size={11} /> <strong className={isDark ? 'text-slate-200' : 'text-slate-700'}>{totalPPC}h</strong> PPC total</span>
+                        {totalPPC > 0 && (
+                           <span className="flex items-center gap-1 text-blue-500"><TrendingUp size={11} /> <strong>{Math.round((totalScheduled / totalPPC) * 100)}%</strong> cumprimento</span>
+                        )}
                      </div>
                   </div>
                </div>
 
-               {/* Bulk table */}
-               <div className="w-full relative">
-                  <table className="w-full text-sm">
-                     <thead>
-                        <tr className={`text-[10px] uppercase tracking-wider border-b ${theme === 'dark' ? 'bg-slate-950 text-slate-400 border-slate-800' : 'bg-gray-50 text-slate-500 border-slate-100'}`}>
-                           <th className={`sticky z-30 text-center py-2 px-3 w-10 ${theme === 'dark' ? 'bg-slate-950' : 'bg-gray-50'}`} style={{ top: bulkTableHeadTop }}>
-                              <input type="checkbox" className="rounded text-amber-600" onChange={e => handleSelectAll(e.target.checked)} checked={selectedIds.size === filteredInstructors.length && filteredInstructors.length > 0} />
-                           </th>
-                           {['Tri', 'Guerra', 'Posto', 'Vínculo', 'Titulação', 'CH (h/sem)', 'Especialidade'].map(h => (
-                              <th key={h} className={`sticky z-30 text-left py-2 px-3 ${theme === 'dark' ? 'bg-slate-950' : 'bg-gray-50'}`} style={{ top: bulkTableHeadTop }}>{h}</th>
-                           ))}
-                        </tr>
-                     </thead>
-                     <tbody className="divide-y divide-amber-100/60 dark:divide-amber-900/30">
-                        {filteredInstructors.map(inst => {
-                           const isSelected = selectedIds.has(inst.trigram);
-                           const hasChanges = !!bulkEdits[inst.trigram];
-                           const cellCls = (field: string) => `w-full px-2 py-1 text-sm border rounded transition-colors ${isFieldChanged(inst.trigram, field) ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/40 dark:border-amber-500 ring-1 ring-amber-200' : (theme === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-200' : 'border-slate-200 bg-white')}`;
+               {/* Cards grid */}
+               <div className="px-4 md:px-6 py-5">
+                  {filteredDiscs.length === 0 ? (
+                     <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                        <BookOpen size={40} className="mb-3 opacity-30" />
+                        <p className="text-sm font-medium">Nenhuma disciplina encontrada</p>
+                        <p className="text-xs mt-1">Ajuste os filtros ou o termo de busca</p>
+                     </div>
+                  ) : (
+                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {filteredDiscs.map(disc => {
+                           const metrics = discMetrics[disc.id] || { scheduled: 0, completed: 0 };
+                           const instructor = instructorByTrigram[disc.instructorTrigram || disc.instructor || ''];
                            return (
-                              <tr key={inst.trigram} className={`transition-colors ${isSelected ? (theme === 'dark' ? 'bg-amber-900/20' : 'bg-amber-50') : hasChanges ? (theme === 'dark' ? 'bg-amber-900/10' : 'bg-amber-100/30') : (theme === 'dark' ? 'hover:bg-slate-800/30' : 'hover:bg-white/50')}`}>
-                                 <td className="px-3 py-1.5 text-center"><input type="checkbox" className="rounded text-amber-600" checked={isSelected} onChange={e => handleSelectOne(inst.trigram, e.target.checked)} /></td>
-                                 <td className="px-3 py-1.5 font-mono text-blue-500 text-xs">{inst.trigram}</td>
-                                 <td className="px-3 py-1.5 text-xs font-medium">{inst.warName}</td>
-                                 <td className="px-2 py-1">
-                                    <input type="text" value={(getCurrentValue(inst, 'rank') as string)} onChange={e => setBulkField(inst.trigram, 'rank', e.target.value)} className={cellCls('rank')} />
-                                 </td>
-                                 <td className="px-2 py-1">
-                                    <select value={(getCurrentValue(inst, 'venture') as string)} onChange={e => setBulkField(inst.trigram, 'venture', e.target.value)} className={cellCls('venture')}>
-                                       <option value="EFETIVO">Efetivo</option>
-                                       <option value="PRESTADOR_TAREFA">PTTC</option>
-                                       <option value="CIVIL">Civil</option>
-                                       <option value="QOCON">QOCon</option>
-                                    </select>
-                                 </td>
-                                 <td className="px-2 py-1">
-                                    <select value={(getCurrentValue(inst, 'maxTitle') as string)} onChange={e => setBulkField(inst.trigram, 'maxTitle', e.target.value)} className={cellCls('maxTitle')}>
-                                       <option value="GRADUADO">Graduado</option>
-                                       <option value="ESPECIALISTA">Especialista</option>
-                                       <option value="MESTRE">Mestre</option>
-                                       <option value="DOUTOR">Doutor</option>
-                                    </select>
-                                 </td>
-                                 <td className="px-2 py-1 w-24">
-                                    <input type="number" min={0} value={(getCurrentValue(inst, 'weeklyLoadLimit') as number)} onChange={e => setBulkField(inst.trigram, 'weeklyLoadLimit', parseInt(e.target.value) || 0)} className={cellCls('weeklyLoadLimit')} />
-                                 </td>
-                                 <td className="px-2 py-1">
-                                    <input type="text" value={(getCurrentValue(inst, 'specialty') as string)} onChange={e => setBulkField(inst.trigram, 'specialty', e.target.value)} className={cellCls('specialty')} />
-                                 </td>
-                              </tr>
+                              <DisciplineCard
+                                 key={disc.id}
+                                 disc={disc}
+                                 instructor={instructor}
+                                 scheduled={metrics.scheduled}
+                                 completed={metrics.completed}
+                                 ppcTotal={getTotalPPC(disc)}
+                                 theme={theme}
+                                 canEdit={canEdit}
+                                 onEdit={() => {/* discipline editing handled in Disciplinas page */}}
+                              />
                            );
                         })}
-                     </tbody>
-                  </table>
-               </div>
-
-               {/* Bottom save bar */}
-               {changedCount > 0 && (
-                  <div className={`sticky bottom-0 px-5 py-3 backdrop-blur-sm border-t flex items-center justify-between ${theme === 'dark' ? 'bg-amber-900/90 border-amber-800' : 'bg-amber-100/90 border-amber-200'}`}>
-                     <span className={`text-sm font-medium ${theme === 'dark' ? 'text-amber-100' : 'text-amber-800'}`}>⚠️ {changedCount} alteração{changedCount !== 1 ? 'ões' : ''} pendente{changedCount !== 1 ? 's' : ''}.</span>
-                     <div className="flex gap-2">
-                        <button onClick={discardEdits} className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg ${theme === 'dark' ? 'text-slate-300 bg-slate-800 border-slate-700' : 'text-slate-600 bg-white border-slate-200'}`}><Undo2 size={13} /> Descartar</button>
-                        <button onClick={saveBulkEdits} disabled={isSaving} className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"><Save size={13} /> {isSaving ? 'Salvando...' : 'Salvar Tudo'}</button>
                      </div>
-                  </div>
-               )}
+                  )}
+               </div>
             </div>
          )}
 
-         {/* ─── NORMAL MODE ─── */}
-         {!bulkEditOpen && (
+         {/* ══════════════════════════════════════════════════════════════════
+             TAB: DOCENTES (admin only)
+         ═══════════════════════════════════════════════════════════════════ */}
+         {activeTab === 'instructors' && canEdit && (
             <div className="w-full flex flex-col">
-               {/* Toolbar (sticky) */}
-               <div ref={toolbarRef} className={`sticky z-40 px-4 md:px-6 py-3 border-b space-y-2 shadow-md backdrop-blur-md ${theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`} style={{ top: toolbarTop }}>
-                  <div className="flex flex-row gap-3 items-center">
-                     <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input
-                           type="text"
-                           placeholder="Buscar docente por nome, trigrama, especialidade..."
-                           value={searchTerm}
-                           onChange={e => setSearchTerm(e.target.value)}
-                           className={`w-full pl-9 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-colors shadow-sm ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-200 placeholder-slate-400'}`}
-                        />
+
+               {/* ─── BULK EDIT MODE ─── */}
+               {bulkEditOpen && (
+                  <div className={`border-b ${isDark ? 'bg-slate-800 border-amber-900/30' : 'bg-amber-50/10 border-amber-200/30'}`}>
+                     <div ref={bulkHeaderRef} className={`sticky z-40 px-4 md:px-6 py-3 border-b flex items-center justify-between backdrop-blur-md ${isDark ? 'bg-slate-950/95 border-amber-900/60' : 'bg-amber-50/95 border-amber-200/60'}`} style={{ top: pageHeaderH }}>
+                        <div className="flex items-center gap-3">
+                           <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center"><PenLine size={16} className="text-white" /></div>
+                           <div>
+                              <h2 className={`text-sm font-semibold ${isDark ? 'text-amber-100' : 'text-slate-800'}`}>Edição em Massa</h2>
+                              <p className={`text-xs ${isDark ? 'text-amber-200/70' : 'text-slate-500'}`}>Alterações pendentes até salvar.</p>
+                           </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <button onClick={handleBulkDelete} disabled={selectedIds.size === 0 || isSaving}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-50">
+                              <Trash2 size={13} /> Excluir Selecionados
+                           </button>
+                           {changedCount > 0 && (
+                              <>
+                                 <span className="text-sm font-medium text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-3 py-1 rounded-full">{changedCount} alterado{changedCount !== 1 ? 's' : ''}</span>
+                                 <button onClick={discardEdits} className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg ${isDark ? 'text-slate-300 bg-slate-800 border-slate-700' : 'text-slate-600 bg-white border-slate-200'}`}><Undo2 size={13} /> Descartar</button>
+                                 <button onClick={saveBulkEdits} disabled={isSaving}
+                                    className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50">
+                                    <Save size={13} /> {isSaving ? 'Salvando...' : 'Salvar Tudo'}
+                                 </button>
+                              </>
+                           )}
+                           <button onClick={() => setBulkEditOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg ml-1"><ChevronUp size={18} /></button>
+                        </div>
                      </div>
-                     <select value={ventureFilter} onChange={e => setVentureFilter(e.target.value as any)} className={`px-3 py-2 rounded-lg border text-sm outline-none ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200'}`}>
-                        <option value="ALL">Vínculo: Todos</option>
-                        <option value="EFETIVO">Efetivo</option>
-                        <option value="PRESTADOR_TAREFA">PTTC</option>
-                        <option value="CIVIL">Civil</option>
-                        <option value="QOCON">QOCon</option>
-                     </select>
-                     <select value={titleFilter} onChange={e => setTitleFilter(e.target.value as any)} className={`px-3 py-2 rounded-lg border text-sm outline-none ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200'}`}>
-                        <option value="ALL">Titulação: Todas</option>
-                        <option value="GRADUADO">Graduado</option>
-                        <option value="ESPECIALISTA">Especialista</option>
-                        <option value="MESTRE">Mestre</option>
-                        <option value="DOUTOR">Doutor</option>
-                     </select>
-                  </div>
-                  {/* Quick filters */}
-                  <div className="flex items-center gap-3 pt-1 border-t border-gray-100 dark:border-slate-700 overflow-x-auto whitespace-nowrap h-8">
-                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mr-1"><Zap size={12} className="text-amber-500" /> Filtros Rápidos:</div>
-                     {[
-                        { label: 'Sem Disciplina', cmd: '!disciplina' },
-                        { label: 'Sem Turma', cmd: '!turma' },
-                        { label: 'Sem CH', cmd: '!ch' },
-                     ].map(({ label, cmd }) => (
-                        <button key={cmd} onClick={() => setSearchTerm(searchTerm === cmd ? '' : cmd)}
-                           className={`px-3 py-1 text-xs font-medium rounded-lg border transition-all ${searchTerm === cmd ? 'bg-amber-500 text-white border-amber-600 shadow-sm' : (theme === 'dark' ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-amber-500' : 'bg-white text-slate-600 border-slate-200 hover:border-amber-300 hover:bg-amber-50/30')}`}>
-                           {label}
-                        </button>
-                     ))}
-                     {searchTerm.startsWith('!') && (
-                        <button onClick={() => setSearchTerm('')} className="px-2 py-1 text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1"><Undo2 size={13} /> Limpar</button>
+                     {saveResult && (
+                        <div className={`mx-5 mt-3 px-4 py-2.5 rounded-lg flex items-center gap-2 text-sm font-medium ${saveResult.success === saveResult.total ? 'bg-green-100 dark:bg-green-900/30 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                           {saveResult.success === saveResult.total ? <><CheckCircle2 size={16} /> {saveResult.success} atualizados!</> : <><AlertCircle size={16} /> {saveResult.success}/{saveResult.total} salvos.</>}
+                        </div>
+                     )}
+                     {/* Smart actions */}
+                     <div ref={bulkActionsRef} className={`sticky z-30 px-4 md:px-6 py-3 border-b backdrop-blur-sm ${isDark ? 'bg-slate-950/95 border-amber-900/50' : 'bg-amber-50/95 border-amber-100/50'}`} style={{ top: bulkActionsTop }}>
+                        <div className="text-[10px] text-amber-700 dark:text-amber-500 uppercase tracking-widest mb-2 flex items-center gap-2 font-bold">
+                           <PenLine size={12} /> Ações Inteligentes {selectedIds.size > 0 ? `(${selectedIds.size} selecionados)` : `(${filteredInstructors.length} filtrados)`}
+                        </div>
+                        <div className="flex flex-nowrap overflow-x-auto pb-1 gap-6 items-center">
+                           <div className="flex-none w-[200px]">
+                              <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold mb-1.5 uppercase tracking-wider">Definir Vínculo:</label>
+                              <div className="flex gap-1">
+                                 <select id="smart-venture" className={`w-full px-2 py-1.5 text-xs border rounded-lg outline-none ${isDark ? 'bg-slate-700 text-slate-100 border-slate-600' : 'bg-white border-slate-200'}`}>
+                                    <option value="EFETIVO">Efetivo</option><option value="PRESTADOR_TAREFA">PTTC</option><option value="CIVIL">Civil</option><option value="QOCON">QOCon</option>
+                                 </select>
+                                 <button onClick={() => { const val = (document.getElementById('smart-venture') as HTMLSelectElement).value; const targets = selectedIds.size > 0 ? Array.from(selectedIds) : filteredInstructors.map(i => i.trigram); targets.forEach(id => setBulkField(id, 'venture', val)); }} className="shrink-0 px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-xs font-bold">Aplicar</button>
+                              </div>
+                           </div>
+                           <div className="flex-none w-[180px]">
+                              <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold mb-1.5 uppercase tracking-wider">Definir Titulação:</label>
+                              <div className="flex gap-1">
+                                 <select id="smart-title" className={`w-full px-2 py-1.5 text-xs border rounded-lg outline-none ${isDark ? 'bg-slate-700 text-slate-100 border-slate-600' : 'bg-white border-slate-200'}`}>
+                                    <option value="GRADUADO">Graduado</option><option value="ESPECIALISTA">Especialista</option><option value="MESTRE">Mestre</option><option value="DOUTOR">Doutor</option>
+                                 </select>
+                                 <button onClick={() => { const val = (document.getElementById('smart-title') as HTMLSelectElement).value; const targets = selectedIds.size > 0 ? Array.from(selectedIds) : filteredInstructors.map(i => i.trigram); targets.forEach(id => setBulkField(id, 'maxTitle', val)); }} className="shrink-0 px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-xs font-bold">Aplicar</button>
+                              </div>
+                           </div>
+                           <div className="flex-none w-[160px]">
+                              <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold mb-1.5 uppercase tracking-wider">Definir CH Semanal:</label>
+                              <div className="flex gap-1">
+                                 <input id="smart-ch" type="number" min="0" max="40" placeholder="h/sem" className={`w-full px-2 py-1.5 text-xs border rounded-lg outline-none ${isDark ? 'bg-slate-700 text-slate-100 border-slate-600' : 'bg-white border-slate-200'}`} />
+                                 <button onClick={() => { const val = parseInt((document.getElementById('smart-ch') as HTMLInputElement).value) || 0; const targets = selectedIds.size > 0 ? Array.from(selectedIds) : filteredInstructors.map(i => i.trigram); targets.forEach(id => setBulkField(id, 'weeklyLoadLimit', val)); (document.getElementById('smart-ch') as HTMLInputElement).value = ''; }} className="shrink-0 px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-xs font-bold">Ok</button>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                     {/* Bulk table */}
+                     <div className="w-full relative">
+                        <table className="w-full text-sm">
+                           <thead>
+                              <tr className={`text-[10px] uppercase tracking-wider border-b ${isDark ? 'bg-slate-950 text-slate-400 border-slate-800' : 'bg-gray-50 text-slate-500 border-slate-100'}`}>
+                                 <th className={`sticky z-30 text-center py-2 px-3 w-10 ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`} style={{ top: bulkTableHeadTop }}><input type="checkbox" className="rounded text-amber-600" onChange={e => handleSelectAll(e.target.checked)} checked={selectedIds.size === filteredInstructors.length && filteredInstructors.length > 0} /></th>
+                                 {['Tri', 'Guerra', 'Posto', 'Vínculo', 'Titulação', 'CH (h/sem)', 'Especialidade'].map(h => (
+                                    <th key={h} className={`sticky z-30 text-left py-2 px-3 ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`} style={{ top: bulkTableHeadTop }}>{h}</th>
+                                 ))}
+                              </tr>
+                           </thead>
+                           <tbody className="divide-y divide-amber-100/60 dark:divide-amber-900/30">
+                              {filteredInstructors.map(inst => {
+                                 const isSelected = selectedIds.has(inst.trigram);
+                                 const hasChanges = !!bulkEdits[inst.trigram];
+                                 const cellCls = (field: string) => `w-full px-2 py-1 text-sm border rounded transition-colors ${isFieldChanged(inst.trigram, field) ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/40 ring-1 ring-amber-200' : (isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'border-slate-200 bg-white')}`;
+                                 return (
+                                    <tr key={inst.trigram} className={`transition-colors ${isSelected ? (isDark ? 'bg-amber-900/20' : 'bg-amber-50') : hasChanges ? (isDark ? 'bg-amber-900/10' : 'bg-amber-100/30') : (isDark ? 'hover:bg-slate-800/30' : 'hover:bg-white/50')}`}>
+                                       <td className="px-3 py-1.5 text-center"><input type="checkbox" className="rounded text-amber-600" checked={isSelected} onChange={e => handleSelectOne(inst.trigram, e.target.checked)} /></td>
+                                       <td className="px-3 py-1.5 font-mono text-blue-500 text-xs">{inst.trigram}</td>
+                                       <td className="px-3 py-1.5 text-xs font-medium">{inst.warName}</td>
+                                       <td className="px-2 py-1"><input type="text" value={getCurrentValue(inst, 'rank') as string} onChange={e => setBulkField(inst.trigram, 'rank', e.target.value)} className={cellCls('rank')} /></td>
+                                       <td className="px-2 py-1">
+                                          <select value={getCurrentValue(inst, 'venture') as string} onChange={e => setBulkField(inst.trigram, 'venture', e.target.value)} className={cellCls('venture')}>
+                                             <option value="EFETIVO">Efetivo</option><option value="PRESTADOR_TAREFA">PTTC</option><option value="CIVIL">Civil</option><option value="QOCON">QOCon</option>
+                                          </select>
+                                       </td>
+                                       <td className="px-2 py-1">
+                                          <select value={getCurrentValue(inst, 'maxTitle') as string} onChange={e => setBulkField(inst.trigram, 'maxTitle', e.target.value)} className={cellCls('maxTitle')}>
+                                             <option value="GRADUADO">Graduado</option><option value="ESPECIALISTA">Especialista</option><option value="MESTRE">Mestre</option><option value="DOUTOR">Doutor</option>
+                                          </select>
+                                       </td>
+                                       <td className="px-2 py-1 w-24"><input type="number" min={0} value={getCurrentValue(inst, 'weeklyLoadLimit') as number} onChange={e => setBulkField(inst.trigram, 'weeklyLoadLimit', parseInt(e.target.value) || 0)} className={cellCls('weeklyLoadLimit')} /></td>
+                                       <td className="px-2 py-1"><input type="text" value={getCurrentValue(inst, 'specialty') as string} onChange={e => setBulkField(inst.trigram, 'specialty', e.target.value)} className={cellCls('specialty')} /></td>
+                                    </tr>
+                                 );
+                              })}
+                           </tbody>
+                        </table>
+                     </div>
+                     {changedCount > 0 && (
+                        <div className={`sticky bottom-0 px-5 py-3 backdrop-blur-sm border-t flex items-center justify-between ${isDark ? 'bg-amber-900/90 border-amber-800' : 'bg-amber-100/90 border-amber-200'}`}>
+                           <span className={`text-sm font-medium ${isDark ? 'text-amber-100' : 'text-amber-800'}`}>⚠️ {changedCount} alteração{changedCount !== 1 ? 'ões' : ''} pendente{changedCount !== 1 ? 's' : ''}.</span>
+                           <div className="flex gap-2">
+                              <button onClick={discardEdits} className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg ${isDark ? 'text-slate-300 bg-slate-800 border-slate-700' : 'text-slate-600 bg-white border-slate-200'}`}><Undo2 size={13} /> Descartar</button>
+                              <button onClick={saveBulkEdits} disabled={isSaving} className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"><Save size={13} /> {isSaving ? 'Salvando...' : 'Salvar Tudo'}</button>
+                           </div>
+                        </div>
                      )}
                   </div>
-               </div>
+               )}
 
-               {/* Table */}
-               <div className={`rounded-none w-full relative ${theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}>
-                  <table className="w-full text-left border-collapse">
-                     <thead>
-                        <tr className={`text-xs uppercase tracking-wider border-b ${theme === 'dark' ? 'bg-slate-900/50 text-slate-400 border-slate-700' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                           {['Tri', 'Guerra', 'Vínculo', 'Disciplinas', 'Turmas', 'CH', 'Ações'].map((h, i) => (
-                              <th key={h} className={`sticky z-30 px-4 py-3 font-medium ${i === 6 ? 'text-right' : i === 5 ? 'text-center' : 'text-left'} ${i >= 2 && i <= 2 ? 'hidden lg:table-cell' : ''} ${theme === 'dark' ? 'bg-slate-900/50' : 'bg-slate-50'}`} style={{ top: regularTableHeadTop }}>{h}</th>
+               {/* ─── NORMAL MODE ─── */}
+               {!bulkEditOpen && (
+                  <div className="w-full flex flex-col">
+                     {/* Toolbar */}
+                     <div ref={toolbarRef} className={`sticky z-40 px-4 md:px-6 py-3 border-b space-y-2 shadow-md backdrop-blur-md ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`} style={{ top: pageHeaderH }}>
+                        <div className="flex flex-row gap-3 items-center">
+                           <div className="relative flex-1">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                              <input type="text" placeholder="Buscar docente por nome, trigrama, especialidade..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                                 className={`w-full pl-9 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none shadow-sm ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-200 placeholder-slate-400'}`} />
+                           </div>
+                           <select value={ventureFilter} onChange={e => setVentureFilter(e.target.value as any)} className={`px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200'}`}>
+                              <option value="ALL">Vínculo: Todos</option><option value="EFETIVO">Efetivo</option><option value="PRESTADOR_TAREFA">PTTC</option><option value="CIVIL">Civil</option><option value="QOCON">QOCon</option>
+                           </select>
+                           <select value={titleFilter} onChange={e => setTitleFilter(e.target.value as any)} className={`px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200'}`}>
+                              <option value="ALL">Titulação: Todas</option><option value="GRADUADO">Graduado</option><option value="ESPECIALISTA">Especialista</option><option value="MESTRE">Mestre</option><option value="DOUTOR">Doutor</option>
+                           </select>
+                        </div>
+                        <div className="flex items-center gap-3 pt-1 border-t border-gray-100 dark:border-slate-700 overflow-x-auto whitespace-nowrap h-8">
+                           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mr-1"><Zap size={12} className="text-amber-500" /> Filtros Rápidos:</div>
+                           {[{ label: 'Sem Disciplina', cmd: '!disciplina' }, { label: 'Sem Turma', cmd: '!turma' }, { label: 'Sem CH', cmd: '!ch' }].map(({ label, cmd }) => (
+                              <button key={cmd} onClick={() => setSearchTerm(searchTerm === cmd ? '' : cmd)}
+                                 className={`px-3 py-1 text-xs font-medium rounded-lg border transition-all ${searchTerm === cmd ? 'bg-amber-500 text-white border-amber-600' : (isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-amber-500' : 'bg-white text-slate-600 border-slate-200 hover:border-amber-300')}`}>
+                                 {label}
+                              </button>
                            ))}
-                        </tr>
-                     </thead>
-                     <tbody className={`divide-y ${theme === 'dark' ? 'divide-slate-700' : 'divide-slate-100'}`}>
-                        {filteredInstructors.length > 0 ? filteredInstructors.map(instructor => (
-                           <tr key={instructor.trigram} className="hover:bg-blue-500/5 transition-colors group">
-                              <td className="px-4 py-1.5 text-sm font-mono font-bold text-blue-500">{instructor.trigram}</td>
-                              <td className="px-4 py-1.5 text-sm font-medium">{instructor.warName}</td>
-                              <td className="px-4 py-1.5 hidden lg:table-cell">
-                                 <Badge variant={instructor.venture === 'EFETIVO' ? 'blue' : instructor.venture === 'QOCON' ? 'purple' : instructor.venture === 'PRESTADOR_TAREFA' ? 'amber' : 'slate'}>
-                                    {getVentureLabel(instructor.venture)}
-                                 </Badge>
-                              </td>
-                              <td className="px-4 py-1.5 min-w-[120px]">
-                                 <div className="flex flex-wrap gap-1">
-                                    {(instructor.enabledDisciplines || []).length > 0 ? instructor.enabledDisciplines?.map(id => {
-                                       const disc = disciplines.find(d => d.id === id || d.code === id);
-                                       return disc ? <Badge key={id} variant="slate" title={disc.name}>{disc.code}</Badge> : null;
-                                    }) : <span className="text-[10px] text-slate-400 italic">Nenhuma</span>}
-                                 </div>
-                              </td>
-                              <td className="px-4 py-1.5 min-w-[100px]">
-                                 <div className="flex flex-wrap gap-1">
-                                    {(instructor.enabledClasses && instructor.enabledClasses.length === classes.length && classes.length > 0)
-                                       ? <Badge variant="blue">Todas</Badge>
-                                       : (instructor.enabledClasses || []).length > 0
-                                          ? instructor.enabledClasses?.map(id => { const cls = classes.find(c => c.id === id); return cls ? <Badge key={id} variant="blue">{cls.year}{cls.name}</Badge> : null; })
-                                          : <span className="text-[10px] text-slate-400 italic">Nenhuma</span>}
-                                 </div>
-                              </td>
-                              <td className="px-4 py-1.5 text-sm text-center font-mono">{instructor.weeklyLoadLimit}h</td>
-                              <td className="px-4 py-1.5 text-right">
-                                 <div className="flex justify-end gap-1">
-                                    <button onClick={() => { setSelectedInstructorForOccurrence(instructor.trigram); setIsOccurrenceModalOpen(true); }} className="p-1 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded" title="Ocorrência"><History size={14} /></button>
-                                    {canEdit && (
-                                       <>
+                           {searchTerm.startsWith('!') && <button onClick={() => setSearchTerm('')} className="px-2 py-1 text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1"><Undo2 size={13} /> Limpar</button>}
+                        </div>
+                     </div>
+                     {/* Table */}
+                     <div className={`rounded-none w-full relative ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+                        <table className="w-full text-left border-collapse">
+                           <thead>
+                              <tr className={`text-xs uppercase tracking-wider border-b ${isDark ? 'bg-slate-900/50 text-slate-400 border-slate-700' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+                                 {['Tri', 'Guerra', 'Vínculo', 'Disciplinas', 'Turmas', 'CH', 'Ações'].map((h, i) => (
+                                    <th key={h} className={`sticky z-30 px-4 py-3 font-medium ${i === 6 ? 'text-right' : i === 5 ? 'text-center' : 'text-left'} ${isDark ? 'bg-slate-900/50' : 'bg-slate-50'}`} style={{ top: regularTableHeadTop }}>{h}</th>
+                                 ))}
+                              </tr>
+                           </thead>
+                           <tbody className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-slate-100'}`}>
+                              {filteredInstructors.length > 0 ? filteredInstructors.map(instructor => (
+                                 <tr key={instructor.trigram} className="hover:bg-blue-500/5 transition-colors group">
+                                    <td className="px-4 py-1.5 text-sm font-mono font-bold text-blue-500">{instructor.trigram}</td>
+                                    <td className="px-4 py-1.5 text-sm font-medium">{instructor.warName}</td>
+                                    <td className="px-4 py-1.5">
+                                       <Badge variant={instructor.venture === 'EFETIVO' ? 'blue' : instructor.venture === 'QOCON' ? 'purple' : instructor.venture === 'PRESTADOR_TAREFA' ? 'amber' : 'slate'}>
+                                          {getVentureLabel(instructor.venture)}
+                                       </Badge>
+                                    </td>
+                                    <td className="px-4 py-1.5 min-w-[120px]">
+                                       <div className="flex flex-wrap gap-1">
+                                          {(instructor.enabledDisciplines || []).length > 0 ? instructor.enabledDisciplines?.map(id => {
+                                             const disc = disciplines.find(d => d.id === id || d.code === id);
+                                             return disc ? <Badge key={id} variant="slate" title={disc.name}>{disc.code}</Badge> : null;
+                                          }) : <span className="text-[10px] text-slate-400 italic">Nenhuma</span>}
+                                       </div>
+                                    </td>
+                                    <td className="px-4 py-1.5 min-w-[100px]">
+                                       <div className="flex flex-wrap gap-1">
+                                          {(instructor.enabledClasses && instructor.enabledClasses.length === classes.length && classes.length > 0)
+                                             ? <Badge variant="blue">Todas</Badge>
+                                             : (instructor.enabledClasses || []).length > 0
+                                                ? instructor.enabledClasses?.map(id => { const cls = classes.find(c => c.id === id); return cls ? <Badge key={id} variant="blue">{cls.year}{cls.name}</Badge> : null; })
+                                                : <span className="text-[10px] text-slate-400 italic">Nenhuma</span>}
+                                       </div>
+                                    </td>
+                                    <td className="px-4 py-1.5 text-sm text-center font-mono">{instructor.weeklyLoadLimit}h</td>
+                                    <td className="px-4 py-1.5 text-right">
+                                       <div className="flex justify-end gap-1">
+                                          <button onClick={() => { setSelectedInstructorForOccurrence(instructor.trigram); setIsOccurrenceModalOpen(true); }} className="p-1 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded" title="Ocorrência"><History size={14} /></button>
                                           <button onClick={() => { setEditingInstructor(instructor); setSelectedDisciplines(instructor.enabledDisciplines || []); setSelectedClasses(instructor.enabledClasses || []); setIsInstructorModalOpen(true); }} className="p-1 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded" title="Editar"><Edit2 size={14} /></button>
                                           <button onClick={() => { if (confirm(`Excluir ${instructor.warName}?`)) deleteInstructor(instructor.trigram); }} className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded" title="Excluir"><Trash2 size={14} /></button>
-                                       </>
-                                    )}
-                                 </div>
-                              </td>
-                           </tr>
-                        )) : (
-                           <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-400">Nenhum docente encontrado para os filtros selecionados.</td></tr>
-                        )}
-                     </tbody>
-                  </table>
-               </div>
+                                       </div>
+                                    </td>
+                                 </tr>
+                              )) : (
+                                 <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-400">Nenhum docente encontrado.</td></tr>
+                              )}
+                           </tbody>
+                        </table>
+                     </div>
+                  </div>
+               )}
             </div>
          )}
 
          {/* ─── INSTRUCTOR MODAL ─── */}
          {isInstructorModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-               <div className={`my-auto w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden ${theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}>
-                  <div className={`p-4 border-b flex justify-between items-center ${theme === 'dark' ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+               <div className={`my-auto w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+                  <div className={`p-4 border-b flex justify-between items-center ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
                      <h2 className="text-lg font-semibold">{editingInstructor ? 'Editar Docente' : 'Novo Docente'}</h2>
                      <button onClick={() => setIsInstructorModalOpen(false)} className="text-slate-400 hover:text-slate-200"><Plus size={24} className="rotate-45" /></button>
                   </div>
@@ -555,11 +788,11 @@ export const Instructors = () => {
                            </div>
                         </div>
                         <div className="space-y-4">
-                           <h3 className="text-xs font-bold uppercase text-blue-500 tracking-widest border-b pb-1">Vinculação Multi-Nível</h3>
+                           <h3 className="text-xs font-bold uppercase text-blue-500 tracking-widest border-b pb-1">Vinculação</h3>
                            <div>
                               <label className="block text-xs font-medium text-slate-500 mb-1">Matérias Habilitadas</label>
-                              <div className="relative mb-2"><Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={13} /><input type="text" placeholder="Filtrar matérias..." value={disciplineSearch} onChange={e => setDisciplineSearch(e.target.value)} className={`w-full pl-7 pr-3 py-1 text-xs rounded border ${theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`} /></div>
-                              <div className={`h-24 overflow-y-auto border rounded p-2 space-y-1 ${theme === 'dark' ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50'}`}>
+                              <div className="relative mb-2"><Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={13} /><input type="text" placeholder="Filtrar matérias..." value={disciplineSearch} onChange={e => setDisciplineSearch(e.target.value)} className={`w-full pl-7 pr-3 py-1 text-xs rounded border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`} /></div>
+                              <div className={`h-24 overflow-y-auto border rounded p-2 space-y-1 ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50'}`}>
                                  {disciplines.filter(d => (d.code?.toLowerCase() || "").includes(disciplineSearch.toLowerCase()) || (d.name?.toLowerCase() || "").includes(disciplineSearch.toLowerCase())).sort((a, b) => (a.code || "").localeCompare(b.code || "")).map(d => (
                                     <label key={d.id} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-blue-500/10 p-0.5 rounded">
                                        <input type="checkbox" checked={selectedDisciplines.includes(d.id)} onChange={e => setSelectedDisciplines(prev => e.target.checked ? [...prev, d.id] : prev.filter(id => id !== d.id))} className="rounded text-blue-600" />
@@ -570,8 +803,8 @@ export const Instructors = () => {
                            </div>
                            <div>
                               <label className="block text-xs font-medium text-slate-500 mb-1">Turmas Habilitadas</label>
-                              <div className="relative mb-2"><Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={13} /><input type="text" placeholder="Filtrar turmas..." value={classSearch} onChange={e => setClassSearch(e.target.value)} className={`w-full pl-7 pr-3 py-1 text-xs rounded border ${theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`} /></div>
-                              <div className={`h-24 overflow-y-auto border rounded p-2 space-y-1 ${theme === 'dark' ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50'}`}>
+                              <div className="relative mb-2"><Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={13} /><input type="text" placeholder="Filtrar turmas..." value={classSearch} onChange={e => setClassSearch(e.target.value)} className={`w-full pl-7 pr-3 py-1 text-xs rounded border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`} /></div>
+                              <div className={`h-24 overflow-y-auto border rounded p-2 space-y-1 ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50'}`}>
                                  <label className="flex items-center gap-2 text-xs cursor-pointer hover:bg-blue-500/10 p-0.5 rounded border-b border-slate-200 dark:border-slate-700 pb-1 mb-1">
                                     <input type="checkbox" checked={selectedClasses.length === classes.length && classes.length > 0} onChange={e => setSelectedClasses(e.target.checked ? classes.map(c => c.id) : [])} className="rounded text-blue-600" />
                                     <span className="font-bold text-blue-600 dark:text-blue-400">Selecionar Todas</span>
@@ -591,7 +824,7 @@ export const Instructors = () => {
                         </div>
                      </div>
                      <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-slate-700">
-                        <button type="button" onClick={() => setIsInstructorModalOpen(false)} className={`px-4 py-2 rounded text-sm ${theme === 'dark' ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-600'}`}>Cancelar</button>
+                        <button type="button" onClick={() => setIsInstructorModalOpen(false)} className={`px-4 py-2 rounded text-sm ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-600'}`}>Cancelar</button>
                         <button type="submit" className="px-8 py-2 bg-blue-600 text-white rounded font-semibold shadow-lg hover:bg-blue-700 active:scale-95 transition-all">{editingInstructor ? 'Salvar Alterações' : 'Confirmar Cadastro'}</button>
                      </div>
                   </form>
@@ -602,8 +835,8 @@ export const Instructors = () => {
          {/* ─── OCCURRENCE MODAL ─── */}
          {isOccurrenceModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-               <div className={`w-full max-w-md rounded-xl shadow-2xl overflow-hidden ${theme === 'dark' ? 'bg-slate-800 border border-slate-700' : 'bg-white'}`}>
-                  <div className={`p-4 border-b flex items-center justify-between ${theme === 'dark' ? 'bg-amber-900/10 border-slate-700' : 'bg-amber-50 border-amber-100'}`}>
+               <div className={`w-full max-w-md rounded-xl shadow-2xl overflow-hidden ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white'}`}>
+                  <div className={`p-4 border-b flex items-center justify-between ${isDark ? 'bg-amber-900/10 border-slate-700' : 'bg-amber-50 border-amber-100'}`}>
                      <div className="flex items-center gap-3"><History className="text-amber-500" /><h2 className="font-semibold">Nova Ocorrência</h2></div>
                      <button onClick={() => setIsOccurrenceModalOpen(false)} className="text-slate-400 hover:text-slate-600"><Plus size={24} className="rotate-45" /></button>
                   </div>
@@ -615,7 +848,7 @@ export const Instructors = () => {
                         <div><label className="block text-xs font-medium text-slate-500 mb-1">Motivo / Observação</label><textarea name="reason" required rows={3} className={inputCls} placeholder="Breve descrição da causa..." /></div>
                      </div>
                      <div className="flex justify-end gap-3 mt-6">
-                        <button type="button" onClick={() => setIsOccurrenceModalOpen(false)} className={`px-4 py-2 rounded text-sm ${theme === 'dark' ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}>Sair</button>
+                        <button type="button" onClick={() => setIsOccurrenceModalOpen(false)} className={`px-4 py-2 rounded text-sm ${isDark ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}>Sair</button>
                         <button type="submit" className="px-6 py-2 bg-amber-600 text-white rounded font-semibold shadow-md hover:bg-amber-700">Gravar</button>
                      </div>
                   </form>
