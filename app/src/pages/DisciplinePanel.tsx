@@ -39,10 +39,16 @@ function getTotalPPC(d: Discipline) {
    return Object.values(d.ppcLoads).reduce((s, v) => s + (v || 0), 0);
 }
 
-function clsLabel(cls: CourseClass | undefined, classId: string) {
-   if (!cls) return classId;
-   const tipo = cls.type === 'AVIATION' ? 'Av' : cls.type === 'INTENDANCY' ? 'Int' : 'Inf';
-   return `${cls.year}º Ano · Turma ${cls.name} (${tipo})`;
+// classId format: "1A", "2B", "3C" etc. (squadronNumber + sectionLetter)
+const SECTION_TYPE: Record<string, string> = { A: 'Av', B: 'Av', C: 'Av', D: 'Av', E: 'Int', F: 'Inf' };
+function clsLabel(_cls: CourseClass | undefined, classId: string) {
+   if (/^[1-4][A-F]$/.test(classId)) {
+      const esq = classId[0];
+      const sec = classId[1];
+      return `${esq}º Esq · Turma ${sec} (${SECTION_TYPE[sec] || sec})`;
+   }
+   if (/^[1-4]ESQ$/.test(classId)) return `${classId[0]}º Esquadrão`;
+   return classId; // fallback para "Geral", "GLOBAL", etc.
 }
 
 // ─── ICS Generator ───────────────────────────────────────────────────────────
@@ -430,7 +436,7 @@ export const DisciplinePanel = () => {
    const headerRef = useRef<HTMLDivElement>(null);
    const [headerH, setHeaderH] = useState(56);
 
-   const { disciplines, classes, instructors, yearEventsCache, fetchYearlyEvents } = useCourseStore();
+   const { disciplines, instructors, yearEventsCache, fetchYearlyEvents } = useCourseStore();
    const { theme } = useTheme();
    const { userProfile } = useAuth();
    const isDark = theme === 'dark';
@@ -492,11 +498,8 @@ export const DisciplinePanel = () => {
       return map;
    }, [allEvents]);
 
-   const classMap = useMemo(() => {
-      const m: Record<string, CourseClass> = {};
-      for (const c of classes) m[c.id] = c;
-      return m;
-   }, [classes]);
+   // classMap is kept for function signatures but lookups use clsLabel(undefined, ev.classId)
+   const classMap: Record<string, CourseClass> = {};
 
    const instructorByTrigram = useMemo(() => {
       const m: Record<string, Instructor> = {};
@@ -570,10 +573,20 @@ export const DisciplinePanel = () => {
 
    const filterSelectCls = `px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200'}`;
 
-   // Sorted classes for filter dropdown
-   const sortedClasses = useMemo(() =>
-      [...classes].sort((a, b) => a.year - b.year || a.name.localeCompare(b.name)),
-   [classes]);
+   // Deriva turmas de aula reais dos eventos (formato "1A", "2B", "3C" etc.)
+   // Filtra fora valores especiais como "Geral", "GLOBAL", "*ESQ"
+   const availableClassIds = useMemo(() => {
+      const SECTION_PATTERN = /^[1-4][A-F]$/;
+      const seen = new Set<string>();
+      for (const ev of allEvents) {
+         if (ev.classId && SECTION_PATTERN.test(ev.classId)) seen.add(ev.classId);
+      }
+      return [...seen].sort((a, b) => {
+         const [sa, la] = [Number(a[0]), a[1]];
+         const [sb, lb] = [Number(b[0]), b[1]];
+         return sa !== sb ? sa - sb : la.localeCompare(lb);
+      });
+   }, [allEvents]);
 
    return (
       <div className={`w-full min-h-screen ${isDark ? 'bg-slate-950 text-slate-100' : 'bg-gray-50 text-slate-900'}`}>
@@ -636,8 +649,8 @@ export const DisciplinePanel = () => {
                <select value={classFilter} onChange={e => setClassFilter(e.target.value)}
                   className={`shrink-0 py-2 pl-3 pr-8 rounded-lg border text-sm outline-none ${classFilter !== 'ALL' ? (isDark ? 'bg-amber-900/30 text-amber-300 border-amber-700' : 'bg-amber-50 text-amber-700 border-amber-300') : (isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-700')}`}>
                   <option value="ALL">Todas as turmas</option>
-                  {sortedClasses.map(c => (
-                     <option key={c.id} value={c.id}>Turma {c.name} · {c.year}º Ano</option>
+                  {availableClassIds.map(cid => (
+                     <option key={cid} value={cid}>{cid[0]}º Esq · Turma {cid[1]}</option>
                   ))}
                </select>
             </div>
@@ -700,9 +713,9 @@ export const DisciplinePanel = () => {
                <span className="flex items-center gap-1 text-green-500"><CheckCircle2 size={10} /> <strong>{totalCompleted}</strong> realizadas</span>
                <span className="flex items-center gap-1 text-blue-500"><Clock size={10} /> <strong>{totalScheduled - totalCompleted}</strong> restantes</span>
                {totalPPC > 0 && <span className="flex items-center gap-1"><TrendingUp size={10} /> <strong className={isDark ? 'text-slate-200' : 'text-slate-700'}>{Math.round((totalScheduled / totalPPC) * 100)}%</strong> do PPC ({totalPPC}h)</span>}
-               {classFilter !== 'ALL' && classMap[classFilter] && (
+               {classFilter !== 'ALL' && (
                   <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${isDark ? 'bg-amber-900/30 text-amber-400' : 'bg-amber-50 text-amber-700'}`}>
-                     Turma: {classMap[classFilter].year}º Ano · {classMap[classFilter].name}
+                     {clsLabel(undefined, classFilter)}
                   </span>
                )}
             </div>
