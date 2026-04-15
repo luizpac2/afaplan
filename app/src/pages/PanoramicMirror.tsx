@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, BookOpen, Bell, AlertTriangle, Info, CalendarDays, Zap, Plus } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -53,10 +53,6 @@ export const PanoramicMirror = () => {
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  // Multi-day bar overlay refs
-  const calGridRef = useRef<HTMLDivElement>(null);
-  const [calCellSize, setCalCellSize] = useState<{ cellW: number; cellH: number } | null>(null);
-
   // Modal state
   const [academicFormDate, setAcademicFormDate]   = useState<string | null>(null);
   const [editingAcademic, setEditingAcademic]     = useState<ScheduleEvent | null>(null);
@@ -67,22 +63,6 @@ export const PanoramicMirror = () => {
   useEffect(() => {
     fetchYearlyEvents(year).then(setEvents);
   }, [year, fetchYearlyEvents]);
-
-  // Measure calendar cell dimensions for absolute bar positioning
-  useEffect(() => {
-    const measure = () => {
-      if (!calGridRef.current) return;
-      const cells = calGridRef.current.querySelectorAll<HTMLElement>(":scope > div");
-      const firstCell = cells[0];
-      if (!firstCell) return;
-      const rect = firstCell.getBoundingClientRect();
-      setCalCellSize({ cellW: rect.width, cellH: rect.height });
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    if (calGridRef.current) ro.observe(calGridRef.current);
-    return () => ro.disconnect();
-  }, [month, year]);
 
   const prevMonth = () => {
     if (month === 0) { setMonth(11); setYear(y => y - 1); }
@@ -332,22 +312,51 @@ export const PanoramicMirror = () => {
             ))}
           </div>
 
-          {/* Day cells + multi-day bar overlay */}
-          <div className="relative">
-            <div className="grid grid-cols-7" ref={calGridRef}>
-              {/* Empty cells before first day */}
-              {Array.from({ length: firstDow }).map((_, i) => (
-                <div key={`e${i}`} className={`min-h-[160px] border-t border-r ${border} ${isDark ? "bg-slate-900/30" : "bg-slate-50/50"}`} />
-              ))}
+          {/* Day cells — rendered per week row so bars are positioned inside each row */}
+          {(() => {
+            const BAR_H = 18;
+            const BAR_GAP = 2;
+            const DAY_NUM_H = 28; // px reserved for day number at top of cell
+            const CELL_PADDING = 6; // px padding inside cell
+            const TYPE_LABEL_MAP: Record<string, string> = {
+              DAY_OFF: "Day Off", COMMEMORATIVE: "Comemorativo", SPORTS: "Esportivo",
+              INFORMATIVE: "Informativo", HOLIDAY: "Feriado",
+            };
+            const TYPE_COLOR_MAP2: Record<string, string> = {
+              DAY_OFF: "#b91c1c", COMMEMORATIVE: "#b45309", SPORTS: "#0f766e",
+              INFORMATIVE: "#0369a1", HOLIDAY: "#be123c",
+            };
 
-              {/* Day cells */}
-              {Array.from({ length: totalDays }).map((_, i) => {
-                const day     = i + 1;
-                const col     = (firstDow + i) % 7;
+            // Build week rows: row 0 = grid positions 0..6, row 1 = 7..13, etc.
+            const totalGridCells = firstDow + totalDays;
+            const numRows = Math.ceil(totalGridCells / 7);
+
+            return Array.from({ length: numRows }).map((_, rowIdx) => {
+              // Bars for this row
+              const rowBars = multiDayBars.filter(b => b.row === rowIdx);
+              const maxLane = rowBars.length > 0 ? Math.max(...rowBars.map(b => b.lane)) + 1 : 0;
+              // Height reserved for bars inside each cell
+              const barsAreaH = maxLane * (BAR_H + BAR_GAP);
+
+              // 7 grid positions in this row
+              const cells = Array.from({ length: 7 }).map((_, colIdx) => {
+                const gridIdx = rowIdx * 7 + colIdx;
+                const day = gridIdx - firstDow + 1;
+                const isEmpty = day < 1 || day > totalDays;
+
+                if (isEmpty) {
+                  return (
+                    <div key={`e${gridIdx}`}
+                      className={`border-t border-r ${border} ${isDark ? "bg-slate-900/30" : "bg-slate-50/50"}`}
+                      style={{ minHeight: DAY_NUM_H + barsAreaH + 80 }}
+                    />
+                  );
+                }
+
                 const dateStr = formatISODate(year, month, day);
                 const isToday = dateStr === todayStr;
                 const isSel   = dateStr === selectedDate;
-                const isWknd  = col === 0 || col === 6;
+                const isWknd  = colIdx === 0 || colIdx === 6;
                 const dayEvts = eventsForDay(dateStr);
                 const dayNots = noticesForDay(dateStr);
                 const hasDayOff = dayEvts.some(e => e.type === "DAY_OFF");
@@ -359,27 +368,61 @@ export const PanoramicMirror = () => {
                   return end <= e.date;
                 });
 
-                // Count how many multi-day bar lanes are occupied on this day
-                const occupiedLanes = new Set(multiDayBars
-                  .filter(b => {
-                    const gridIdx = firstDow + day - 1;
-                    const row = Math.floor(gridIdx / 7);
-                    const col2 = gridIdx % 7;
-                    return b.row === row && b.colStart <= col2 && b.colEnd >= col2;
-                  })
-                  .map(b => b.lane));
-                const barCount = occupiedLanes.size;
+                // Build chips
+                const evalChipMap = new Map<string, { ev: typeof singleDayEvts[0]; sqNums: Set<number> }>();
+                const otherEvts: typeof singleDayEvts = [];
+                for (const ev of singleDayEvts) {
+                  if (ev.type === "EVALUATION") {
+                    const key = `${ev.disciplineId}|${ev.evaluationType ?? ""}`;
+                    if (!evalChipMap.has(key)) evalChipMap.set(key, { ev, sqNums: new Set() });
+                    const sqN = ev.classId ? parseInt(ev.classId.charAt(0)) : NaN;
+                    if (!isNaN(sqN) && sqN >= 1 && sqN <= 4) evalChipMap.get(key)!.sqNums.add(sqN);
+                  } else {
+                    otherEvts.push(ev);
+                  }
+                }
+                const chips: React.ReactElement[] = [];
+                for (const { ev, sqNums } of evalChipMap.values()) {
+                  const disc = disciplines.find(d => d.id === ev.disciplineId);
+                  const code = disc?.code || "";
+                  const evalLabel = EVAL_LABELS[ev.evaluationType ?? ""] ?? "Aval.";
+                  const firstSq = sqNums.values().next().value as number | undefined;
+                  const sqLabel = sqNums.size === 1 && firstSq != null ? ` ${SQ_LABELS[firstSq]}` : sqNums.size > 1 ? ` ${sqNums.size}ESQ` : "";
+                  const label = code ? `${code} ${evalLabel}${sqLabel}` : `${evalLabel}${sqLabel}`;
+                  chips.push(
+                    <div key={`${ev.disciplineId}|${ev.evaluationType}`}
+                      className="rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white"
+                      style={{ backgroundColor: "#c2410c" }}>
+                      {label}
+                    </div>
+                  );
+                }
+                for (const ev of otherEvts) {
+                  const sqN = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
+                  const sqV = sqN !== null && Number.isFinite(sqN) && sqN >= 1 && sqN <= 4;
+                  const isSpecial = ["DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY"].includes(ev.type ?? "");
+                  const color = isSpecial ? (TYPE_COLOR_MAP2[ev.type!] ?? "#4338ca") : sqV ? sqColor(sqN!) : (ev.color ?? "#4338ca");
+                  const label = isSpecial ? (ev.description || TYPE_LABEL_MAP[ev.type!] || "Evento") : (ev.description || ev.location || "Evento");
+                  chips.push(
+                    <div key={ev.id}
+                      className="rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white"
+                      style={{ backgroundColor: color }}>
+                      {label}
+                    </div>
+                  );
+                }
 
                 return (
                   <div
                     key={day}
                     onClick={() => setSelectedDate(isSel ? null : dateStr)}
-                    className={`min-h-[160px] border-t border-r ${border} p-1.5 cursor-pointer transition-colors flex flex-col gap-0.5
+                    className={`border-t border-r ${border} p-1.5 cursor-pointer transition-colors flex flex-col gap-0.5
                       ${isSel ? (isDark ? "bg-blue-900/30 ring-1 ring-inset ring-blue-500/50" : "bg-blue-50 ring-1 ring-inset ring-blue-300") : ""}
                       ${hasDayOff && !isSel ? (isDark ? "bg-red-900/15" : "bg-red-50/60") : ""}
                       ${!isSel && !hasDayOff && isWknd ? (isDark ? "bg-slate-900/50" : "bg-slate-50/70") : ""}
                       ${!isSel && !hasDayOff && !isWknd ? (isDark ? "hover:bg-slate-700/40" : "hover:bg-slate-50") : ""}
                     `}
+                    style={{ minHeight: DAY_NUM_H + barsAreaH + 80 }}
                   >
                     {/* Day number */}
                     <span className={`text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0
@@ -388,65 +431,13 @@ export const PanoramicMirror = () => {
                       {day}
                     </span>
 
-                    {/* Spacer for multi-day bars (pushes single-day chips below bars) */}
-                    {barCount > 0 && (
-                      <div style={{ height: barCount * 20 }} className="flex-shrink-0" />
-                    )}
+                    {/* Spacer for bars area */}
+                    {barsAreaH > 0 && <div style={{ height: barsAreaH }} className="flex-shrink-0" />}
 
-                    {/* Single-day event chips (evaluations + 1-day events) */}
-                    {(() => {
-                      const TYPE_LABEL_MAP: Record<string, string> = {
-                        DAY_OFF: "Day Off", COMMEMORATIVE: "Comemorativo", SPORTS: "Esportivo",
-                        INFORMATIVE: "Informativo", HOLIDAY: "Feriado",
-                      };
-                      const evalChipMap = new Map<string, { ev: typeof singleDayEvts[0]; sqNums: Set<number> }>();
-                      const otherEvts: typeof singleDayEvts = [];
-                      for (const ev of singleDayEvts) {
-                        if (ev.type === "EVALUATION") {
-                          const key = `${ev.disciplineId}|${ev.evaluationType ?? ""}`;
-                          if (!evalChipMap.has(key)) evalChipMap.set(key, { ev, sqNums: new Set() });
-                          const sqN = ev.classId ? parseInt(ev.classId.charAt(0)) : NaN;
-                          if (!isNaN(sqN) && sqN >= 1 && sqN <= 4) evalChipMap.get(key)!.sqNums.add(sqN);
-                        } else {
-                          otherEvts.push(ev);
-                        }
-                      }
-                      const allChips: { key: string; node: React.ReactElement }[] = [];
-                      let idx = 0;
-                      for (const { ev, sqNums } of evalChipMap.values()) {
-                        const disc = disciplines.find(d => d.id === ev.disciplineId);
-                        const code = disc?.code || "";
-                        const evalLabel = EVAL_LABELS[ev.evaluationType ?? ""] ?? "Aval.";
-                        const firstSq = sqNums.values().next().value as number | undefined;
-                        const sqLabel = sqNums.size === 1 && firstSq != null ? ` ${SQ_LABELS[firstSq]}` : sqNums.size > 1 ? ` ${sqNums.size}ESQ` : "";
-                        const label = code ? `${code} ${evalLabel}${sqLabel}` : `${evalLabel}${sqLabel}`;
-                        allChips.push({ key: `${ev.disciplineId}|${ev.evaluationType}`, node: (
-                          <div key={`${ev.disciplineId}|${ev.evaluationType}`}
-                            className={`rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white${idx++ >= 2 ? " hidden lg:block" : ""}`}
-                            style={{ backgroundColor: "#c2410c" }}>
-                            {label}
-                          </div>
-                        )});
-                      }
-                      for (const ev of otherEvts) {
-                        const sqN = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
-                        const sqV = sqN !== null && Number.isFinite(sqN) && sqN >= 1 && sqN <= 4;
-                        const TYPE_COLOR_MAP2: Record<string, string> = { DAY_OFF: "#b91c1c", COMMEMORATIVE: "#b45309", SPORTS: "#0f766e", INFORMATIVE: "#0369a1", HOLIDAY: "#be123c" };
-                        const isSpecial = ["DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY"].includes(ev.type ?? "");
-                        const color = isSpecial ? (TYPE_COLOR_MAP2[ev.type!] ?? "#4338ca") : sqV ? sqColor(sqN!) : (ev.color ?? "#4338ca");
-                        const label = isSpecial ? (ev.description || TYPE_LABEL_MAP[ev.type!] || "Evento") : (ev.description || ev.location || "Evento");
-                        allChips.push({ key: ev.id, node: (
-                          <div key={ev.id}
-                            className={`rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white${idx++ >= 2 ? " hidden lg:block" : ""}`}
-                            style={{ backgroundColor: color }}>
-                            {label}
-                          </div>
-                        )});
-                      }
-                      return allChips.slice(0, 4).map(c => c.node);
-                    })()}
+                    {/* Single-day chips */}
+                    {chips.slice(0, 8)}
 
-                    {/* Notice dot */}
+                    {/* Notice dots */}
                     {dayNots.length > 0 && (
                       <div className="flex gap-0.5 flex-wrap mt-auto">
                         {dayNots.slice(0, 3).map(n => (
@@ -456,37 +447,44 @@ export const PanoramicMirror = () => {
                     )}
                   </div>
                 );
-              })}
-            </div>
+              });
 
-            {/* ── Multi-day bars overlay ── */}
-            {calCellSize && multiDayBars.map(bar => {
-              const { cellW, cellH } = calCellSize;
-              const BAR_H = 18;
-              const BAR_GAP = 2;
-              const TOP_OFFSET = 34; // day-number height + padding
-              const left  = bar.colStart * cellW + 2;
-              const width = (bar.colEnd - bar.colStart + 1) * cellW - 4;
-              const top   = bar.row * cellH + TOP_OFFSET + bar.lane * (BAR_H + BAR_GAP);
               return (
-                <div
-                  key={`${bar.evId}-r${bar.row}`}
-                  className="absolute pointer-events-none z-10 flex items-center overflow-hidden"
-                  style={{
-                    left, width, top, height: BAR_H,
-                    backgroundColor: bar.isDayOff ? bar.color + "55" : bar.color,
-                    border: bar.isDayOff ? `1px dashed ${bar.color}` : "none",
-                    borderRadius: bar.isStart && bar.isEnd ? 4 : bar.isStart ? "4px 0 0 4px" : bar.isEnd ? "0 4px 4px 0" : 0,
-                    paddingLeft: 6,
-                  }}
-                >
-                  <span className={`text-[9px] font-semibold leading-none truncate ${bar.isDayOff ? "text-red-300" : "text-white"}`}>
-                    {bar.label}
-                  </span>
+                <div key={rowIdx} className="relative grid grid-cols-7">
+                  {cells}
+                  {/* Multi-day bars for this row — absolute inside this row container */}
+                  {rowBars.map(bar => {
+                    const leftPct  = (bar.colStart / 7) * 100;
+                    const widthPct = ((bar.colEnd - bar.colStart + 1) / 7) * 100;
+                    const topPx    = DAY_NUM_H + CELL_PADDING + bar.lane * (BAR_H + BAR_GAP);
+                    return (
+                      <div
+                        key={`${bar.evId}-r${bar.row}`}
+                        className="absolute pointer-events-none z-10 flex items-center overflow-hidden"
+                        style={{
+                          left: `calc(${leftPct}% + 3px)`,
+                          width: `calc(${widthPct}% - 6px)`,
+                          top: topPx,
+                          height: BAR_H,
+                          backgroundColor: bar.isDayOff ? bar.color + "55" : bar.color,
+                          border: bar.isDayOff ? `1px dashed ${bar.color}` : "none",
+                          borderRadius: bar.isStart && bar.isEnd ? 4
+                            : bar.isStart ? "4px 0 0 4px"
+                            : bar.isEnd   ? "0 4px 4px 0"
+                            : 0,
+                          paddingLeft: 6,
+                        }}
+                      >
+                        <span className={`text-[9px] font-semibold leading-none truncate ${bar.isDayOff ? "text-red-300" : "text-white"}`}>
+                          {bar.label}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               );
-            })}
-          </div>
+            });
+          })()}
         </div>
 
         {/* Detail panel */}
