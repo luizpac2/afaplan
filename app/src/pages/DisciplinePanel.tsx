@@ -351,9 +351,11 @@ function DisciplineCard({ disc, instructor, events, today, isDark, onViewSchedul
    disc: Discipline; instructor: Instructor | undefined; events: ScheduleEvent[];
    today: string; isDark: boolean; onViewSchedule: () => void;
 }) {
-   const scheduled = events.length;
-   const completed = events.filter(e => e.date < today).length;
-   const remaining = events.filter(e => e.date >= today).length;
+   // Normalise by number of unique classes so metrics are per-turma, not summed across all turmas
+   const uniqueClasses = new Set(events.map(e => e.classId).filter(Boolean)).size || 1;
+   const scheduled = Math.round(events.length / uniqueClasses);
+   const completed = Math.round(events.filter(e => e.date < today).length / uniqueClasses);
+   const remaining = Math.round(events.filter(e => e.date >= today).length / uniqueClasses);
    const ppcTotal  = getTotalPPC(disc);
    const pct = ppcTotal > 0 ? Math.min(100, Math.round((scheduled / ppcTotal) * 100)) : 0;
    const nextClass = events.filter(e => e.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
@@ -559,8 +561,16 @@ export const DisciplinePanel = () => {
       }).sort((a, b) => (a.code || '').localeCompare(b.code || ''));
    }, [disciplines, discSearch, fieldFilter, courseFilter, yearFilter, instrFilter, classFilter, statusFilter, eventsByDisc, today, isDocente, myInstructor, instructors, instructorByWarName]);
 
-   const totalScheduled = useMemo(() => filteredDiscs.reduce((s, d) => s + (eventsByDisc[d.id]?.length || 0), 0), [filteredDiscs, eventsByDisc]);
-   const totalCompleted = useMemo(() => filteredDiscs.reduce((s, d) => s + (eventsByDisc[d.id]?.filter(e => e.date < today).length || 0), 0), [filteredDiscs, eventsByDisc, today]);
+   const totalScheduled = useMemo(() => filteredDiscs.reduce((s, d) => {
+      const evs = eventsByDisc[d.id] || [];
+      const uCls = new Set(evs.map(e => e.classId).filter(Boolean)).size || 1;
+      return s + Math.round(evs.length / uCls);
+   }, 0), [filteredDiscs, eventsByDisc]);
+   const totalCompleted = useMemo(() => filteredDiscs.reduce((s, d) => {
+      const evs = eventsByDisc[d.id] || [];
+      const uCls = new Set(evs.map(e => e.classId).filter(Boolean)).size || 1;
+      return s + Math.round(evs.filter(e => e.date < today).length / uCls);
+   }, 0), [filteredDiscs, eventsByDisc, today]);
    const totalPPC       = useMemo(() => filteredDiscs.reduce((s, d) => s + getTotalPPC(d), 0), [filteredDiscs]);
    const hasActiveFilters = fieldFilter !== 'ALL' || courseFilter !== 'ALL' || yearFilter !== 'ALL' || instrFilter !== 'ALL' || classFilter !== 'ALL' || statusFilter !== 'ALL';
 
