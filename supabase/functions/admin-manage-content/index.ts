@@ -24,8 +24,12 @@ Deno.serve(async (req) => {
     { global: { headers: { Authorization: authHeader } } }
   );
 
+  // getUser uses the Supabase Auth server to validate the token (works with ES256 and HS256)
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
-  if (authErr || !user) return err("Unauthorized", 401);
+  if (authErr || !user) {
+    console.warn("auth error:", authErr?.message);
+    return err("Unauthorized", 401);
+  }
 
   const adminClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
