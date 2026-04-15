@@ -371,7 +371,7 @@ function DisciplineCard({ disc, instructor, events, today, isDark, onViewSchedul
          <div className={`h-1 ${pct > 100 ? 'bg-purple-500' : pct >= 100 ? 'bg-green-500' : pct >= 60 ? 'bg-blue-500' : pct >= 30 ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
          <div className="px-4 pt-3 pb-2">
             <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-               <span className="font-mono text-xs font-bold text-blue-500">{disc.code}</span>
+               <span className="font-mono text-xs font-bold text-blue-500">{disc.code?.toUpperCase()}</span>
                <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${fieldColor}`}>{FIELD_LABELS[disc.trainingField] || disc.trainingField}</span>
             </div>
             <p className={`text-sm font-semibold leading-tight ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{disc.name}</p>
