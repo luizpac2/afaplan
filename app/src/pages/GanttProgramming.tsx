@@ -43,7 +43,7 @@ export const GanttProgramming = () => {
 
   const {
     disciplines, classes, cohorts, notices,
-    updateEvent, deleteBatchEvents, addNotice, addEvent, dataReady,
+    updateEvent, deleteBatchEvents, addNotice, updateNotice, deleteNotice, addEvent, dataReady,
     fetchYearlyEvents,
   } = useCourseStore();
 
@@ -85,6 +85,7 @@ export const GanttProgramming = () => {
 
   // ── Sidebar: notice / event creation / editing ───────────────────────────
   const [noticeFormDate, setNoticeFormDate]       = useState<string | null>(null);
+  const [editingNotice, setEditingNotice]         = useState<SystemNotice | null>(null);
   const [academicFormDate, setAcademicFormDate]   = useState<string | null>(null);
   const [editingAcademic, setEditingAcademic]     = useState<ScheduleEvent | null>(null);
 
@@ -255,6 +256,18 @@ export const GanttProgramming = () => {
       createdBy: userProfile?.uid || "system",
     } as SystemNotice);
     setNoticeFormDate(null);
+  };
+
+  const handleNoticeUpdate = (data: Partial<SystemNotice>) => {
+    if (!editingNotice) return;
+    updateNotice(editingNotice.id, data);
+    setEditingNotice(null);
+  };
+
+  const handleNoticeDelete = () => {
+    if (!editingNotice) return;
+    deleteNotice(editingNotice.id);
+    setEditingNotice(null);
   };
 
   const handleAcademicSubmit = (data: Omit<ScheduleEvent, "id">) => {
@@ -553,7 +566,8 @@ export const GanttProgramming = () => {
                           const style = NOTICE_STYLES[n.type] || NOTICE_STYLES.GENERAL;
                           return (
                             <div key={n.id}
-                              className={`rounded-lg border px-2 py-1.5 ${style.bg}`}>
+                              onClick={canEdit ? () => setEditingNotice(n) : undefined}
+                              className={`rounded-lg border px-2 py-1.5 ${style.bg} ${canEdit ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}>
                               <div className={`flex items-center gap-1 ${style.text} font-semibold text-[10px] leading-tight`}>
                                 {style.icon}
                                 <span className="truncate">{n.title}</span>
@@ -793,6 +807,21 @@ export const GanttProgramming = () => {
               }}
               onSubmit={handleNoticeSubmit}
               onCancel={() => setNoticeFormDate(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Edição de aviso */}
+      {editingNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setEditingNotice(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
+            <NoticeForm
+              initialData={editingNotice}
+              onSubmit={handleNoticeUpdate}
+              onDelete={handleNoticeDelete}
+              onCancel={() => setEditingNotice(null)}
             />
           </div>
         </div>
