@@ -68,27 +68,6 @@ export const GanttView = ({
     return events.filter((e) => e.date === date && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC");
   }, [events, date]);
 
-  // Avaliações agrupadas: key = `disciplineId|evaluationType|slotIndex`
-  // Cada grupo tem um card único que abrange todas as turmas naquele slot
-  const evalGroups = useMemo(() => {
-    const groups = new Map<string, { disciplineId: string; evaluationType: string; slotIdx: number; turmas: string[] }>();
-    for (const e of dayEvents) {
-      if (e.type !== "EVALUATION") continue;
-      const idx = TIME_SLOTS.findIndex((s) => s.start === e.startTime);
-      if (idx < 0) continue;
-      const key = `${e.disciplineId}|${e.evaluationType || ""}|${idx}`;
-      if (!groups.has(key)) {
-        groups.set(key, { disciplineId: e.disciplineId, evaluationType: e.evaluationType || "", slotIdx: idx, turmas: [] });
-      }
-      if (e.classId && !groups.get(key)!.turmas.includes(e.classId)) {
-        groups.get(key)!.turmas.push(e.classId);
-      }
-    }
-    // Ordena turmas em cada grupo
-    for (const g of groups.values()) g.turmas.sort();
-    return groups;
-  }, [dayEvents]);
-
   const classLetters = useMemo(() => {
     const letters = new Set(classes.map((c) => c.slice(1)));
     return Array.from(letters).sort();
