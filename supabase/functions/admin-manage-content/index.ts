@@ -168,11 +168,48 @@ Deno.serve(async (req) => {
   if (action === "update_discipline") {
     const { code, updates } = body;
     if (!code || !updates) return err("code and updates required");
-    console.log("update_discipline code:", code, "keys:", Object.keys(updates as object));
+    const u = updates as Record<string, unknown>;
+    console.log("update_discipline code:", code, "keys:", Object.keys(u));
     try {
-      await writeDisciplinesEN("update", code as string, updates as Record<string, unknown>);
-      await writeDisciplinasPT("update", code as string, updates as Record<string, unknown>);
-    } catch (e: any) { return err(e.message, 500); }
+      // Fetch current row to do a safe merge
+      let currentRow: Record<string, unknown> = {};
+      const { data: cr1 } = await adminClient.from("disciplines").select("*").eq("code", code).maybeSingle();
+      if (cr1) {
+        currentRow = cr1;
+      } else {
+        const { data: cr2 } = await adminClient.from("disciplines").select("*").eq("sigla", code).maybeSingle();
+        if (cr2) currentRow = cr2;
+      }
+      console.log("current row found:", !!currentRow.id, "id:", currentRow.id);
+
+      // Merge data JSONB
+      const currentData = (currentRow.data && typeof currentRow.data === "object") ? currentRow.data as Record<string, unknown> : {};
+      const incomingData = (u.data && typeof u.data === "object") ? u.data as Record<string, unknown> : {};
+      const mergedData = { ...currentData, ...incomingData };
+
+      const payload: Record<string, unknown> = {
+        code,
+        name: u.name ?? currentRow.name,
+        load_hours: u.load_hours ?? currentRow.load_hours,
+        data: mergedData,
+      };
+
+      console.log("upsert payload keys:", Object.keys(payload), "data keys:", Object.keys(mergedData));
+
+      const { error: upsertErr } = await adminClient.from("disciplines")
+        .upsert(payload, { onConflict: "code" });
+      if (upsertErr) {
+        console.warn("upsert by code failed:", upsertErr.message, "— trying sigla");
+        const { error: upsertErr2 } = await adminClient.from("disciplines")
+          .upsert({ ...payload, sigla: code, code: undefined }, { onConflict: "sigla" });
+        if (upsertErr2) throw new Error(`upsert failed: ${upsertErr2.message}`);
+      }
+
+      await writeDisciplinasPT("update", code as string, u);
+    } catch (e: any) {
+      console.error("update_discipline error:", e.message);
+      return err(e.message, 500);
+    }
     return ok({ success: true });
   }
 
