@@ -65,21 +65,29 @@ export const GanttView = ({
   const [overlapPopover, setOverlapPopover] = useState<{ key: string; evs: ScheduleEvent[] } | null>(null);
 
   const dayEvents = useMemo(() => {
-    const filtered = events.filter((e) => e.date === date && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC");
-    // Debug: log sample to understand classId format in real data
-    if (filtered.length > 0) {
-      const sample = filtered.slice(0, 3).map(e => ({ classId: e.classId, startTime: e.startTime, disciplineId: e.disciplineId }));
-      console.log(`[GanttView] date=${date} dayEvents=${filtered.length} sample=`, sample);
-      // Check for duplicates
-      const seen = new Map<string, string>();
-      filtered.forEach(e => {
-        const k = `${e.classId}|${e.startTime}`;
-        if (seen.has(k)) console.warn(`[GanttView] DUPLICATE SLOT: ${k} ids=${seen.get(k)} vs ${e.id}`);
-        else seen.set(k, e.id);
-      });
-    }
-    return filtered;
+    return events.filter((e) => e.date === date && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC");
   }, [events, date]);
+
+  // Avaliações agrupadas: key = `disciplineId|evaluationType|slotIndex`
+  // Cada grupo tem um card único que abrange todas as turmas naquele slot
+  const evalGroups = useMemo(() => {
+    const groups = new Map<string, { disciplineId: string; evaluationType: string; slotIdx: number; turmas: string[] }>();
+    for (const e of dayEvents) {
+      if (e.type !== "EVALUATION") continue;
+      const idx = TIME_SLOTS.findIndex((s) => s.start === e.startTime);
+      if (idx < 0) continue;
+      const key = `${e.disciplineId}|${e.evaluationType || ""}|${idx}`;
+      if (!groups.has(key)) {
+        groups.set(key, { disciplineId: e.disciplineId, evaluationType: e.evaluationType || "", slotIdx: idx, turmas: [] });
+      }
+      if (e.classId && !groups.get(key)!.turmas.includes(e.classId)) {
+        groups.get(key)!.turmas.push(e.classId);
+      }
+    }
+    // Ordena turmas em cada grupo
+    for (const g of groups.values()) g.turmas.sort();
+    return groups;
+  }, [dayEvents]);
 
   const classLetters = useMemo(() => {
     const letters = new Set(classes.map((c) => c.slice(1)));
@@ -119,10 +127,59 @@ export const GanttView = ({
           ))}
         </div>
 
+        {/* ── Linha de Avaliações Consolidadas ─────────────────────── */}
+        {evalGroups.size > 0 && (
+          <div className={`flex border-b ${border}`} style={{ minHeight: 48 }}>
+            <div
+              style={{ width: LABEL_W, flexShrink: 0 }}
+              className={`flex items-center justify-center text-[7px] font-bold ${textMuted} ${labelBg} border-r ${border}`}
+            >
+              AVAL
+            </div>
+            {TIME_SLOTS.map((_, i) => {
+              // Pode haver múltiplos grupos no mesmo slot (disciplinas diferentes)
+              const groupsInSlot = [...evalGroups.values()].filter((g) => g.slotIdx === i);
+              return (
+                <div
+                  key={i}
+                  style={{ flexShrink: 1, flexGrow: 1, flexBasis: 0, minWidth: 36, overflow: "hidden" }}
+                  className={`border-l ${border} p-[2px] flex flex-col gap-[2px]`}
+                >
+                  {groupsInSlot.map((g) => {
+                    const disc = disciplines.find((d) => d.id === g.disciplineId);
+                    const code = disc?.code || "???";
+                    const evalLabel = EVAL_LABELS[g.evaluationType] || "Avaliação";
+                    return (
+                      <div
+                        key={`${g.disciplineId}|${g.evaluationType}`}
+                        className="w-full rounded flex flex-col items-center justify-center overflow-hidden px-0.5 py-1 gap-0.5"
+                        style={{ backgroundColor: EVAL_COLORS[g.evaluationType] || "#ea580c", border: "2px solid rgba(255,255,255,0.3)" }}
+                      >
+                        <span className="text-white text-[9px] font-extrabold leading-none text-center w-full truncate" style={{ letterSpacing: "-0.02em" }}>
+                          {code}
+                        </span>
+                        <span className="text-white/90 text-[7px] font-bold leading-none uppercase tracking-wide text-center w-full truncate">
+                          {evalLabel}
+                        </span>
+                        <div className="flex flex-wrap justify-center gap-[2px] mt-0.5">
+                          {g.turmas.map((t) => (
+                            <span key={t} className="text-[6px] font-bold bg-white/20 text-white rounded px-[3px]">{t}</span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* ── Rows ─────────────────────────────────────────────────── */}
         {classLetters.map((letter) => {
           const classId = `${squadronNum}${letter}`;
-          const rowEvents = dayEvents.filter((e) => e.classId === classId);
+          // Exclui eventos de avaliação das linhas individuais (estão na linha consolidada)
+          const rowEvents = dayEvents.filter((e) => e.classId === classId && e.type !== "EVALUATION");
 
           const slotMap: Record<number, ScheduleEvent> = {};
           const overlapMap: Record<number, ScheduleEvent[]> = {}; // idx → todos os eventos sobrepostos
