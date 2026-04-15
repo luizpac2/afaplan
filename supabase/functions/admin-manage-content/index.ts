@@ -55,76 +55,19 @@ Deno.serve(async (req) => {
 
   // ── helpers ─────────────────────────────────────────────────────────────────
 
-  // Tabela `disciplines` usa colunas em inglês (code/sigla, name, load_hours, data jsonb)
-  async function writeDisciplinesEN(op: "upsert" | "update" | "delete", code: string, payload?: Record<string, unknown>) {
+  // Tabela `disciplines`: colunas code, name, load_hours, data (jsonb)
+  // Apenas as colunas que existem na tabela são enviadas para evitar erros de schema.
+  async function writeDisciplinesEN(op: "upsert" | "delete", code: string, payload?: Record<string, unknown>) {
     if (op === "upsert" && payload) {
-      // Tenta upsert por code, depois por sigla
-      const { error: e1 } = await adminClient.from("disciplines")
-        .upsert({ ...payload, code }, { onConflict: "code" });
-      if (e1) {
-        const { error: e2 } = await adminClient.from("disciplines")
-          .upsert({ ...payload, sigla: code }, { onConflict: "sigla" });
-        if (e2) console.error("disciplines upsert error:", e2.message);
-      }
-    } else if (op === "update" && payload) {
-      // Colunas reais da tabela `disciplines`: code, name, load_hours, data (jsonb)
-      // NÃO enviar colunas inexistentes (color, sigla, nome, campo, carga_horaria)
-      const p = payload as any;
-      const rest: Record<string, unknown> = {};
-      if (p.name       !== undefined) rest.name       = p.name;
-      if (p.load_hours !== undefined) rest.load_hours = p.load_hours;
-      // data jsonb — fetch current data from DB and deep-merge to avoid losing fields
-      if (p.data !== undefined) {
-        let currentData: Record<string, unknown> = {};
-        try {
-          const { data: r } = await adminClient.from("disciplines")
-            .select("data").eq("code", code).maybeSingle();
-          if (r?.data && typeof r.data === "object") {
-            currentData = r.data as Record<string, unknown>;
-          } else {
-            // try sigla column
-            const { data: r2 } = await adminClient.from("disciplines")
-              .select("data").eq("sigla", code).maybeSingle();
-            if (r2?.data && typeof r2.data === "object") currentData = r2.data as Record<string, unknown>;
-          }
-        } catch (_) { /* ignore fetch error, proceed with merge of incoming only */ }
-        const incomingData = typeof p.data === "object" ? p.data as Record<string, unknown> : {};
-        rest.data = {
-          ...currentData,
-          ...incomingData,
-          ...(p.color !== undefined ? { color: p.color } : {}),
-        };
-      }
-
-      console.log("disciplines update payload keys:", Object.keys(rest), "lookup code:", code);
-
-      // Nada para atualizar — sai sem erro
-      if (Object.keys(rest).length === 0) {
-        console.log("disciplines update: nothing to update for", code);
-        return;
-      }
-
-      // Tenta por 'code' primeiro (coluna canônica da tabela EN)
-      const { data: r1, error: e1 } = await adminClient.from("disciplines")
-        .update(rest).eq("code", code).select("id");
-      console.log("update by code — rows:", r1?.length ?? 0, "error:", e1?.message ?? "none");
-
-      if (e1) {
-        console.warn(`disciplines update by code failed: ${e1.message}, trying sigla...`);
-        const { data: r2, error: e2 } = await adminClient.from("disciplines")
-          .update(rest).eq("sigla", code).select("id");
-        console.log("update by sigla — rows:", r2?.length ?? 0, "error:", e2?.message ?? "none");
-        if (e2) throw new Error(`disciplines update failed: ${e2.message}`);
-      } else if (!r1 || r1.length === 0) {
-        // Nenhuma linha encontrada por code — tenta sigla
-        const { data: r2, error: e2 } = await adminClient.from("disciplines")
-          .update(rest).eq("sigla", code).select("id");
-        console.log("update by sigla fallback — rows:", r2?.length ?? 0, "error:", e2?.message ?? "none");
-        if (e2) console.warn(`disciplines sigla fallback failed: ${e2.message}`);
-      }
+      const row: Record<string, unknown> = { code };
+      if (payload.name !== undefined)       row.name = payload.name;
+      if (payload.load_hours !== undefined) row.load_hours = payload.load_hours;
+      if (payload.data !== undefined)       row.data = payload.data;
+      const { error } = await adminClient.from("disciplines")
+        .upsert(row, { onConflict: "code" });
+      if (error) throw new Error(`disciplines upsert error: ${error.message}`);
     } else if (op === "delete") {
       await adminClient.from("disciplines").delete().eq("code", code);
-      await adminClient.from("disciplines").delete().eq("sigla", code);
     }
   }
 
@@ -175,26 +118,21 @@ Deno.serve(async (req) => {
     const u = updates as Record<string, unknown>;
     console.log("update_discipline code:", code, "keys:", Object.keys(u));
     try {
-      // Fetch current row to do a safe merge
-      let currentRow: Record<string, unknown> = {};
-      const { data: cr1 } = await adminClient.from("disciplines").select("*").eq("code", code).maybeSingle();
-      if (cr1) {
-        currentRow = cr1;
-      } else {
-        const { data: cr2 } = await adminClient.from("disciplines").select("*").eq("sigla", code).maybeSingle();
-        if (cr2) currentRow = cr2;
-      }
-      console.log("current row found:", !!currentRow.id, "id:", currentRow.id);
+      // Fetch current row to do a safe merge of data JSONB
+      const { data: currentRow } = await adminClient.from("disciplines")
+        .select("*").eq("code", code).maybeSingle();
+      console.log("current row found:", !!currentRow?.id);
 
-      // Merge data JSONB
-      const currentData = (currentRow.data && typeof currentRow.data === "object") ? currentRow.data as Record<string, unknown> : {};
-      const incomingData = (u.data && typeof u.data === "object") ? u.data as Record<string, unknown> : {};
+      const currentData = (currentRow?.data && typeof currentRow.data === "object")
+        ? currentRow.data as Record<string, unknown> : {};
+      const incomingData = (u.data && typeof u.data === "object")
+        ? u.data as Record<string, unknown> : {};
       const mergedData = { ...currentData, ...incomingData };
 
       const payload: Record<string, unknown> = {
         code,
-        name: u.name ?? currentRow.name,
-        load_hours: u.load_hours ?? currentRow.load_hours,
+        name: u.name ?? currentRow?.name,
+        load_hours: u.load_hours ?? currentRow?.load_hours,
         data: mergedData,
       };
 
@@ -202,12 +140,7 @@ Deno.serve(async (req) => {
 
       const { error: upsertErr } = await adminClient.from("disciplines")
         .upsert(payload, { onConflict: "code" });
-      if (upsertErr) {
-        console.warn("upsert by code failed:", upsertErr.message, "— trying sigla");
-        const { error: upsertErr2 } = await adminClient.from("disciplines")
-          .upsert({ ...payload, sigla: code, code: undefined }, { onConflict: "sigla" });
-        if (upsertErr2) throw new Error(`upsert failed: ${upsertErr2.message}`);
-      }
+      if (upsertErr) throw new Error(`upsert failed: ${upsertErr.message}`);
 
       await writeDisciplinasPT("update", code as string, u);
     } catch (e: any) {
@@ -221,9 +154,13 @@ Deno.serve(async (req) => {
   if (action === "sync_discipline_instructor") {
     const { code, warName } = body;
     if (!code || !warName) return err("code and warName required");
-    const { data: row } = await adminClient.from("disciplines").select("data").eq("code", code).maybeSingle();
+    const { data: row } = await adminClient.from("disciplines").select("*").eq("code", code).maybeSingle();
     const newData = { ...(row?.data || {}), instructor: warName };
-    await writeDisciplinesEN("update", code as string, { data: newData });
+    await writeDisciplinesEN("upsert", code as string, {
+      name: row?.name,
+      load_hours: row?.load_hours,
+      data: newData,
+    });
     return ok({ success: true });
   }
 
