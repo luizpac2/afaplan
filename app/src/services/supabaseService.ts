@@ -55,8 +55,11 @@ export const normalizeTime = (t: string | null | undefined): string => {
 export const normalizeEvent = (row: any): any => ({
   ...row,
   instructorTrigram: row.instructorTrigram ?? row.instructorId ?? null,
-  startTime: row.startTime ? normalizeTime(row.startTime) : row.startTime,
-  endTime:   row.endTime   ? normalizeTime(row.endTime)   : row.endTime,
+  startTime:      row.startTime      ? normalizeTime(row.startTime) : row.startTime,
+  endTime:        row.endTime        ? normalizeTime(row.endTime)   : row.endTime,
+  evaluationType: row.evaluationType ?? row.evaluation_type ?? null,
+  classId:        row.classId        ?? row.class_id        ?? null,
+  disciplineId:   row.disciplineId   ?? row.discipline_id   ?? null,
 });
 
 // ---------------------------------------------------------------------------
