@@ -79,6 +79,9 @@ export const SupabaseSync = () => {
             name: d.nome || d.name || "Sem Nome",
             trainingField: d.campo || d.trainingField || d.data?.trainingField || "GERAL",
             load_hours: d.carga_horaria || d.load_hours,
+            location: d.location || d.data?.location || null,
+            instructorTrigram: d.instructorTrigram || d.data?.instructorTrigram || null,
+            instructor: d.instructor || d.data?.instructor || null,
           }));
           setDisciplines(expanded as Discipline[]);
         } else console.warn("⚠️ Falha ao carregar disciplines:", disciplines.reason);
