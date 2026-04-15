@@ -34,9 +34,14 @@ function fmtDate(dateStr: string) {
    return `${String(d).padStart(2, '0')} ${MONTHS_PT[m - 1]} ${y} · ${WEEKDAYS[dt.getDay()]}`;
 }
 
+// ppcLoads has keys like "AVIATION_1": 25, "INFANTRY_1": 25, "INTENDANCY_1": 25
+// The load is per-turma (not a total), so we use the max value across all course/year combos.
+// Summing them would multiply by the number of courses, giving a wrong total.
 function getTotalPPC(d: Discipline) {
-   if (!d.ppcLoads) return 0;
-   return Object.values(d.ppcLoads).reduce((s, v) => s + (v || 0), 0);
+   if (!d.ppcLoads) return d.load_hours || 0;
+   const vals = Object.values(d.ppcLoads).filter(v => typeof v === 'number' && v > 0) as number[];
+   if (vals.length === 0) return d.load_hours || 0;
+   return Math.max(...vals);
 }
 
 // classId format: "1A", "2B", "3C" etc. (squadronNumber + sectionLetter)
