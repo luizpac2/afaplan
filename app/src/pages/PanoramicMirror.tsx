@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, BookOpen, Bell, AlertTriangle, Info, CalendarDays, Zap, Plus } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -53,6 +53,10 @@ export const PanoramicMirror = () => {
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
+  // Multi-day bar overlay refs
+  const calGridRef = useRef<HTMLDivElement>(null);
+  const [calCellSize, setCalCellSize] = useState<{ cellW: number; cellH: number } | null>(null);
+
   // Modal state
   const [academicFormDate, setAcademicFormDate]   = useState<string | null>(null);
   const [editingAcademic, setEditingAcademic]     = useState<ScheduleEvent | null>(null);
@@ -63,6 +67,22 @@ export const PanoramicMirror = () => {
   useEffect(() => {
     fetchYearlyEvents(year).then(setEvents);
   }, [year, fetchYearlyEvents]);
+
+  // Measure calendar cell dimensions for absolute bar positioning
+  useEffect(() => {
+    const measure = () => {
+      if (!calGridRef.current) return;
+      const cells = calGridRef.current.querySelectorAll<HTMLElement>(":scope > div");
+      const firstCell = cells[0];
+      if (!firstCell) return;
+      const rect = firstCell.getBoundingClientRect();
+      setCalCellSize({ cellW: rect.width, cellH: rect.height });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (calGridRef.current) ro.observe(calGridRef.current);
+    return () => ro.disconnect();
+  }, [month, year]);
 
   const prevMonth = () => {
     if (month === 0) { setMonth(11); setYear(y => y - 1); }
@@ -109,6 +129,103 @@ export const PanoramicMirror = () => {
   const firstDow = new Date(year, month, 1).getDay(); // 0=Sun
   const totalDays = daysInMonth(year, month);
   const todayStr  = formatISODate(today.getFullYear(), today.getMonth(), today.getDate());
+
+  // ── Multi-day bar layout (Google Calendar style) ──────────────────────────
+  // Deduplicate multi-day non-evaluation events, compute row segments and lanes
+  const multiDayBars = useMemo(() => {
+    const TYPE_COLOR_MAP: Record<string, string> = {
+      DAY_OFF: "#b91c1c", COMMEMORATIVE: "#b45309", SPORTS: "#0f766e",
+      INFORMATIVE: "#0369a1", HOLIDAY: "#be123c", ACADEMIC: "#4338ca",
+    };
+    const monthStart = formatISODate(year, month, 1);
+    const monthEnd   = formatISODate(year, month, totalDays);
+
+    // Collect unique multi-day events (endDate > date), skip EVALUATION (shown as chips)
+    const seen = new Set<string>();
+    const multiEvts = monthAcademic.filter(e => {
+      if (e.type === "EVALUATION") return false;
+      const end = (e as any).endDate ?? e.date;
+      if (end <= e.date) return false; // single day
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
+    });
+
+    // For each event, compute segments (one per calendar row it spans)
+    type Segment = {
+      evId: string; label: string; color: string; isDayOff: boolean;
+      row: number; colStart: number; colEnd: number; // 0-indexed col in week row
+      isStart: boolean; isEnd: boolean;
+    };
+    const segments: Segment[] = [];
+
+    for (const ev of multiEvts) {
+      const evStart = ev.date < monthStart ? monthStart : ev.date;
+      const evEnd   = ((ev as any).endDate ?? ev.date) > monthEnd ? monthEnd : (ev as any).endDate ?? ev.date;
+      const sqN = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
+      const sqV = sqN !== null && Number.isFinite(sqN) && sqN >= 1 && sqN <= 4;
+      const isDayOff = ev.type === "DAY_OFF";
+      const color = isDayOff ? "#b91c1c"
+        : sqV ? (() => { const t = cohortTokens[sqN!]; return t ? sqDisplayColor(t, isDark) : "#4338ca"; })()
+        : (TYPE_COLOR_MAP[ev.type ?? ""] ?? "#4338ca");
+      const label = ev.description || ev.location || ev.type || "Evento";
+
+      // Walk from evStart to evEnd, grouping by calendar row
+      let cur = new Date(evStart + "T00:00:00");
+      const endD = new Date(evEnd + "T00:00:00");
+      while (cur <= endD) {
+        const dayNum = cur.getDate(); // 1-based
+        const gridIdx = firstDow + dayNum - 1; // position in grid (0-based, including leading empties)
+        const row = Math.floor(gridIdx / 7);
+        const col = gridIdx % 7;
+
+        // Find where this segment ends (end of week or end of event)
+        let segEnd = new Date(cur);
+        while (segEnd < endD) {
+          const nextDay = new Date(segEnd);
+          nextDay.setDate(nextDay.getDate() + 1);
+          const nextGrid = firstDow + nextDay.getDate() - 1;
+          if (Math.floor(nextGrid / 7) !== row) break;
+          segEnd = nextDay;
+        }
+        const colEnd = (firstDow + segEnd.getDate() - 1) % 7;
+
+        segments.push({
+          evId: ev.id, label, color, isDayOff,
+          row, colStart: col, colEnd,
+          isStart: cur.toISOString().slice(0,10) === ev.date || cur.toISOString().slice(0,10) === monthStart,
+          isEnd: segEnd.toISOString().slice(0,10) === ((ev as any).endDate ?? ev.date) || segEnd.toISOString().slice(0,10) === monthEnd,
+        });
+
+        // Move to next row start
+        cur = new Date(segEnd);
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+
+    // Assign lanes per row to avoid overlap
+    // lane = vertical slot index within a row
+    const rowLanes: Record<number, { evId: string; colStart: number; colEnd: number; lane: number }[]> = {};
+    const evLane: Record<string, number> = {}; // evId → lane (consistent across rows)
+
+    segments.forEach(seg => {
+      if (!rowLanes[seg.row]) rowLanes[seg.row] = [];
+      const used = new Set(rowLanes[seg.row]
+        .filter(s => s.colEnd >= seg.colStart && s.colStart <= seg.colEnd)
+        .map(s => s.lane));
+      // Prefer same lane as previous segment of same event
+      let lane = evLane[seg.evId] ?? 0;
+      if (used.has(lane)) {
+        lane = 0;
+        while (used.has(lane)) lane++;
+      }
+      evLane[seg.evId] = lane;
+      rowLanes[seg.row].push({ evId: seg.evId, colStart: seg.colStart, colEnd: seg.colEnd, lane });
+      (seg as any).lane = lane;
+    });
+
+    return segments as (Segment & { lane: number })[];
+  }, [monthAcademic, firstDow, totalDays, year, month, cohortTokens, isDark]);
 
   // Selected day details
   const selectedEvents  = selectedDate ? eventsForDay(selectedDate)  : [];
@@ -215,124 +332,158 @@ export const PanoramicMirror = () => {
             ))}
           </div>
 
-          {/* Day cells */}
-          <div className="grid grid-cols-7">
-            {/* Empty cells before first day */}
-            {Array.from({ length: firstDow }).map((_, i) => (
-              <div key={`e${i}`} className={`min-h-[64px] lg:min-h-[110px] border-t border-r ${border} ${isDark ? "bg-slate-900/30" : "bg-slate-50/50"}`} />
-            ))}
+          {/* Day cells + multi-day bar overlay */}
+          <div className="relative">
+            <div className="grid grid-cols-7" ref={calGridRef}>
+              {/* Empty cells before first day */}
+              {Array.from({ length: firstDow }).map((_, i) => (
+                <div key={`e${i}`} className={`min-h-[64px] lg:min-h-[110px] border-t border-r ${border} ${isDark ? "bg-slate-900/30" : "bg-slate-50/50"}`} />
+              ))}
 
-            {/* Day cells */}
-            {Array.from({ length: totalDays }).map((_, i) => {
-              const day     = i + 1;
-              const col     = (firstDow + i) % 7;
-              const dateStr = formatISODate(year, month, day);
-              const isToday = dateStr === todayStr;
-              const isSel    = dateStr === selectedDate;
-              const isWknd   = col === 0 || col === 6;
-              const dayEvts  = eventsForDay(dateStr);
-              const dayNots  = noticesForDay(dateStr);
-              const hasDayOff = dayEvts.some(e => e.type === "DAY_OFF");
+              {/* Day cells */}
+              {Array.from({ length: totalDays }).map((_, i) => {
+                const day     = i + 1;
+                const col     = (firstDow + i) % 7;
+                const dateStr = formatISODate(year, month, day);
+                const isToday = dateStr === todayStr;
+                const isSel   = dateStr === selectedDate;
+                const isWknd  = col === 0 || col === 6;
+                const dayEvts = eventsForDay(dateStr);
+                const dayNots = noticesForDay(dateStr);
+                const hasDayOff = dayEvts.some(e => e.type === "DAY_OFF");
+
+                // Single-day events only (multi-day are shown as bars)
+                const singleDayEvts = dayEvts.filter(e => {
+                  if (e.type === "EVALUATION") return true;
+                  const end = (e as any).endDate ?? e.date;
+                  return end <= e.date;
+                });
+
+                // Count how many multi-day bar lanes are occupied on this day
+                const occupiedLanes = new Set(multiDayBars
+                  .filter(b => {
+                    const gridIdx = firstDow + day - 1;
+                    const row = Math.floor(gridIdx / 7);
+                    const col2 = gridIdx % 7;
+                    return b.row === row && b.colStart <= col2 && b.colEnd >= col2;
+                  })
+                  .map(b => b.lane));
+                const barCount = occupiedLanes.size;
+
+                return (
+                  <div
+                    key={day}
+                    onClick={() => setSelectedDate(isSel ? null : dateStr)}
+                    className={`min-h-[64px] lg:min-h-[110px] border-t border-r ${border} p-1.5 cursor-pointer transition-colors flex flex-col gap-0.5
+                      ${isSel ? (isDark ? "bg-blue-900/30 ring-1 ring-inset ring-blue-500/50" : "bg-blue-50 ring-1 ring-inset ring-blue-300") : ""}
+                      ${hasDayOff && !isSel ? (isDark ? "bg-red-900/15" : "bg-red-50/60") : ""}
+                      ${!isSel && !hasDayOff && isWknd ? (isDark ? "bg-slate-900/50" : "bg-slate-50/70") : ""}
+                      ${!isSel && !hasDayOff && !isWknd ? (isDark ? "hover:bg-slate-700/40" : "hover:bg-slate-50") : ""}
+                    `}
+                  >
+                    {/* Day number */}
+                    <span className={`text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0
+                      ${isToday ? "bg-blue-600 text-white" : (isWknd ? muted : (isDark ? "text-slate-200" : "text-slate-700"))}
+                    `}>
+                      {day}
+                    </span>
+
+                    {/* Spacer for multi-day bars above */}
+                    {barCount > 0 && (
+                      <div style={{ height: barCount * 18 }} className="flex-shrink-0" />
+                    )}
+
+                    {/* Single-day event chips (evaluations + 1-day events) */}
+                    {(() => {
+                      const TYPE_LABEL_MAP: Record<string, string> = {
+                        DAY_OFF: "Day Off", COMMEMORATIVE: "Comemorativo", SPORTS: "Esportivo",
+                        INFORMATIVE: "Informativo", HOLIDAY: "Feriado",
+                      };
+                      const evalChipMap = new Map<string, { ev: typeof singleDayEvts[0]; sqNums: Set<number> }>();
+                      const otherEvts: typeof singleDayEvts = [];
+                      for (const ev of singleDayEvts) {
+                        if (ev.type === "EVALUATION") {
+                          const key = `${ev.disciplineId}|${ev.evaluationType ?? ""}`;
+                          if (!evalChipMap.has(key)) evalChipMap.set(key, { ev, sqNums: new Set() });
+                          const sqN = ev.classId ? parseInt(ev.classId.charAt(0)) : NaN;
+                          if (!isNaN(sqN) && sqN >= 1 && sqN <= 4) evalChipMap.get(key)!.sqNums.add(sqN);
+                        } else {
+                          otherEvts.push(ev);
+                        }
+                      }
+                      const allChips: { key: string; node: React.ReactElement }[] = [];
+                      let idx = 0;
+                      for (const { ev, sqNums } of evalChipMap.values()) {
+                        const disc = disciplines.find(d => d.id === ev.disciplineId);
+                        const code = disc?.code || "";
+                        const evalLabel = EVAL_LABELS[ev.evaluationType ?? ""] ?? "Aval.";
+                        const firstSq = sqNums.values().next().value as number | undefined;
+                        const sqLabel = sqNums.size === 1 && firstSq != null ? ` ${SQ_LABELS[firstSq]}` : sqNums.size > 1 ? ` ${sqNums.size}ESQ` : "";
+                        const label = code ? `${code} ${evalLabel}${sqLabel}` : `${evalLabel}${sqLabel}`;
+                        allChips.push({ key: `${ev.disciplineId}|${ev.evaluationType}`, node: (
+                          <div key={`${ev.disciplineId}|${ev.evaluationType}`}
+                            className={`rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white${idx++ >= 2 ? " hidden lg:block" : ""}`}
+                            style={{ backgroundColor: "#c2410c" }}>
+                            {label}
+                          </div>
+                        )});
+                      }
+                      for (const ev of otherEvts) {
+                        const sqN = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
+                        const sqV = sqN !== null && Number.isFinite(sqN) && sqN >= 1 && sqN <= 4;
+                        const TYPE_COLOR_MAP2: Record<string, string> = { DAY_OFF: "#b91c1c", COMMEMORATIVE: "#b45309", SPORTS: "#0f766e", INFORMATIVE: "#0369a1", HOLIDAY: "#be123c" };
+                        const isSpecial = ["DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY"].includes(ev.type ?? "");
+                        const color = isSpecial ? (TYPE_COLOR_MAP2[ev.type!] ?? "#4338ca") : sqV ? sqColor(sqN!) : (ev.color ?? "#4338ca");
+                        const label = isSpecial ? (ev.description || TYPE_LABEL_MAP[ev.type!] || "Evento") : (ev.description || ev.location || "Evento");
+                        allChips.push({ key: ev.id, node: (
+                          <div key={ev.id}
+                            className={`rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white${idx++ >= 2 ? " hidden lg:block" : ""}`}
+                            style={{ backgroundColor: color }}>
+                            {label}
+                          </div>
+                        )});
+                      }
+                      return allChips.slice(0, 4).map(c => c.node);
+                    })()}
+
+                    {/* Notice dot */}
+                    {dayNots.length > 0 && (
+                      <div className="flex gap-0.5 flex-wrap mt-auto">
+                        {dayNots.slice(0, 3).map(n => (
+                          <div key={n.id} className="w-1.5 h-1.5 rounded-full bg-amber-600" title={n.title} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── Multi-day bars overlay ── */}
+            {calCellSize && multiDayBars.map(bar => {
+              const { cellW, cellH } = calCellSize;
+              const BAR_H = 16;
+              const BAR_GAP = 2;
+              const TOP_OFFSET = 32; // space for day number
+              const left  = bar.colStart * cellW + 2;
+              const width = (bar.colEnd - bar.colStart + 1) * cellW - 4;
+              const top   = bar.row * cellH + TOP_OFFSET + bar.lane * (BAR_H + BAR_GAP);
               return (
                 <div
-                  key={day}
-                  onClick={() => setSelectedDate(isSel ? null : dateStr)}
-                  className={`min-h-[64px] lg:min-h-[110px] border-t border-r ${border} p-1.5 cursor-pointer transition-colors flex flex-col gap-0.5
-                    ${isSel ? (isDark ? "bg-blue-900/30 ring-1 ring-inset ring-blue-500/50" : "bg-blue-50 ring-1 ring-inset ring-blue-300") : ""}
-                    ${hasDayOff && !isSel ? (isDark ? "bg-red-900/15" : "bg-red-50/60") : ""}
-                    ${!isSel && !hasDayOff && isWknd ? (isDark ? "bg-slate-900/50" : "bg-slate-50/70") : ""}
-                    ${!isSel && !hasDayOff && !isWknd ? (isDark ? "hover:bg-slate-700/40" : "hover:bg-slate-50") : ""}
-                  `}
+                  key={`${bar.evId}-r${bar.row}`}
+                  className="absolute pointer-events-none z-10 flex items-center overflow-hidden"
+                  style={{
+                    left, width, top, height: BAR_H,
+                    backgroundColor: bar.isDayOff ? bar.color + "55" : bar.color,
+                    border: bar.isDayOff ? `1px dashed ${bar.color}` : "none",
+                    borderRadius: bar.isStart && bar.isEnd ? 4 : bar.isStart ? "4px 0 0 4px" : bar.isEnd ? "0 4px 4px 0" : 0,
+                    paddingLeft: bar.isStart ? 6 : 2,
+                  }}
                 >
-                  {/* Day number */}
-                  <span className={`text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0
-                    ${isToday ? "bg-blue-600 text-white" : (isWknd ? muted : (isDark ? "text-slate-200" : "text-slate-700"))}
-                  `}>
-                    {day}
-                  </span>
-
-                  {/* Event chips — group evaluations, mobile: 2, desktop: 6 */}
-                  {(() => {
-                    const TYPE_COLOR_MAP: Record<string, string> = {
-                      DAY_OFF: "#b91c1c", COMMEMORATIVE: "#b45309", SPORTS: "#0f766e",
-                      INFORMATIVE: "#0369a1", HOLIDAY: "#be123c",
-                    };
-                    const TYPE_LABEL_MAP: Record<string, string> = {
-                      DAY_OFF: "Day Off", COMMEMORATIVE: "Comemorativo", SPORTS: "Esportivo",
-                      INFORMATIVE: "Informativo", HOLIDAY: "Feriado",
-                    };
-                    // Merge evaluation events by disciplineId|evaluationType
-                    const evalChipMap = new Map<string, { ev: typeof dayEvts[0]; sqNums: Set<number> }>();
-                    const otherEvts: typeof dayEvts = [];
-                    for (const ev of dayEvts) {
-                      if (ev.type === "EVALUATION") {
-                        const key = `${ev.disciplineId}|${ev.evaluationType ?? ""}`;
-                        if (!evalChipMap.has(key)) evalChipMap.set(key, { ev, sqNums: new Set() });
-                        const sqN = ev.classId ? parseInt(ev.classId.charAt(0)) : NaN;
-                        if (!isNaN(sqN) && sqN >= 1 && sqN <= 4) evalChipMap.get(key)!.sqNums.add(sqN);
-                      } else {
-                        otherEvts.push(ev);
-                      }
-                    }
-                    const evalChips = [...evalChipMap.values()];
-                    const allChips: { key: string; node: React.ReactElement }[] = [];
-                    let chipIdx = 0;
-                    // Evaluation chips first
-                    for (const { ev, sqNums } of evalChips) {
-                      const disc = disciplines.find(d => d.id === ev.disciplineId);
-                      const code = disc?.code || "";
-                      const evalLabel = EVAL_LABELS[ev.evaluationType ?? ""] ?? "Aval.";
-                      const firstSq = sqNums.values().next().value as number | undefined;
-                      const sqLabel = sqNums.size === 1 && firstSq != null ? ` ${SQ_LABELS[firstSq]}` : sqNums.size > 1 ? ` ${sqNums.size}ESQ` : "";
-                      const label = code ? `${code} ${evalLabel}${sqLabel}` : `${evalLabel}${sqLabel}`;
-                      const idx = chipIdx++;
-                      allChips.push({ key: `${ev.disciplineId}|${ev.evaluationType}`, node: (
-                        <div key={`${ev.disciplineId}|${ev.evaluationType}`}
-                          className={`rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white${idx >= 2 ? " hidden lg:block" : ""}`}
-                          style={{ backgroundColor: "#c2410c" }}>
-                          {label}
-                        </div>
-                      )});
-                    }
-                    // Other chips
-                    for (const ev of otherEvts) {
-                      const isDayOff = ev.type === "DAY_OFF";
-                      const sqN = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
-                      const sqV = sqN !== null && Number.isFinite(sqN) && sqN >= 1 && sqN <= 4;
-                      const isSpecial = ["DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY"].includes(ev.type ?? "");
-                      const color = isSpecial ? (TYPE_COLOR_MAP[ev.type!] ?? "#6366f1") : sqV ? sqColor(sqN!) : (ev.color ?? "#6366f1");
-                      const label = isSpecial ? (ev.description || TYPE_LABEL_MAP[ev.type!] || "Evento") : (ev.description || ev.location || "Evento");
-                      const idx = chipIdx++;
-                      allChips.push({ key: ev.id, node: isDayOff ? (
-                        <div key={ev.id}
-                          className={`rounded px-1 py-0.5 text-[9px] leading-tight font-semibold truncate text-red-300 border border-dashed border-red-500/50${idx >= 2 ? " hidden lg:block" : ""}`}
-                          style={{ background: "repeating-linear-gradient(45deg, rgba(239,68,68,0.12) 0px, rgba(239,68,68,0.12) 3px, transparent 3px, transparent 6px)" }}>
-                          ⛔ {label}
-                        </div>
-                      ) : (
-                        <div key={ev.id}
-                          className={`rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white${idx >= 2 ? " hidden lg:block" : ""}`}
-                          style={{ backgroundColor: color + "cc" }}>
-                          {label}
-                        </div>
-                      )});
-                    }
-                    return allChips.slice(0, 6).map(c => c.node);
-                  })()}
-                  {/* overflow indicator */}
-                  {dayEvts.length > 6 && (
-                    <span className={`text-[9px] ${muted} hidden lg:block`}>+{dayEvts.length - 6}</span>
-                  )}
-                  {dayEvts.length > 2 && (
-                    <span className={`text-[9px] ${muted} lg:hidden`}>+{dayEvts.length - 2}</span>
-                  )}
-                  {/* Notice dot */}
-                  {dayNots.length > 0 && (
-                    <div className="flex gap-0.5 flex-wrap mt-auto">
-                      {dayNots.slice(0, 3).map(n => (
-                        <div key={n.id} className="w-1.5 h-1.5 rounded-full bg-amber-400" title={n.title} />
-                      ))}
-                    </div>
+                  {bar.isStart && (
+                    <span className={`text-[9px] font-semibold leading-none truncate ${bar.isDayOff ? "text-red-300" : "text-white"}`}>
+                      {bar.label}
+                    </span>
                   )}
                 </div>
               );
