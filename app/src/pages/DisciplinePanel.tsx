@@ -34,14 +34,60 @@ function fmtDate(dateStr: string) {
    return `${String(d).padStart(2, '0')} ${MONTHS_PT[m - 1]} ${y} · ${WEEKDAYS[dt.getDay()]}`;
 }
 
-// ppcLoads has keys like "AVIATION_1": 25, "INFANTRY_1": 25, "INTENDANCY_1": 25
-// The load is per-turma (not a total), so we use the max value across all course/year combos.
-// Summing them would multiply by the number of courses, giving a wrong total.
+// ppcLoads keys: "AVIATION_1", "INFANTRY_2", "INTENDANCY_3", etc. (course_year)
+// Section letter → course name mapping
+const SECTION_COURSE: Record<string, string> = {
+   A: 'AVIATION', B: 'AVIATION', C: 'AVIATION', D: 'AVIATION',
+   E: 'INTENDANCY', F: 'INFANTRY',
+};
+
+// Derive the correct ppcLoad for a discipline given the actual events.
+// Uses classIds in events to determine which year+course keys to look up.
+// If multiple distinct year+course combos exist (mixed filter), returns the
+// value for the most common combo (mode), falling back to the minimum to avoid inflation.
+function getPPCForEvents(d: Discipline, events: ScheduleEvent[]): number {
+   if (!d.ppcLoads) return d.load_hours || 0;
+
+   // Collect unique (course, year) pairs from classIds
+   const comboCounts: Record<string, number> = {};
+   for (const ev of events) {
+      const cid = ev.classId || '';
+      if (!/^[1-4][A-F]$/.test(cid)) continue;
+      const year   = cid[0];   // "1"–"4"
+      const course = SECTION_COURSE[cid[1]];
+      if (!course) continue;
+      const key = `${course}_${year}`;
+      comboCounts[key] = (comboCounts[key] || 0) + 1;
+   }
+
+   const keys = Object.keys(comboCounts);
+   if (keys.length === 0) {
+      // No classId info — fall back to minimum non-zero value to avoid inflation
+      const vals = Object.values(d.ppcLoads).filter(v => typeof v === 'number' && v > 0) as number[];
+      return vals.length > 0 ? Math.min(...vals) : (d.load_hours || 0);
+   }
+
+   // Use the key with most events (mode), i.e. the dominant class type
+   const dominantKey = keys.reduce((a, b) => comboCounts[a] >= comboCounts[b] ? a : b);
+   const val = d.ppcLoads[dominantKey];
+   if (typeof val === 'number' && val > 0) return val;
+
+   // Key not found in ppcLoads — try just matching the year suffix
+   const year = dominantKey.split('_')[1];
+   const byYear = Object.entries(d.ppcLoads)
+      .filter(([k, v]) => k.endsWith(`_${year}`) && typeof v === 'number' && (v as number) > 0)
+      .map(([, v]) => v as number);
+   if (byYear.length > 0) return Math.min(...byYear);
+
+   return d.load_hours || 0;
+}
+
+// Legacy helper used outside cards (summary bar)
 function getTotalPPC(d: Discipline) {
    if (!d.ppcLoads) return d.load_hours || 0;
    const vals = Object.values(d.ppcLoads).filter(v => typeof v === 'number' && v > 0) as number[];
    if (vals.length === 0) return d.load_hours || 0;
-   return Math.max(...vals);
+   return Math.min(...vals); // use min to avoid inflation when years differ
 }
 
 // classId format: "1A", "2B", "3C" etc. (squadronNumber + sectionLetter)
@@ -361,7 +407,7 @@ function DisciplineCard({ disc, instructor, events, today, isDark, onViewSchedul
    const scheduled = Math.round(events.length / uniqueClasses);
    const completed = Math.round(events.filter(e => e.date < today).length / uniqueClasses);
    const remaining = Math.round(events.filter(e => e.date >= today).length / uniqueClasses);
-   const ppcTotal  = getTotalPPC(disc);
+   const ppcTotal  = getPPCForEvents(disc, events);
    const pct = ppcTotal > 0 ? Math.round((scheduled / ppcTotal) * 100) : 0;
    const nextClass = events.filter(e => e.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
    const fieldColor = FIELD_COLORS[disc.trainingField] || FIELD_COLORS.GERAL;
