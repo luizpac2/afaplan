@@ -362,13 +362,13 @@ function DisciplineCard({ disc, instructor, events, today, isDark, onViewSchedul
    const completed = Math.round(events.filter(e => e.date < today).length / uniqueClasses);
    const remaining = Math.round(events.filter(e => e.date >= today).length / uniqueClasses);
    const ppcTotal  = getTotalPPC(disc);
-   const pct = ppcTotal > 0 ? Math.min(100, Math.round((scheduled / ppcTotal) * 100)) : 0;
+   const pct = ppcTotal > 0 ? Math.round((scheduled / ppcTotal) * 100) : 0;
    const nextClass = events.filter(e => e.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
    const fieldColor = FIELD_COLORS[disc.trainingField] || FIELD_COLORS.GERAL;
 
    return (
       <div className={`rounded-xl border shadow-sm flex flex-col overflow-hidden hover:shadow-md transition-shadow ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-         <div className={`h-1 ${pct >= 100 ? 'bg-green-500' : pct >= 60 ? 'bg-blue-500' : pct >= 30 ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
+         <div className={`h-1 ${pct > 100 ? 'bg-purple-500' : pct >= 100 ? 'bg-green-500' : pct >= 60 ? 'bg-blue-500' : pct >= 30 ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
          <div className="px-4 pt-3 pb-2">
             <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                <span className="font-mono text-xs font-bold text-blue-500">{disc.code}</span>
@@ -404,10 +404,10 @@ function DisciplineCard({ disc, instructor, events, today, isDark, onViewSchedul
             <div className="px-4 pb-2">
                <div className="flex justify-between mb-1">
                   <span className="text-[10px] text-slate-400 flex items-center gap-1"><Clock size={9} /> {ppcTotal}h PPC</span>
-                  <span className={`text-[10px] font-bold ${pct >= 100 ? 'text-green-500' : pct >= 60 ? 'text-blue-500' : 'text-amber-500'}`}>{pct}%</span>
+                  <span className={`text-[10px] font-bold ${pct > 100 ? 'text-purple-500' : pct >= 100 ? 'text-green-500' : pct >= 60 ? 'text-blue-500' : 'text-amber-500'}`}>{pct}%</span>
                </div>
                <div className={`h-1.5 rounded-full ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}>
-                  <div className={`h-full rounded-full ${pct >= 100 ? 'bg-green-500' : pct >= 60 ? 'bg-blue-500' : pct >= 30 ? 'bg-amber-500' : 'bg-slate-300'}`} style={{ width: `${pct}%` }} />
+                  <div className={`h-full rounded-full ${pct > 100 ? 'bg-purple-500' : pct >= 100 ? 'bg-green-500' : pct >= 60 ? 'bg-blue-500' : pct >= 30 ? 'bg-amber-500' : 'bg-slate-300'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
                </div>
             </div>
          )}
