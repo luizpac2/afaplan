@@ -254,8 +254,8 @@ export const PanoramicMirror = () => {
                   {/* Event chips — group evaluations, mobile: 2, desktop: 6 */}
                   {(() => {
                     const TYPE_COLOR_MAP: Record<string, string> = {
-                      DAY_OFF: "#ef4444", COMMEMORATIVE: "#f59e0b", SPORTS: "#14b8a6",
-                      INFORMATIVE: "#0ea5e9", HOLIDAY: "#f43f5e",
+                      DAY_OFF: "#b91c1c", COMMEMORATIVE: "#b45309", SPORTS: "#0f766e",
+                      INFORMATIVE: "#0369a1", HOLIDAY: "#be123c",
                     };
                     const TYPE_LABEL_MAP: Record<string, string> = {
                       DAY_OFF: "Day Off", COMMEMORATIVE: "Comemorativo", SPORTS: "Esportivo",
@@ -289,7 +289,7 @@ export const PanoramicMirror = () => {
                       allChips.push({ key: `${ev.disciplineId}|${ev.evaluationType}`, node: (
                         <div key={`${ev.disciplineId}|${ev.evaluationType}`}
                           className={`rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white${idx >= 2 ? " hidden lg:block" : ""}`}
-                          style={{ backgroundColor: "#ea580ccc" }}>
+                          style={{ backgroundColor: "#c2410c" }}>
                           {label}
                         </div>
                       )});
@@ -393,16 +393,16 @@ export const PanoramicMirror = () => {
                             return (
                               <div key={`${ev.disciplineId}|${ev.evaluationType}`}
                                 className="rounded-lg border px-3 py-2 flex flex-col gap-1"
-                                style={{ borderColor: "#ea580c55", backgroundColor: "#ea580c11" }}
+                                style={{ borderColor: "#c2410c55", backgroundColor: "#c2410c11" }}
                               >
                                 <div className="flex items-center gap-1.5">
-                                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#ea580c" }} />
-                                  <span className="text-[11px] font-semibold leading-tight" style={{ color: "#ea580c" }}>{title}</span>
+                                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#c2410c" }} />
+                                  <span className="text-[11px] font-semibold leading-tight" style={{ color: "#c2410c" }}>{title}</span>
                                 </div>
                                 {turmas.length > 0 && (
                                   <div className="flex flex-wrap gap-1 ml-3.5">
                                     {turmas.map(t => (
-                                      <span key={t} className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#ea580c22", color: "#ea580c" }}>{t}</span>
+                                      <span key={t} className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#c2410c22", color: "#c2410c" }}>{t}</span>
                                     ))}
                                   </div>
                                 )}
@@ -517,7 +517,7 @@ export const PanoramicMirror = () => {
               {monthNotices.length > 0 && (
                 <div className="flex items-center justify-between py-1.5">
                   <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-600" />
                     <span className={`text-[11px] ${isDark ? "text-slate-300" : "text-slate-700"}`}>Avisos</span>
                   </div>
                   <span className={`text-[11px] font-semibold ${muted}`}>{monthNotices.length}</span>
@@ -528,6 +528,7 @@ export const PanoramicMirror = () => {
             <div className={`border-t pt-3 ${border}`}>
               <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${muted}`}>Legenda</p>
               <div className="flex flex-col gap-1.5">
+                {/* Squadron colors */}
                 {[1,2,3,4].map(sq => {
                   const tokens = cohortTokens[sq];
                   return (
@@ -537,8 +538,23 @@ export const PanoramicMirror = () => {
                     </div>
                   );
                 })}
+                {/* Event type colors */}
+                {([
+                  ["DAY_OFF",       "#b91c1c", "Day Off"],
+                  ["EVALUATION",    "#c2410c", "Avaliação"],
+                  ["COMMEMORATIVE", "#b45309", "Comemorativo"],
+                  ["HOLIDAY",       "#be123c", "Feriado"],
+                  ["SPORTS",        "#0f766e", "Esportivo"],
+                  ["INFORMATIVE",   "#0369a1", "Informativo"],
+                ] as [string, string, string][]).map(([type, color, label]) => (
+                  <div key={type} className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                      style={{ backgroundColor: type === "DAY_OFF" ? color + "55" : color, border: type === "DAY_OFF" ? `1px dashed ${color}` : "none" }} />
+                    <span className={`text-[10px] ${muted}`}>{label}</span>
+                  </div>
+                ))}
                 <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-amber-400 flex-shrink-0" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-600 flex-shrink-0" />
                   <span className={`text-[10px] ${muted}`}>Avisos ativos</span>
                 </div>
               </div>

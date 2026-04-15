@@ -16,15 +16,15 @@ const EVAL_LABELS: Record<string, string> = {
 
 const MONTHS_PT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
-// Color per event type (non-squadron ACADEMIC events use cohort colors)
+// Color per event type — darker, higher-contrast palette
 const TYPE_COLORS: Record<string, string> = {
-  ACADEMIC:      "#6366f1",
-  EVALUATION:    "#f97316",
-  DAY_OFF:       "#ef4444",
-  COMMEMORATIVE: "#f59e0b",
-  SPORTS:        "#14b8a6",
-  INFORMATIVE:   "#0ea5e9",
-  HOLIDAY:       "#f43f5e",
+  ACADEMIC:      "#4338ca", // indigo-700
+  EVALUATION:    "#c2410c", // orange-700
+  DAY_OFF:       "#b91c1c", // red-700
+  COMMEMORATIVE: "#b45309", // amber-700
+  SPORTS:        "#0f766e", // teal-700
+  INFORMATIVE:   "#0369a1", // sky-700
+  HOLIDAY:       "#be123c", // rose-700
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -279,13 +279,13 @@ export const AcademicGantt = () => {
   const pillBase = `px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-150 border`;
   const pillOff  = isDark ? `${pillBase} border-slate-600 text-slate-400 hover:border-slate-500` : `${pillBase} border-slate-300 text-slate-500 hover:border-slate-400`;
   const typeColors: Record<string, string> = {
-    ACADEMIC: "bg-indigo-600 border-indigo-600 text-white",
-    EVALUATION: "bg-orange-500 border-orange-500 text-white",
-    DAY_OFF: "bg-red-600 border-red-600 text-white",
-    COMMEMORATIVE: "bg-amber-500 border-amber-500 text-white",
-    SPORTS:        "bg-teal-600 border-teal-600 text-white",
-    INFORMATIVE:   "bg-sky-500 border-sky-500 text-white",
-    HOLIDAY:       "bg-rose-600 border-rose-600 text-white",
+    ACADEMIC:      "bg-indigo-700 border-indigo-700 text-white",
+    EVALUATION:    "bg-orange-700 border-orange-700 text-white",
+    DAY_OFF:       "bg-red-700 border-red-700 text-white",
+    COMMEMORATIVE: "bg-amber-700 border-amber-700 text-white",
+    SPORTS:        "bg-teal-700 border-teal-700 text-white",
+    INFORMATIVE:   "bg-sky-700 border-sky-700 text-white",
+    HOLIDAY:       "bg-rose-700 border-rose-700 text-white",
   };
 
   const modal = (addingNew || editingEvent) ? (
@@ -459,9 +459,9 @@ export const AcademicGantt = () => {
                                 style={{
                                   left: `${leftPct}%`, width: `${widthPct}%`, height: ROW_H - 10, zIndex: 5,
                                   backgroundColor: isDayOff
-                                    ? `rgba(239,68,68,${isHov ? 0.4 : 0.2})`
-                                    : ev.color + (isHov ? "ff" : "cc"),
-                                  border: isDayOff ? "1px dashed rgba(239,68,68,0.6)" : "none",
+                                    ? `rgba(185,28,28,${isHov ? 0.55 : 0.35})`
+                                    : ev.color,
+                                  border: isDayOff ? `1px dashed ${TYPE_COLORS.DAY_OFF}` : "none",
                                   boxShadow: isHov ? `0 0 0 2px ${ev.color}55` : "none",
                                 }}
                                 onClick={() => handleBarClick(ev)}
@@ -517,7 +517,7 @@ export const AcademicGantt = () => {
           <div className="flex flex-wrap gap-4">
             {ALL_TYPES.map(t => (
               <div key={t} className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: TYPE_COLORS[t] + (t === "DAY_OFF" ? "40" : "cc"), border: t === "DAY_OFF" ? `1px dashed ${TYPE_COLORS[t]}` : "none" }} />
+                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: t === "DAY_OFF" ? TYPE_COLORS[t] + "50" : TYPE_COLORS[t], border: t === "DAY_OFF" ? `1px dashed ${TYPE_COLORS[t]}` : "none" }} />
                 <span className={`text-[11px] ${muted}`}>{TYPE_LABELS[t]}</span>
               </div>
             ))}
