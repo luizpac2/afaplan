@@ -704,19 +704,6 @@ export const Layout = () => {
                 </span>
               )}
             </button>
-            {isSidebarOpen && (
-              <div className="flex flex-col items-center">
-                <p
-                  className="text-[10px]  opacity-30 mt-2 hover:opacity-100 transition-opacity"
-                  title="AFA Plan"
-                >
-                  v1.9.0
-                </p>
-                <p className="text-[9px] text-slate-400 font-mono">
-                  Theme: {theme}
-                </p>
-              </div>
-            )}
           </div>
         </aside>
 

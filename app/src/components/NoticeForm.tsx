@@ -20,6 +20,7 @@ export const NoticeForm = ({ initialData, onSubmit, onDelete, onCancel }: Notice
         description: '',
         startDate: new Date().toISOString().split('T')[0],
         endDate: new Date().toISOString().split('T')[0],
+        targetSquadron: null,
     });
 
     useEffect(() => {
@@ -76,6 +77,21 @@ export const NoticeForm = ({ initialData, onSubmit, onDelete, onCancel }: Notice
                             <option value="EVENT">Evento (Roxo)</option>
                             <option value="EVALUATION">Avaliação (Laranja)</option>
                             <option value="GENERAL">Geral (Cinza)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className={labelCls}>Esquadrão</label>
+                        <select
+                            value={formData.targetSquadron ?? ""}
+                            onChange={e => setFormData({ ...formData, targetSquadron: e.target.value === "" ? null : Number(e.target.value) as any })}
+                            className={inputCls}
+                        >
+                            <option value="">Todos os Esquadrões</option>
+                            <option value="1">1º Esquadrão</option>
+                            <option value="2">2º Esquadrão</option>
+                            <option value="3">3º Esquadrão</option>
+                            <option value="4">4º Esquadrão</option>
                         </select>
                     </div>
 
