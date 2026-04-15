@@ -722,6 +722,16 @@ export const DisciplinePanel = () => {
                </div>
             )}
 
+            {/* PPC progress legend */}
+            <div className="flex items-center gap-3 text-[10px] flex-wrap pb-1">
+               <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>% PPC:</span>
+               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block" /> Acima do PPC</span>
+               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" /> Concluído (100%)</span>
+               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" /> Em andamento (≥60%)</span>
+               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" /> Iniciado (≥30%)</span>
+               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block" /> Pouco agendado (&lt;30%)</span>
+            </div>
+
             {/* Summary */}
             <div className="flex items-center gap-4 text-xs text-slate-400 flex-wrap">
                <span><strong className={isDark ? 'text-slate-200' : 'text-slate-700'}>{filteredDiscs.length}</strong> disciplinas</span>
