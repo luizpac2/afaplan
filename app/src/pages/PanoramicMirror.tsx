@@ -130,6 +130,19 @@ export const PanoramicMirror = () => {
   const totalDays = daysInMonth(year, month);
   const todayStr  = formatISODate(today.getFullYear(), today.getMonth(), today.getDate());
 
+  // Squadron → cohort color tokens
+  const cohortTokens = useMemo(() => {
+    const result: Record<number, ReturnType<typeof getCohortColorTokens>> = {};
+    [1, 2, 3, 4].forEach(sq => {
+      const entryYear = year - sq + 1;
+      const cohort = cohorts.find(c => Number(c.entryYear) === entryYear);
+      result[sq] = getCohortColorTokens((cohort?.color || "blue") as CohortColor);
+    });
+    return result;
+  }, [cohorts, year]);
+
+  const sqColor = (sq: number | null) => sqDisplayColor(cohortTokens[sq ?? 0] ?? getCohortColorTokens("blue"), isDark);
+
   // ── Multi-day bar layout (Google Calendar style) ──────────────────────────
   // Deduplicate multi-day non-evaluation events, compute row segments and lanes
   const multiDayBars = useMemo(() => {
@@ -230,19 +243,6 @@ export const PanoramicMirror = () => {
   // Selected day details
   const selectedEvents  = selectedDate ? eventsForDay(selectedDate)  : [];
   const selectedNotices = selectedDate ? noticesForDay(selectedDate) : [];
-
-  // Squadron → cohort color tokens
-  const cohortTokens = useMemo(() => {
-    const result: Record<number, ReturnType<typeof getCohortColorTokens>> = {};
-    [1, 2, 3, 4].forEach(sq => {
-      const entryYear = year - sq + 1;
-      const cohort = cohorts.find(c => Number(c.entryYear) === entryYear);
-      result[sq] = getCohortColorTokens((cohort?.color || "blue") as CohortColor);
-    });
-    return result;
-  }, [cohorts, year]);
-
-  const sqColor = (sq: number | null) => sqDisplayColor(cohortTokens[sq ?? 0] ?? getCohortColorTokens("blue"), isDark);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleAcademicSubmit = (data: Omit<ScheduleEvent, "id">) => {
