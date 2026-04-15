@@ -251,15 +251,8 @@ export const PanoramicMirror = () => {
                     {day}
                   </span>
 
-                  {/* Event chips — mobile: 2, desktop: 6 */}
-                  {dayEvts.slice(0, 6).map((ev, idx) => {
-                    const isDayOff = ev.type === "DAY_OFF";
-                    const isCommem = ev.type === "COMMEMORATIVE";
-                    const isSports = ev.type === "SPORTS";
-                    const isInfo = ev.type === "INFORMATIVE";
-                    const isHoliday = ev.type === "HOLIDAY";
-                    const sqN = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
-                    const sqV = sqN !== null && Number.isFinite(sqN) && sqN >= 1 && sqN <= 4;
+                  {/* Event chips — group evaluations, mobile: 2, desktop: 6 */}
+                  {(() => {
                     const TYPE_COLOR_MAP: Record<string, string> = {
                       DAY_OFF: "#ef4444", COMMEMORATIVE: "#f59e0b", SPORTS: "#14b8a6",
                       INFORMATIVE: "#0ea5e9", HOLIDAY: "#f43f5e",
@@ -268,29 +261,63 @@ export const PanoramicMirror = () => {
                       DAY_OFF: "Day Off", COMMEMORATIVE: "Comemorativo", SPORTS: "Esportivo",
                       INFORMATIVE: "Informativo", HOLIDAY: "Feriado",
                     };
-                    const isSpecial = isDayOff || isCommem || isSports || isInfo || isHoliday;
-                    const color = isSpecial ? (TYPE_COLOR_MAP[ev.type!] ?? "#6366f1")
-                      : sqV ? sqColor(sqN!) : (ev.color ?? "#6366f1");
-                    const label = isSpecial
-                      ? (ev.description || TYPE_LABEL_MAP[ev.type!] || "Evento")
-                      : ev.type === "EVALUATION"
-                        ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Aval."}${sqV ? " " + SQ_LABELS[sqN!] : ""}`
-                        : (ev.description || ev.location || "Evento");
-                    if (isDayOff) return (
-                      <div key={ev.id}
-                        className={`rounded px-1 py-0.5 text-[9px] leading-tight font-semibold truncate text-red-300 border border-dashed border-red-500/50${idx >= 2 ? " hidden lg:block" : ""}`}
-                        style={{ background: "repeating-linear-gradient(45deg, rgba(239,68,68,0.12) 0px, rgba(239,68,68,0.12) 3px, transparent 3px, transparent 6px)" }}>
-                        ⛔ {label}
-                      </div>
-                    );
-                    return (
-                      <div key={ev.id}
-                        className={`rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white${idx >= 2 ? " hidden lg:block" : ""}`}
-                        style={{ backgroundColor: color + "cc" }}>
-                        {label}
-                      </div>
-                    );
-                  })}
+                    // Merge evaluation events by disciplineId|evaluationType
+                    const evalChipMap = new Map<string, { ev: typeof dayEvts[0]; sqNums: Set<number> }>();
+                    const otherEvts: typeof dayEvts = [];
+                    for (const ev of dayEvts) {
+                      if (ev.type === "EVALUATION") {
+                        const key = `${ev.disciplineId}|${ev.evaluationType ?? ""}`;
+                        if (!evalChipMap.has(key)) evalChipMap.set(key, { ev, sqNums: new Set() });
+                        const sqN = ev.classId ? parseInt(ev.classId.charAt(0)) : NaN;
+                        if (!isNaN(sqN) && sqN >= 1 && sqN <= 4) evalChipMap.get(key)!.sqNums.add(sqN);
+                      } else {
+                        otherEvts.push(ev);
+                      }
+                    }
+                    const evalChips = [...evalChipMap.values()];
+                    const allChips: { key: string; node: JSX.Element }[] = [];
+                    let chipIdx = 0;
+                    // Evaluation chips first
+                    for (const { ev, sqNums } of evalChips) {
+                      const disc = disciplines.find(d => d.id === ev.disciplineId);
+                      const code = disc?.code || "";
+                      const evalLabel = EVAL_LABELS[ev.evaluationType ?? ""] ?? "Aval.";
+                      const sqLabel = sqNums.size === 1 ? ` ${SQ_LABELS[sqNums.values().next().value]}` : sqNums.size > 1 ? ` ${sqNums.size}ESQ` : "";
+                      const label = code ? `${code} ${evalLabel}${sqLabel}` : `${evalLabel}${sqLabel}`;
+                      const idx = chipIdx++;
+                      allChips.push({ key: `${ev.disciplineId}|${ev.evaluationType}`, node: (
+                        <div key={`${ev.disciplineId}|${ev.evaluationType}`}
+                          className={`rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white${idx >= 2 ? " hidden lg:block" : ""}`}
+                          style={{ backgroundColor: "#ea580ccc" }}>
+                          {label}
+                        </div>
+                      )});
+                    }
+                    // Other chips
+                    for (const ev of otherEvts) {
+                      const isDayOff = ev.type === "DAY_OFF";
+                      const sqN = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
+                      const sqV = sqN !== null && Number.isFinite(sqN) && sqN >= 1 && sqN <= 4;
+                      const isSpecial = ["DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY"].includes(ev.type ?? "");
+                      const color = isSpecial ? (TYPE_COLOR_MAP[ev.type!] ?? "#6366f1") : sqV ? sqColor(sqN!) : (ev.color ?? "#6366f1");
+                      const label = isSpecial ? (ev.description || TYPE_LABEL_MAP[ev.type!] || "Evento") : (ev.description || ev.location || "Evento");
+                      const idx = chipIdx++;
+                      allChips.push({ key: ev.id, node: isDayOff ? (
+                        <div key={ev.id}
+                          className={`rounded px-1 py-0.5 text-[9px] leading-tight font-semibold truncate text-red-300 border border-dashed border-red-500/50${idx >= 2 ? " hidden lg:block" : ""}`}
+                          style={{ background: "repeating-linear-gradient(45deg, rgba(239,68,68,0.12) 0px, rgba(239,68,68,0.12) 3px, transparent 3px, transparent 6px)" }}>
+                          ⛔ {label}
+                        </div>
+                      ) : (
+                        <div key={ev.id}
+                          className={`rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white${idx >= 2 ? " hidden lg:block" : ""}`}
+                          style={{ backgroundColor: color + "cc" }}>
+                          {label}
+                        </div>
+                      )});
+                    }
+                    return allChips.slice(0, 6).map(c => c.node);
+                  })()}
                   {/* overflow indicator */}
                   {dayEvts.length > 6 && (
                     <span className={`text-[9px] ${muted} hidden lg:block`}>+{dayEvts.length - 6}</span>
@@ -338,55 +365,96 @@ export const PanoramicMirror = () => {
                 </div>
                 {selectedEvents.length === 0
                   ? <p className={`text-[10px] italic ${muted} opacity-60`}>Sem eventos</p>
-                  : <div className="flex flex-col gap-2">
-                      {selectedEvents.map(ev => {
-                        const isDayOff = ev.type === "DAY_OFF";
-                        const sqNum = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
-                        const sqValid = sqNum !== null && Number.isFinite(sqNum) && sqNum >= 1 && sqNum <= 4;
-                        const color = isDayOff ? "#ef4444" : (sqValid ? sqColor(sqNum!) : (ev.color ?? "#6366f1"));
-                        const disc = disciplines.find(d => d.id === ev.disciplineId);
-                        const title = isDayOff
-                          ? (ev.description || "Day Off")
-                          : ev.type === "EVALUATION"
-                            ? `${EVAL_LABELS[ev.evaluationType ?? ""] ?? "Avaliação"}${disc ? " — " + disc.code : ""}`
-                            : (ev.description || ev.location || "Evento Acadêmico");
-                        const notes = (ev as any).notes;
-                        const hasNotes = notes && notes !== title;
-                        const showLocation = ev.location && ev.location !== title && ev.type !== "EVALUATION" && !isDayOff;
-                        const endDateVal = (ev as any).endDate;
-                        const isMultiDay = endDateVal && endDateVal !== ev.date;
-                        const fmtDate = (iso: string) => iso.split("-").reverse().join("/");
-                        if (isDayOff) return (
-                          <div key={ev.id}
-                            className={`rounded-lg border border-dashed border-red-500/40 px-3 py-2 flex flex-col gap-0.5 bg-red-500/10 ${canEdit ? "cursor-pointer hover:bg-red-500/15 transition-colors" : ""}`}
-                            onClick={canEdit ? () => setEditingAcademic(ev) : undefined}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[11px]">⛔</span>
-                              <span className="text-[11px] font-semibold leading-tight text-red-400">{title}</span>
-                            </div>
-                            <p className="text-[10px] text-red-400/70 ml-5">Alocação de aulas bloqueada</p>
-                            {isMultiDay && <p className={`text-[10px] ${muted} ml-5`}>De {fmtDate(ev.date)} a {fmtDate(endDateVal)}</p>}
-                          </div>
-                        );
-                        return (
-                          <div key={ev.id}
-                            className={`rounded-lg border px-3 py-2 flex flex-col gap-0.5 ${canEdit ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
-                            style={{ borderColor: color + "55", backgroundColor: color + "11" }}
-                            onClick={canEdit ? () => setEditingAcademic(ev) : undefined}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                              <span className="text-[11px] font-semibold leading-tight" style={{ color }}>{title}</span>
-                            </div>
-                            {sqValid && <p className={`text-[10px] ${muted} ml-3.5`}>{SQ_LABELS[sqNum!]}</p>}
-                            {isMultiDay && <p className={`text-[10px] ${muted} ml-3.5`}>De {fmtDate(ev.date)} a {fmtDate(endDateVal)}</p>}
-                            {showLocation && <p className={`text-[10px] ${muted} ml-3.5`}>📍 {ev.location}</p>}
-                            {hasNotes && <p className={`text-[10px] ${muted} ml-3.5 leading-tight`}>{notes}</p>}
-                          </div>
-                        );
-                      })}
-                    </div>
+                  : (() => {
+                      // Group EVALUATION events by disciplineId|evaluationType; keep others as-is
+                      const evalMap = new Map<string, { ev: typeof selectedEvents[0]; turmas: string[] }>();
+                      const otherEvents: typeof selectedEvents = [];
+                      for (const ev of selectedEvents) {
+                        if (ev.type === "EVALUATION") {
+                          const key = `${ev.disciplineId}|${ev.evaluationType ?? ""}`;
+                          if (!evalMap.has(key)) evalMap.set(key, { ev, turmas: [] });
+                          if (ev.classId && !evalMap.get(key)!.turmas.includes(ev.classId))
+                            evalMap.get(key)!.turmas.push(ev.classId);
+                        } else {
+                          otherEvents.push(ev);
+                        }
+                      }
+                      const fmtDate = (iso: string) => iso.split("-").reverse().join("/");
+                      return (
+                        <div className="flex flex-col gap-2">
+                          {/* Consolidated evaluation cards */}
+                          {[...evalMap.values()].map(({ ev, turmas }) => {
+                            const disc = disciplines.find(d => d.id === ev.disciplineId);
+                            const evalLabel = EVAL_LABELS[ev.evaluationType ?? ""] ?? "Avaliação";
+                            const code = disc?.code || "";
+                            const title = code ? `${code} — ${evalLabel}` : evalLabel;
+                            turmas.sort();
+                            return (
+                              <div key={`${ev.disciplineId}|${ev.evaluationType}`}
+                                className="rounded-lg border px-3 py-2 flex flex-col gap-1"
+                                style={{ borderColor: "#ea580c55", backgroundColor: "#ea580c11" }}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#ea580c" }} />
+                                  <span className="text-[11px] font-semibold leading-tight" style={{ color: "#ea580c" }}>{title}</span>
+                                </div>
+                                {turmas.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 ml-3.5">
+                                    {turmas.map(t => (
+                                      <span key={t} className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#ea580c22", color: "#ea580c" }}>{t}</span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {/* Non-evaluation events */}
+                          {otherEvents.map(ev => {
+                            const isDayOff = ev.type === "DAY_OFF";
+                            const sqNum = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
+                            const sqValid = sqNum !== null && Number.isFinite(sqNum) && sqNum >= 1 && sqNum <= 4;
+                            const color = isDayOff ? "#ef4444" : (sqValid ? sqColor(sqNum!) : (ev.color ?? "#6366f1"));
+                            const title = isDayOff
+                              ? (ev.description || "Day Off")
+                              : (ev.description || ev.location || "Evento Acadêmico");
+                            const notes = (ev as any).notes;
+                            const hasNotes = notes && notes !== title;
+                            const showLocation = ev.location && ev.location !== title && !isDayOff;
+                            const endDateVal = (ev as any).endDate;
+                            const isMultiDay = endDateVal && endDateVal !== ev.date;
+                            if (isDayOff) return (
+                              <div key={ev.id}
+                                className={`rounded-lg border border-dashed border-red-500/40 px-3 py-2 flex flex-col gap-0.5 bg-red-500/10 ${canEdit ? "cursor-pointer hover:bg-red-500/15 transition-colors" : ""}`}
+                                onClick={canEdit ? () => setEditingAcademic(ev) : undefined}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[11px]">⛔</span>
+                                  <span className="text-[11px] font-semibold leading-tight text-red-400">{title}</span>
+                                </div>
+                                <p className="text-[10px] text-red-400/70 ml-5">Alocação de aulas bloqueada</p>
+                                {isMultiDay && <p className={`text-[10px] ${muted} ml-5`}>De {fmtDate(ev.date)} a {fmtDate(endDateVal)}</p>}
+                              </div>
+                            );
+                            return (
+                              <div key={ev.id}
+                                className={`rounded-lg border px-3 py-2 flex flex-col gap-0.5 ${canEdit ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
+                                style={{ borderColor: color + "55", backgroundColor: color + "11" }}
+                                onClick={canEdit ? () => setEditingAcademic(ev) : undefined}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                                  <span className="text-[11px] font-semibold leading-tight" style={{ color }}>{title}</span>
+                                </div>
+                                {sqValid && <p className={`text-[10px] ${muted} ml-3.5`}>{SQ_LABELS[sqNum!]}</p>}
+                                {isMultiDay && <p className={`text-[10px] ${muted} ml-3.5`}>De {fmtDate(ev.date)} a {fmtDate(endDateVal)}</p>}
+                                {showLocation && <p className={`text-[10px] ${muted} ml-3.5`}>📍 {ev.location}</p>}
+                                {hasNotes && <p className={`text-[10px] ${muted} ml-3.5 leading-tight`}>{notes}</p>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()
                 }
               </div>
 
