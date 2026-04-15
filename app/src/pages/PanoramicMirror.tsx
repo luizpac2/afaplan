@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, BookOpen, Bell, AlertTriangle, Info, CalendarDays, Zap, Plus } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -275,14 +275,15 @@ export const PanoramicMirror = () => {
                       }
                     }
                     const evalChips = [...evalChipMap.values()];
-                    const allChips: { key: string; node: JSX.Element }[] = [];
+                    const allChips: { key: string; node: React.ReactElement }[] = [];
                     let chipIdx = 0;
                     // Evaluation chips first
                     for (const { ev, sqNums } of evalChips) {
                       const disc = disciplines.find(d => d.id === ev.disciplineId);
                       const code = disc?.code || "";
                       const evalLabel = EVAL_LABELS[ev.evaluationType ?? ""] ?? "Aval.";
-                      const sqLabel = sqNums.size === 1 ? ` ${SQ_LABELS[sqNums.values().next().value]}` : sqNums.size > 1 ? ` ${sqNums.size}ESQ` : "";
+                      const firstSq = sqNums.values().next().value as number | undefined;
+                      const sqLabel = sqNums.size === 1 && firstSq != null ? ` ${SQ_LABELS[firstSq]}` : sqNums.size > 1 ? ` ${sqNums.size}ESQ` : "";
                       const label = code ? `${code} ${evalLabel}${sqLabel}` : `${evalLabel}${sqLabel}`;
                       const idx = chipIdx++;
                       allChips.push({ key: `${ev.disciplineId}|${ev.evaluationType}`, node: (
