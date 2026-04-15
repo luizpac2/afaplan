@@ -69,11 +69,15 @@ Deno.serve(async (req) => {
       const rest: Record<string, unknown> = {};
       if (p.name       !== undefined) rest.name       = p.name;
       if (p.load_hours !== undefined) rest.load_hours = p.load_hours;
-      // data jsonb — garante que color e trainingField ficam dentro do data
+      // data jsonb — fetch current data from DB and deep-merge to avoid losing fields
       if (p.data !== undefined) {
-        const existingData = typeof p.data === "object" ? p.data : {};
+        const { data: currentRow } = await adminClient.from("disciplines")
+          .select("data").eq("code", code).maybeSingle();
+        const currentData = (currentRow?.data && typeof currentRow.data === "object") ? currentRow.data : {};
+        const incomingData = typeof p.data === "object" ? p.data : {};
         rest.data = {
-          ...existingData,
+          ...currentData,
+          ...incomingData,
           ...(p.color !== undefined ? { color: p.color } : {}),
         };
       }
