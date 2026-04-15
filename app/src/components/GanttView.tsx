@@ -27,16 +27,18 @@ const LABEL_W = 28;
 const TRAINING_FIELDS = new Set(["GERAL", "MILITAR", "PROFISSIONAL", "ATIVIDADES_COMPLEMENTARES"]);
 
 const EVAL_LABELS: Record<string, string> = {
-  PARTIAL:       "Av. Parcial",
+  PARTIAL:       "Parcial",
   EXAM:          "Exame",
-  FINAL:         "Av. Final",
+  FINAL:         "Prova Final",
   SECOND_CHANCE: "2ª Chamada",
+  REVIEW:        "Vista",
 };
 const EVAL_COLORS: Record<string, string> = {
-  PARTIAL:       "#ea580c", // orange-600
+  PARTIAL:       "#ea580c",
   EXAM:          "#ea580c",
   FINAL:         "#ea580c",
   SECOND_CHANCE: "#ea580c",
+  REVIEW:        "#ea580c",
 };
 
 export const GanttView = ({
@@ -265,7 +267,7 @@ export const GanttView = ({
                           {/* Label de avaliação */}
                           {!hasOverlap && isEval && (
                             <span className="text-white/90 text-[7px] font-bold leading-none uppercase tracking-wide w-full text-center truncate px-0.5">
-                              {EVAL_LABELS[evalType] || "Avaliação"}
+                              {EVAL_LABELS[evalType] || evalType || "Aval."}
                             </span>
                           )}
                           {/* Contagem */}
