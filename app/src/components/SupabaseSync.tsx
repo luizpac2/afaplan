@@ -75,7 +75,7 @@ export const SupabaseSync = () => {
             ...d,
             ...(d.data && typeof d.data === "object" ? d.data : {}),
             id: d.id,
-            code: d.sigla || d.code || d.id,
+            code: (d.sigla || d.code || d.id || "").toUpperCase(),
             name: d.nome || d.name || "Sem Nome",
             trainingField: d.campo || d.trainingField || d.data?.trainingField || "GERAL",
             load_hours: d.carga_horaria || d.load_hours,
