@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
     if (!code || !disciplineData) return err("code and data required");
     try {
       await writeDisciplinesEN("upsert", code as string, disciplineData as Record<string, unknown>);
-      await writeDisciplinasPT("upsert", code as string, disciplineData as Record<string, unknown>);
+      // writeDisciplinasPT omitido — tabela legada
     } catch (e: any) { return err(e.message, 500); }
     return ok({ success: true });
   }
@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
       }
       if (updateErr) throw new Error(`update failed: ${updateErr.message}`);
 
-      await writeDisciplinasPT("update", code as string, u);
+      // writeDisciplinasPT omitido — tabela legada, não bloqueia o save
     } catch (e: any) {
       console.error("update_discipline error:", e.message);
       return err(e.message, 500);

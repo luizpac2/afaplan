@@ -228,80 +228,6 @@ export const Disciplinas = () => {
         setSelectedIds(newSelected);
     };
 
-    // ---------- Clean Instructors Logic ----------
-    const handleCleanInvalidInstructors = async () => {
-        const updates: Record<string, Partial<Discipline>> = {};
-        const validTrigrams = new Set(instructors.map(i => i.trigram));
-        const validNames = new Set(instructors.map(i => i.warName));
-        const validFullNames = new Set(instructors.map(i => i.fullName));
-
-        disciplines.forEach(d => {
-            let changed = false;
-            let newTrigram = d.instructorTrigram;
-            let newInstructor = d.instructor;
-
-            if (d.instructorTrigram) {
-                if (!validTrigrams.has(d.instructorTrigram)) {
-                    // Trigrama inválido
-                    newTrigram = "" as any;
-                    newInstructor = "" as any;
-                    changed = true;
-                } else {
-                    // Trigrama correto, mas nome de instrutor dessincronizado
-                    const inst = instructors.find(i => i.trigram === d.instructorTrigram);
-                    if (inst && d.instructor !== inst.warName) {
-                        newInstructor = inst.warName;
-                        changed = true;
-                    }
-                }
-            }
-            // Se tem instrutor por nome (legado) mas nenhum trigrama
-            else if (!d.instructorTrigram && d.instructor) {
-                const trimmedInstructor = d.instructor.trim();
-                if (!validNames.has(trimmedInstructor) && !validFullNames.has(trimmedInstructor)) {
-                    newInstructor = "" as any;
-                    changed = true;
-                } else if (validNames.has(trimmedInstructor)) {
-                    // Try to map to trigram
-                    const inst = instructors.find(i => i.warName === trimmedInstructor);
-                    if (inst) {
-                        newTrigram = inst.trigram;
-                        newInstructor = inst.warName;
-                        changed = true;
-                    }
-                } else if (validFullNames.has(trimmedInstructor)) {
-                    const inst = instructors.find(i => i.fullName === trimmedInstructor);
-                    if (inst) {
-                        newTrigram = inst.trigram;
-                        newInstructor = inst.warName;
-                        changed = true;
-                    }
-                }
-            }
-
-            if (changed) {
-                updates[d.id] = { instructorTrigram: newTrigram, instructor: newInstructor };
-            }
-        });
-
-        if (Object.keys(updates).length > 0) {
-            if (window.confirm(`Foram detectadas ${Object.keys(updates).length} disciplinas com docentes antigos/desativados. Deseja remover as atribuições? (Isso não apaga a disciplina)`)) {
-                setIsSaving(true);
-                try {
-                    await updateBatchDisciplines(updates);
-                    setSaveResult({ success: Object.keys(updates).length, total: Object.keys(updates).length });
-                    alert("Docentes limpos com sucesso!");
-                } catch (e) {
-                    console.error(e);
-                    alert("Erro ao limpar docentes.");
-                }
-                setIsSaving(false);
-            }
-        } else {
-            alert("Nenhum docente inválido/antigo encontrado!");
-        }
-    };
-
     // ---------- Bulk Edit Logic ----------
     const changedCount = Object.keys(bulkEdits).length;
 
@@ -535,14 +461,6 @@ export const Disciplinas = () => {
                                     title="Excluir disciplinas selecionadas"
                                 >
                                     <Trash2 size={14} /> Excluir Selecionados
-                                </button>
-                                <button
-                                    onClick={handleCleanInvalidInstructors}
-                                    disabled={isSaving}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 dark:text-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors shadow-sm disabled:opacity-50 mr-2 border border-slate-200 dark:border-slate-700"
-                                    title="Remover nomes de docentes das disciplinas que não estão listados na aba Docentes"
-                                >
-                                    <Trash2 size={14} className="text-slate-500" /> Limpar Docentes Antigos
                                 </button>
                                 {changedCount > 0 && (
                                     <>
