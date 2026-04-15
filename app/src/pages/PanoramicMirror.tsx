@@ -337,7 +337,7 @@ export const PanoramicMirror = () => {
             <div className="grid grid-cols-7" ref={calGridRef}>
               {/* Empty cells before first day */}
               {Array.from({ length: firstDow }).map((_, i) => (
-                <div key={`e${i}`} className={`min-h-[64px] lg:min-h-[110px] border-t border-r ${border} ${isDark ? "bg-slate-900/30" : "bg-slate-50/50"}`} />
+                <div key={`e${i}`} className={`min-h-[160px] border-t border-r ${border} ${isDark ? "bg-slate-900/30" : "bg-slate-50/50"}`} />
               ))}
 
               {/* Day cells */}
@@ -374,7 +374,7 @@ export const PanoramicMirror = () => {
                   <div
                     key={day}
                     onClick={() => setSelectedDate(isSel ? null : dateStr)}
-                    className={`min-h-[64px] lg:min-h-[110px] border-t border-r ${border} p-1.5 cursor-pointer transition-colors flex flex-col gap-0.5
+                    className={`min-h-[160px] border-t border-r ${border} p-1.5 cursor-pointer transition-colors flex flex-col gap-0.5
                       ${isSel ? (isDark ? "bg-blue-900/30 ring-1 ring-inset ring-blue-500/50" : "bg-blue-50 ring-1 ring-inset ring-blue-300") : ""}
                       ${hasDayOff && !isSel ? (isDark ? "bg-red-900/15" : "bg-red-50/60") : ""}
                       ${!isSel && !hasDayOff && isWknd ? (isDark ? "bg-slate-900/50" : "bg-slate-50/70") : ""}
@@ -388,9 +388,9 @@ export const PanoramicMirror = () => {
                       {day}
                     </span>
 
-                    {/* Spacer for multi-day bars above */}
+                    {/* Spacer for multi-day bars (pushes single-day chips below bars) */}
                     {barCount > 0 && (
-                      <div style={{ height: barCount * 18 }} className="flex-shrink-0" />
+                      <div style={{ height: barCount * 20 }} className="flex-shrink-0" />
                     )}
 
                     {/* Single-day event chips (evaluations + 1-day events) */}
@@ -462,9 +462,9 @@ export const PanoramicMirror = () => {
             {/* ── Multi-day bars overlay ── */}
             {calCellSize && multiDayBars.map(bar => {
               const { cellW, cellH } = calCellSize;
-              const BAR_H = 16;
+              const BAR_H = 18;
               const BAR_GAP = 2;
-              const TOP_OFFSET = 32; // space for day number
+              const TOP_OFFSET = 34; // day-number height + padding
               const left  = bar.colStart * cellW + 2;
               const width = (bar.colEnd - bar.colStart + 1) * cellW - 4;
               const top   = bar.row * cellH + TOP_OFFSET + bar.lane * (BAR_H + BAR_GAP);
@@ -477,14 +477,12 @@ export const PanoramicMirror = () => {
                     backgroundColor: bar.isDayOff ? bar.color + "55" : bar.color,
                     border: bar.isDayOff ? `1px dashed ${bar.color}` : "none",
                     borderRadius: bar.isStart && bar.isEnd ? 4 : bar.isStart ? "4px 0 0 4px" : bar.isEnd ? "0 4px 4px 0" : 0,
-                    paddingLeft: bar.isStart ? 6 : 2,
+                    paddingLeft: 6,
                   }}
                 >
-                  {bar.isStart && (
-                    <span className={`text-[9px] font-semibold leading-none truncate ${bar.isDayOff ? "text-red-300" : "text-white"}`}>
-                      {bar.label}
-                    </span>
-                  )}
+                  <span className={`text-[9px] font-semibold leading-none truncate ${bar.isDayOff ? "text-red-300" : "text-white"}`}>
+                    {bar.label}
+                  </span>
                 </div>
               );
             })}
