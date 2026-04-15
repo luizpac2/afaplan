@@ -92,22 +92,31 @@ Deno.serve(async (req) => {
         };
       }
 
-      console.log("disciplines update payload:", JSON.stringify(rest), "lookup code:", code);
+      console.log("disciplines update payload keys:", Object.keys(rest), "lookup code:", code);
+
+      // Nada para atualizar — sai sem erro
+      if (Object.keys(rest).length === 0) {
+        console.log("disciplines update: nothing to update for", code);
+        return;
+      }
 
       // Tenta por 'code' primeiro (coluna canônica da tabela EN)
       const { data: r1, error: e1 } = await adminClient.from("disciplines")
         .update(rest).eq("code", code).select("id");
       console.log("update by code — rows:", r1?.length ?? 0, "error:", e1?.message ?? "none");
 
-      if (!e1 && (!r1 || r1.length === 0)) {
-        // Fallback: tenta por 'sigla' (caso a tabela use esse nome)
+      if (e1) {
+        console.warn(`disciplines update by code failed: ${e1.message}, trying sigla...`);
         const { data: r2, error: e2 } = await adminClient.from("disciplines")
           .update(rest).eq("sigla", code).select("id");
         console.log("update by sigla — rows:", r2?.length ?? 0, "error:", e2?.message ?? "none");
-        if (e2) console.warn(`disciplines update by sigla failed: ${e2.message}`);
-        if (!r2 || r2.length === 0) console.warn(`disciplines: nenhuma linha encontrada para code/sigla="${code}" — pode já ter sido atualizado`);
-      } else if (e1) {
-        throw new Error(`disciplines update error: ${e1.message}`);
+        if (e2) throw new Error(`disciplines update failed: ${e2.message}`);
+      } else if (!r1 || r1.length === 0) {
+        // Nenhuma linha encontrada por code — tenta sigla
+        const { data: r2, error: e2 } = await adminClient.from("disciplines")
+          .update(rest).eq("sigla", code).select("id");
+        console.log("update by sigla fallback — rows:", r2?.length ?? 0, "error:", e2?.message ?? "none");
+        if (e2) console.warn(`disciplines sigla fallback failed: ${e2.message}`);
       }
     } else if (op === "delete") {
       await adminClient.from("disciplines").delete().eq("code", code);
@@ -159,9 +168,9 @@ Deno.serve(async (req) => {
   if (action === "update_discipline") {
     const { code, updates } = body;
     if (!code || !updates) return err("code and updates required");
-    console.log("update_discipline→upsert code:", code, "keys:", Object.keys(updates));
+    console.log("update_discipline code:", code, "keys:", Object.keys(updates as object));
     try {
-      await writeDisciplinesEN("upsert", code as string, { ...(updates as Record<string, unknown>), code });
+      await writeDisciplinesEN("update", code as string, updates as Record<string, unknown>);
       await writeDisciplinasPT("update", code as string, updates as Record<string, unknown>);
     } catch (e: any) { return err(e.message, 500); }
     return ok({ success: true });
