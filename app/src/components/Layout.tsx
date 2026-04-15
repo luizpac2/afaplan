@@ -48,6 +48,8 @@ interface MenuItem {
   section?: string;
 }
 
+const ALL_ROLES = ["SUPER_ADMIN", "ADMIN", "CADETE", "DOCENTE", "CHEFE_TURMA"];
+
 const MENU_ITEMS: MenuItem[] = [
   {
     title: "CHEFE DE TURMA",
@@ -58,19 +60,33 @@ const MENU_ITEMS: MenuItem[] = [
     ],
   },
   {
-    title: "PROGRAMAÇÃO",
+    title: "AULAS",
     icon: GraduationCap,
-    roles: ["SUPER_ADMIN", "ADMIN", "CADETE", "DOCENTE", "CHEFE_TURMA"],
+    roles: ALL_ROLES,
     submenu: [
       { title: "Aulas de Hoje", path: "/", icon: Home },
+      { title: "1º Esquadrão", path: "/gantt/1", icon: BarChart2 },
+      { title: "2º Esquadrão", path: "/gantt/2", icon: BarChart2 },
+      { title: "3º Esquadrão", path: "/gantt/3", icon: BarChart2 },
+      { title: "4º Esquadrão", path: "/gantt/4", icon: BarChart2 },
+    ],
+  },
+  {
+    title: "EVENTOS",
+    icon: CalendarIcon,
+    roles: ALL_ROLES,
+    submenu: [
       { title: "Calendário", path: "/panoramic-view", icon: CalendarIcon },
       { title: "Gantt de Eventos", path: "/academic-gantt", icon: BarChart2 },
-      { title: "Gantt de Disciplinas", path: "/discipline-gantt", icon: BarChart2 },
+    ],
+  },
+  {
+    title: "DISCIPLINAS",
+    icon: BookOpen,
+    roles: ALL_ROLES,
+    submenu: [
       { title: "Painel de Disciplinas", path: "/discipline-panel", icon: BookOpen },
-      { title: "1º Esquadrão - Aulas", path: "/gantt/1", icon: BarChart2 },
-      { title: "2º Esquadrão - Aulas", path: "/gantt/2", icon: BarChart2 },
-      { title: "3º Esquadrão - Aulas", path: "/gantt/3", icon: BarChart2 },
-      { title: "4º Esquadrão - Aulas", path: "/gantt/4", icon: BarChart2 },
+      { title: "Gantt de Disciplinas", path: "/discipline-gantt", icon: BarChart2 },
     ],
   },
   {
@@ -171,7 +187,7 @@ export const Layout = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(true); // Default open on desktop
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    PROGRAMAÇÃO: true,
+    AULAS: true,
   });
 
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);

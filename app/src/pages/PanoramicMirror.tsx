@@ -475,7 +475,7 @@ export const PanoramicMirror = () => {
                           paddingLeft: 6,
                         }}
                       >
-                        <span className={`text-[9px] font-semibold leading-none truncate ${bar.isDayOff ? "text-red-300" : "text-white"}`}>
+                        <span className={`text-[9px] font-semibold leading-none truncate ${bar.isDayOff ? "text-red-900" : "text-white"}`}>
                           {bar.label}
                         </span>
                       </div>
