@@ -495,20 +495,41 @@ export const DisciplineGantt = () => {
                         )}
 
                         {/* Bar */}
-                        <div
-                          className="absolute top-1/2 -translate-y-1/2 rounded-sm flex items-center overflow-hidden"
-                          style={{
-                            left: `${leftPct}%`, width: `${widthPct}%`, height: ROW_H - 12,
-                            zIndex: 5,
-                            backgroundColor: row.color + (isHov ? "ff" : "cc"),
-                            boxShadow: isHov ? `0 0 0 2px ${row.color}55` : "none",
-                          }}>
-                          {widthPct > 3 && (
-                            <span className="text-[8px] font-semibold text-white truncate leading-tight drop-shadow px-1">
-                              {fmtShort(row.firstDate)} – {fmtShort(row.lastDate)}
-                            </span>
-                          )}
-                        </div>
+                        {(() => {
+                          const dateLabel = `${fmtShort(row.firstDate)} – ${fmtShort(row.lastDate)}`;
+                          const labelFits = widthPct > 5;
+                          const nearEnd   = leftPct + widthPct > 88;
+                          return (
+                            <>
+                              <div
+                                className="absolute top-1/2 -translate-y-1/2 rounded-sm flex items-center overflow-hidden"
+                                style={{
+                                  left: `${leftPct}%`, width: `${widthPct}%`, height: ROW_H - 12,
+                                  zIndex: 5,
+                                  backgroundColor: row.color + (isHov ? "ff" : "cc"),
+                                  boxShadow: isHov ? `0 0 0 2px ${row.color}55` : "none",
+                                }}>
+                                {labelFits && (
+                                  <span className="text-[8px] font-semibold text-white truncate leading-tight drop-shadow px-1">
+                                    {dateLabel}
+                                  </span>
+                                )}
+                              </div>
+                              {/* Label outside bar when it doesn't fit */}
+                              {!labelFits && (
+                                <span
+                                  className={`absolute top-1/2 -translate-y-1/2 text-[9px] font-semibold leading-tight whitespace-nowrap z-10 pointer-events-none ${isDark ? "text-slate-300" : "text-slate-600"}`}
+                                  style={nearEnd
+                                    ? { right: `${100 - leftPct}%`, marginRight: 3 }
+                                    : { left: `${leftPct + widthPct}%`, marginLeft: 3 }
+                                  }
+                                >
+                                  {dateLabel}
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
 
                         {/* Tooltip */}
                         {isHov && (

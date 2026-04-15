@@ -448,24 +448,45 @@ export const AcademicGantt = () => {
                         )}
 
                         {/* Bar */}
-                        <div
-                          className={`absolute top-1/2 -translate-y-1/2 rounded-md flex items-center px-1.5 overflow-hidden transition-all duration-150 ${canEdit ? "cursor-pointer" : ""}`}
-                          style={{
-                            left: `${leftPct}%`, width: `${widthPct}%`, height: ROW_H - 10, zIndex: 5,
-                            backgroundColor: isDayOff
-                              ? `rgba(239,68,68,${isHov ? 0.4 : 0.2})`
-                              : ev.color + (isHov ? "ff" : "cc"),
-                            border: isDayOff ? "1px dashed rgba(239,68,68,0.6)" : "none",
-                            boxShadow: isHov ? `0 0 0 2px ${ev.color}55` : "none",
-                          }}
-                          onClick={() => handleBarClick(ev)}
-                        >
-                          {widthPct > 3 && (
-                            <span className={`text-[9px] font-semibold truncate leading-tight drop-shadow ${isDayOff ? "text-red-500 dark:text-red-300" : "text-white"}`}>
-                              {isMulti ? `${fmtShort(ev.start)} – ${fmtShort(ev.end)}` : fmtShort(ev.start)}
-                            </span>
-                          )}
-                        </div>
+                        {(() => {
+                          const dateLabel = isMulti ? `${fmtShort(ev.start)} – ${fmtShort(ev.end)}` : fmtShort(ev.start);
+                          const labelFits = widthPct > 5;
+                          const nearEnd   = leftPct + widthPct > 88; // close to Dec — label goes left
+                          return (
+                            <>
+                              <div
+                                className={`absolute top-1/2 -translate-y-1/2 rounded-md flex items-center px-1.5 overflow-hidden transition-all duration-150 ${canEdit ? "cursor-pointer" : ""}`}
+                                style={{
+                                  left: `${leftPct}%`, width: `${widthPct}%`, height: ROW_H - 10, zIndex: 5,
+                                  backgroundColor: isDayOff
+                                    ? `rgba(239,68,68,${isHov ? 0.4 : 0.2})`
+                                    : ev.color + (isHov ? "ff" : "cc"),
+                                  border: isDayOff ? "1px dashed rgba(239,68,68,0.6)" : "none",
+                                  boxShadow: isHov ? `0 0 0 2px ${ev.color}55` : "none",
+                                }}
+                                onClick={() => handleBarClick(ev)}
+                              >
+                                {labelFits && (
+                                  <span className={`text-[9px] font-semibold truncate leading-tight drop-shadow ${isDayOff ? "text-red-500 dark:text-red-300" : "text-white"}`}>
+                                    {dateLabel}
+                                  </span>
+                                )}
+                              </div>
+                              {/* Label outside bar when it doesn't fit */}
+                              {!labelFits && (
+                                <span
+                                  className={`absolute top-1/2 -translate-y-1/2 text-[9px] font-semibold leading-tight whitespace-nowrap z-10 pointer-events-none ${isDark ? "text-slate-300" : "text-slate-600"}`}
+                                  style={nearEnd
+                                    ? { right: `${100 - leftPct}%`, marginRight: 3 }
+                                    : { left: `${leftPct + widthPct}%`, marginLeft: 3 }
+                                  }
+                                >
+                                  {dateLabel}
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
 
                         {/* Tooltip */}
                         {isHov && (
