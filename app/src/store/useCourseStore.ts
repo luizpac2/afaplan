@@ -1286,10 +1286,10 @@ export const useCourseStore = create<CourseState>((set) => ({
 
       console.log(`📡 Buscando eventos de ${year} no Supabase...`);
       const { data, error } = await supabase
-        .from("programacao_aulas")
+        .from("events")
         .select("*")
-        .gte("data", start)
-        .lte("data", end);
+        .gte("date", start)
+        .lte("date", end);
 
       if (error) throw error;
       const events = (data ?? []) as unknown as ScheduleEvent[];
@@ -1363,10 +1363,10 @@ export const useCourseStore = create<CourseState>((set) => ({
         `📡 Buscando semana [${startDay} a ${endDay}] para ESQ ${squadronId} (Lazy Loading)...`,
       );
       const { data: rawData, error: fetchError } = await supabase
-        .from("programacao_aulas")
+        .from("events")
         .select("*")
-        .gte("data", startDay)
-        .lte("data", endDay);
+        .gte("date", startDay)
+        .lte("date", endDay);
 
       if (fetchError) throw fetchError;
       const allEvents = (rawData ?? []) as unknown as ScheduleEvent[];

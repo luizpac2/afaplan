@@ -91,10 +91,10 @@ export const subscribeToEventsByDateRange = (
 ) => {
   const fetch = async () => {
     const { data, error } = await supabase
-      .from("programacao_aulas")
+      .from("events")
       .select("*")
-      .gte("data", startDate)
-      .lte("data", endDate);
+      .gte("date", startDate)
+      .lte("date", endDate);
     if (!error) callback(data ?? []);
   };
 
@@ -102,7 +102,7 @@ export const subscribeToEventsByDateRange = (
 
   const channel = supabase
     .channel(`events:${startDate}:${endDate}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "programacao_aulas" }, () => {
+    .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => {
       void fetch();
     })
     .subscribe();
