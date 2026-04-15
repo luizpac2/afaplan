@@ -59,13 +59,19 @@ Deno.serve(async (req) => {
   // Apenas as colunas que existem na tabela são enviadas para evitar erros de schema.
   async function writeDisciplinesEN(op: "upsert" | "delete", code: string, payload?: Record<string, unknown>) {
     if (op === "upsert" && payload) {
-      const row: Record<string, unknown> = { code };
+      const row: Record<string, unknown> = {};
       if (payload.name !== undefined)       row.name = payload.name;
       if (payload.load_hours !== undefined) row.load_hours = payload.load_hours;
       if (payload.data !== undefined)       row.data = payload.data;
-      const { error } = await adminClient.from("disciplines")
-        .upsert(row, { onConflict: "code" });
-      if (error) throw new Error(`disciplines upsert error: ${error.message}`);
+      // Tenta update; se não existe, insere
+      const { data: existing } = await adminClient.from("disciplines").select("id").eq("code", code).maybeSingle();
+      if (existing) {
+        const { error } = await adminClient.from("disciplines").update(row).eq("code", code);
+        if (error) throw new Error(`disciplines update error: ${error.message}`);
+      } else {
+        const { error } = await adminClient.from("disciplines").insert({ ...row, code });
+        if (error) throw new Error(`disciplines insert error: ${error.message}`);
+      }
     } else if (op === "delete") {
       await adminClient.from("disciplines").delete().eq("code", code);
     }
@@ -136,11 +142,24 @@ Deno.serve(async (req) => {
         data: mergedData,
       };
 
-      console.log("upsert payload keys:", Object.keys(payload), "data keys:", Object.keys(mergedData));
+      console.log("update payload keys:", Object.keys(payload), "data keys:", Object.keys(mergedData));
 
-      const { error: upsertErr } = await adminClient.from("disciplines")
-        .upsert(payload, { onConflict: "code" });
-      if (upsertErr) throw new Error(`upsert failed: ${upsertErr.message}`);
+      const updateRow: Record<string, unknown> = {};
+      if (payload.name !== undefined)       updateRow.name = payload.name;
+      if (payload.load_hours !== undefined) updateRow.load_hours = payload.load_hours;
+      if (payload.data !== undefined)       updateRow.data = payload.data;
+
+      let updateErr: any = null;
+      if (currentRow) {
+        const { error } = await adminClient.from("disciplines")
+          .update(updateRow).eq("code", code);
+        updateErr = error;
+      } else {
+        const { error } = await adminClient.from("disciplines")
+          .insert({ ...updateRow, code });
+        updateErr = error;
+      }
+      if (updateErr) throw new Error(`update failed: ${updateErr.message}`);
 
       await writeDisciplinasPT("update", code as string, u);
     } catch (e: any) {
