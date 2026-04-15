@@ -127,59 +127,10 @@ export const GanttView = ({
           ))}
         </div>
 
-        {/* ── Linha de Avaliações Consolidadas ─────────────────────── */}
-        {evalGroups.size > 0 && (
-          <div className={`flex border-b ${border}`} style={{ minHeight: 48 }}>
-            <div
-              style={{ width: LABEL_W, flexShrink: 0 }}
-              className={`flex items-center justify-center text-[7px] font-bold ${textMuted} ${labelBg} border-r ${border}`}
-            >
-              AVAL
-            </div>
-            {TIME_SLOTS.map((_, i) => {
-              // Pode haver múltiplos grupos no mesmo slot (disciplinas diferentes)
-              const groupsInSlot = [...evalGroups.values()].filter((g) => g.slotIdx === i);
-              return (
-                <div
-                  key={i}
-                  style={{ flexShrink: 1, flexGrow: 1, flexBasis: 0, minWidth: 36, overflow: "hidden" }}
-                  className={`border-l ${border} p-[2px] flex flex-col gap-[2px]`}
-                >
-                  {groupsInSlot.map((g) => {
-                    const disc = disciplines.find((d) => d.id === g.disciplineId);
-                    const code = disc?.code || "???";
-                    const evalLabel = EVAL_LABELS[g.evaluationType] || "Avaliação";
-                    return (
-                      <div
-                        key={`${g.disciplineId}|${g.evaluationType}`}
-                        className="w-full rounded flex flex-col items-center justify-center overflow-hidden px-0.5 py-1 gap-0.5"
-                        style={{ backgroundColor: EVAL_COLORS[g.evaluationType] || "#ea580c", border: "2px solid rgba(255,255,255,0.3)" }}
-                      >
-                        <span className="text-white text-[9px] font-extrabold leading-none text-center w-full truncate" style={{ letterSpacing: "-0.02em" }}>
-                          {code}
-                        </span>
-                        <span className="text-white/90 text-[7px] font-bold leading-none uppercase tracking-wide text-center w-full truncate">
-                          {evalLabel}
-                        </span>
-                        <div className="flex flex-wrap justify-center gap-[2px] mt-0.5">
-                          {g.turmas.map((t) => (
-                            <span key={t} className="text-[6px] font-bold bg-white/20 text-white rounded px-[3px]">{t}</span>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
         {/* ── Rows ─────────────────────────────────────────────────── */}
         {classLetters.map((letter) => {
           const classId = `${squadronNum}${letter}`;
-          // Exclui eventos de avaliação das linhas individuais (estão na linha consolidada)
-          const rowEvents = dayEvents.filter((e) => e.classId === classId && e.type !== "EVALUATION");
+          const rowEvents = dayEvents.filter((e) => e.classId === classId);
 
           const slotMap: Record<number, ScheduleEvent> = {};
           const overlapMap: Record<number, ScheduleEvent[]> = {}; // idx → todos os eventos sobrepostos

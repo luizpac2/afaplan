@@ -593,39 +593,85 @@ export const GanttProgramming = () => {
                       <p className={`text-[10px] italic ${muted} opacity-60`}>Sem eventos</p>
                     ) : (
                       <div className="flex flex-col gap-1">
-                        {academic_.map((ev) => {
-                          const col = getAcademicColor(ev.targetSquadron, isDark);
+                        {/* Agrupa avaliações por disciplina+tipo, demais eventos aparecem normalmente */}
+                        {(() => {
+                          const evalMap = new Map<string, { ev: typeof academic_[0]; turmas: string[] }>();
+                          const others: typeof academic_ = [];
+                          for (const ev of academic_) {
+                            if (ev.type === "EVALUATION") {
+                              const key = `${ev.disciplineId}|${ev.evaluationType || ""}`;
+                              if (!evalMap.has(key)) evalMap.set(key, { ev, turmas: [] });
+                              if (ev.classId && !evalMap.get(key)!.turmas.includes(ev.classId))
+                                evalMap.get(key)!.turmas.push(ev.classId);
+                            } else {
+                              others.push(ev);
+                            }
+                          }
+                          const EVAL_LABELS: Record<string, string> = {
+                            PARTIAL: "Av. Parcial", EXAM: "Exame", FINAL: "Av. Final",
+                            SECOND_CHANCE: "2ª Chamada", REVIEW: "Vista",
+                          };
                           return (
-                          <div
-                            key={ev.id}
-                            className={`rounded-lg border ${col.border} ${col.bg} px-2 py-1.5 transition-colors ${canEdit ? `cursor-pointer ${col.hover}` : ""}`}
-                            onClick={() => canEdit && setEditingAcademic(ev)}
-                            title={canEdit ? "Clique para editar" : undefined}
-                          >
-                            <p className={`text-[10px] font-semibold leading-tight ${col.title}`}>
-                              {ev.description || ev.location || "Evento acadêmico"}
-                            </p>
-                            {(ev as any).notes && (
-                              <p className={`text-[9px] mt-0.5 leading-snug ${col.sub}`}>
-                                {(ev as any).notes}
-                              </p>
-                            )}
-                            {ev.startTime && (
-                              <p className={`text-[9px] mt-0.5 ${col.sub}`}>
-                                🕐 {ev.startTime}{ev.endTime && ev.endTime !== ev.startTime ? ` – ${ev.endTime}` : ""}
-                              </p>
-                            )}
-                            {ev.location && (
-                              <p className={`text-[9px] ${col.sub}`}>
-                                📍 {ev.location}
-                              </p>
-                            )}
-                            {canEdit && (
-                              <p className={`text-[8px] mt-0.5 opacity-50 ${col.title}`}>toque para editar</p>
-                            )}
-                          </div>
+                            <>
+                              {[...evalMap.values()].map(({ ev, turmas }) => {
+                                const disc = disciplines.find((d) => d.id === ev.disciplineId);
+                                const code = disc?.code || ev.disciplineId;
+                                const evalLabel = EVAL_LABELS[ev.evaluationType || ""] || "Avaliação";
+                                turmas.sort();
+                                return (
+                                  <div
+                                    key={`eval-${ev.disciplineId}-${ev.evaluationType}`}
+                                    className="rounded-lg border border-orange-500/40 bg-orange-500/10 px-2 py-1.5"
+                                  >
+                                    <p className="text-[10px] font-bold leading-tight text-orange-500">
+                                      {code} — {evalLabel}
+                                    </p>
+                                    <div className="flex flex-wrap gap-[3px] mt-1">
+                                      {turmas.map((t) => (
+                                        <span key={t} className="text-[8px] font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded px-1">
+                                          {t}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {others.map((ev) => {
+                                const col = getAcademicColor(ev.targetSquadron, isDark);
+                                return (
+                                  <div
+                                    key={ev.id}
+                                    className={`rounded-lg border ${col.border} ${col.bg} px-2 py-1.5 transition-colors ${canEdit ? `cursor-pointer ${col.hover}` : ""}`}
+                                    onClick={() => canEdit && setEditingAcademic(ev)}
+                                    title={canEdit ? "Clique para editar" : undefined}
+                                  >
+                                    <p className={`text-[10px] font-semibold leading-tight ${col.title}`}>
+                                      {ev.description || ev.location || "Evento acadêmico"}
+                                    </p>
+                                    {(ev as any).notes && (
+                                      <p className={`text-[9px] mt-0.5 leading-snug ${col.sub}`}>
+                                        {(ev as any).notes}
+                                      </p>
+                                    )}
+                                    {ev.startTime && (
+                                      <p className={`text-[9px] mt-0.5 ${col.sub}`}>
+                                        🕐 {ev.startTime}{ev.endTime && ev.endTime !== ev.startTime ? ` – ${ev.endTime}` : ""}
+                                      </p>
+                                    )}
+                                    {ev.location && (
+                                      <p className={`text-[9px] ${col.sub}`}>
+                                        📍 {ev.location}
+                                      </p>
+                                    )}
+                                    {canEdit && (
+                                      <p className={`text-[8px] mt-0.5 opacity-50 ${col.title}`}>toque para editar</p>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </>
                           );
-                        })}
+                        })()}
                       </div>
                     )}
                   </div>
