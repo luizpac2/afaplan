@@ -3,7 +3,7 @@ import { BarChart2, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useCourseStore } from "../store/useCourseStore";
-import { getCohortColorTokens } from "../utils/cohortColors";
+import { getCohortColorTokens, sqDisplayColor } from "../utils/cohortColors";
 import { AcademicEventForm } from "../components/AcademicEventForm";
 import type { CohortColor, ScheduleEvent } from "../types";
 
@@ -146,7 +146,7 @@ export const AcademicGantt = () => {
     return r;
   }, [cohorts, year]);
 
-  const sqColor = (sq: number | null) => cohortTokens[sq ?? 0]?.primary ?? "#6366f1";
+  const sqColor = (sq: number | null) => sqDisplayColor(cohortTokens[sq ?? 0] ?? getCohortColorTokens("blue"), isDark);
 
   const eventsById = useMemo(() => {
     const m: Record<string, ScheduleEvent> = {};
@@ -363,7 +363,7 @@ export const AcademicGantt = () => {
               </button>
               {SQUADRONS.map(sq => {
                 const active = selSquadrons.has(sq);
-                const col = cohortTokens[sq]?.primary ?? "#6366f1";
+                const col = sqDisplayColor(cohortTokens[sq] ?? getCohortColorTokens("blue"), isDark);
                 return (
                   <button key={sq} onClick={() => toggleSquadron(sq)}
                     className={`${pillBase} ${active ? "text-white" : (isDark ? "text-slate-400 hover:border-slate-500" : "text-slate-500 hover:border-slate-400")}`}

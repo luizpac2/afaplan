@@ -10,7 +10,7 @@ import type { ScheduleEvent, Discipline, SystemNotice } from "../types";
 import { CheckSquare, Square, AlertCircle } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
-import { getCohortColorTokens, COHORT_COLORS } from "../utils/cohortColors";
+import { getCohortColorTokens, COHORT_COLORS, sqDisplayColor } from "../utils/cohortColors";
 import { formatClassId } from "../utils/formatters";
 import { FileEdit } from "lucide-react";
 
@@ -54,6 +54,7 @@ export const CalendarGrid = ({
   eventCounts,
 }: CalendarGridProps) => {
   const { theme } = useTheme();
+  const isDark = theme === "dark";
   const { cohorts, visualConfigs, instructors, changeRequests } =
     useCourseStore();
   const visualYear = weekStart.getFullYear();
@@ -283,7 +284,7 @@ export const CalendarGrid = ({
                                 primaryInfo = {
                                   label: cohort.name,
                                   color: "bg-custom",
-                                  hex: tokens.primary,
+                                  hex: sqDisplayColor(tokens, isDark),
                                   bgColor: tokens.light,
                                   textColor: tokens.dark,
                                 };
@@ -376,7 +377,7 @@ export const CalendarGrid = ({
                                 secondaryInfo = {
                                   label: cohort.name,
                                   color: "bg-custom",
-                                  hex: tokens.primary,
+                                  hex: sqDisplayColor(tokens, isDark),
                                   bgColor: tokens.light,
                                   textColor: tokens.dark,
                                 };

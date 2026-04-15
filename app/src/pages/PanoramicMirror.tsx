@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, BookOpen, Bell, Al
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useCourseStore } from "../store/useCourseStore";
-import { getCohortColorTokens } from "../utils/cohortColors";
+import { getCohortColorTokens, sqDisplayColor } from "../utils/cohortColors";
 import { AcademicEventForm } from "../components/AcademicEventForm";
 import { NoticeForm } from "../components/NoticeForm";
 import type { CohortColor, ScheduleEvent, SystemNotice } from "../types";
@@ -125,7 +125,7 @@ export const PanoramicMirror = () => {
     return result;
   }, [cohorts, year]);
 
-  const sqColor = (sq: number | null) => cohortTokens[sq ?? 0]?.primary ?? "#6366f1";
+  const sqColor = (sq: number | null) => sqDisplayColor(cohortTokens[sq ?? 0] ?? getCohortColorTokens("blue"), isDark);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleAcademicSubmit = (data: Omit<ScheduleEvent, "id">) => {
@@ -507,7 +507,7 @@ export const PanoramicMirror = () => {
                 return (
                   <div key={sq} className="flex items-center justify-between py-1.5">
                     <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: tokens.primary }} />
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: sqDisplayColor(tokens, isDark) }} />
                       <span className={`text-[11px] ${isDark ? "text-slate-300" : "text-slate-700"}`}>{SQ_LABELS[sq]}</span>
                     </div>
                     <span className={`text-[11px] font-semibold ${muted}`}>{sqEvts.length} evento{sqEvts.length !== 1 ? "s" : ""}</span>
@@ -532,7 +532,7 @@ export const PanoramicMirror = () => {
                   const tokens = cohortTokens[sq];
                   return (
                     <div key={sq} className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: tokens.primary }} />
+                      <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: sqDisplayColor(tokens, isDark) }} />
                       <span className={`text-[10px] ${muted}`}>{SQ_LABELS[sq]}</span>
                     </div>
                   );

@@ -11,7 +11,7 @@ import { supabase } from "../config/supabase";
 import { formatDate } from "../utils/dateUtils";
 import type { ScheduleEvent, CourseYear, SystemNotice } from "../types";
 import type { CohortColor } from "../types";
-import { getCohortColorTokens } from "../utils/cohortColors";
+import { getCohortColorTokens, sqDisplayColor } from "../utils/cohortColors";
 
 const TODAY = formatDate(new Date());
 
@@ -226,20 +226,18 @@ export const Dashboard = () => {
               {/* Cabeçalho */}
               <div
                 className="px-4 py-1.5 flex items-center gap-2"
-                style={{ background: isDark ? `${tokens.primary}22` : tokens.light }}
+                style={{ background: isDark ? `${sqDisplayColor(tokens, isDark)}22` : tokens.light }}
               >
                 <span
                   className="text-[11px] font-black uppercase tracking-widest px-2 py-0.5 rounded"
-                  style={{ background: tokens.primary, color: "#fff" }}
+                  style={{ background: sqDisplayColor(tokens, isDark), color: "#fff" }}
                 >
                   {sq}º ESQ
                 </span>
                 {(() => {
                   const entryYear = calendarYear - sq + 1;
                   const cohort = cohorts.find((c) => Number(c.entryYear) === entryYear);
-                  const nameColor = isDark
-                    ? (tokens.primary === "#18181b" ? "#e2e8f0" : tokens.primary)
-                    : tokens.dark;
+                  const nameColor = isDark ? sqDisplayColor(tokens, isDark) : tokens.dark;
                   return cohort ? (
                     <span className="text-[11px] font-semibold" style={{ color: nameColor }}>
                       {cohort.name}

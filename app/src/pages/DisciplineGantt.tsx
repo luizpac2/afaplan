@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
-import { getCohortColorTokens } from "../utils/cohortColors";
+import { getCohortColorTokens, sqDisplayColor } from "../utils/cohortColors";
 import type { CohortColor } from "../types";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -324,7 +324,7 @@ export const DisciplineGantt = () => {
             </button>
             {ALL_SQ_YEARS.map(yr => {
               const active = selYears.has(yr);
-              const col = cohortTokens[yr]?.primary ?? "#6366f1";
+              const col = sqDisplayColor(cohortTokens[yr] ?? getCohortColorTokens("blue"), isDark);
               return (
                 <button key={yr}
                   onClick={() => setSelYears(prev => toggle(prev, yr))}
@@ -426,7 +426,7 @@ export const DisciplineGantt = () => {
                   // Insert group header when year changes (only when showing multiple years)
                   if (selYears.size !== 1 && row.sqYear !== lastYear) {
                     lastYear = row.sqYear;
-                    const sqColor = cohortTokens[row.sqYear]?.primary ?? "#6366f1";
+                    const sqColor = sqDisplayColor(cohortTokens[row.sqYear] ?? getCohortColorTokens("blue"), isDark);
                     elements.push(
                       <div key={`hdr-${row.sqYear}`}
                         className={`flex items-center gap-2 border-b px-3 ${border}`}
@@ -441,7 +441,7 @@ export const DisciplineGantt = () => {
                   }
 
                   const isHov = hovered === row.key;
-                  const sqColor = cohortTokens[row.sqYear]?.primary ?? "#6366f1";
+                  const sqColor = sqDisplayColor(cohortTokens[row.sqYear] ?? getCohortColorTokens("blue"), isDark);
 
                   // Bar position
                   const leftPct  = dateToPercent(row.firstDate);
