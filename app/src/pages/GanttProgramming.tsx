@@ -346,6 +346,12 @@ export const GanttProgramming = () => {
       if (!ACADEMIC_TYPES.has(e.type ?? "") && e.disciplineId !== "ACADEMIC") return false;
       const end = (e as any).endDate ?? e.date;
       if (dateStr < e.date || dateStr > end) return false;
+      // For EVALUATION events, filter by squadron derived from classId (e.g. "4A" → 4)
+      if (e.type === "EVALUATION") {
+        const evSq = e.classId ? parseInt(e.classId.charAt(0)) : NaN;
+        if (!isNaN(evSq) && evSq !== currentSquadron) return false;
+        return true;
+      }
       const ts = e.targetSquadron;
       if (ts !== "ALL" && ts != null && Number(ts) !== currentSquadron) return false;
       return true;
