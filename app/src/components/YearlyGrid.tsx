@@ -83,68 +83,69 @@ export const YearlyGrid: React.FC<YearlyGridProps> = ({
   const currentMonth = currentMonths[currentMonthIndex];
 
   const yearEvents = useMemo(() => {
-    return events
-      .filter((e) => {
-        const isAcad =
-          e.type === "ACADEMIC" ||
-          e.disciplineId === "ACADEMIC" ||
-          e.type === "EVALUATION";
-        if (!isAcad) return false;
-        const eventDate = new Date(e.date + "T00:00:00");
-        return eventDate.getFullYear() === year;
-      })
-      .map((e) => {
-        if (e.type === "EVALUATION") {
-          const sq = parseInt(e.classId?.charAt(0) || "");
-          let tCourse = e.targetCourse || "ALL";
-          let tClass = e.targetClass || "ALL";
+    const evalTypeMap: Record<string, string> = {
+      PARTIAL: "Parcial",
+      EXAM: "Exame",
+      FINAL: "Prova Final",
+      SECOND_CHANCE: "2ª Época",
+      REVIEW: "Vista",
+    };
 
-          if (e.classId) {
-            if (e.classId.includes("AVIATION")) tCourse = "AVIATION";
-            else if (e.classId.includes("INTENDANCY")) tCourse = "INTENDANCY";
-            else if (e.classId.includes("INFANTRY")) tCourse = "INFANTRY";
-            else {
-              const letter = e.classId.slice(1).toUpperCase();
-              if (["A", "B", "C", "D"].includes(letter)) tCourse = "AVIATION";
-              else if (letter === "E") tCourse = "INTENDANCY";
-              else if (letter === "F") tCourse = "INFANTRY";
+    const filtered = events.filter((e) => {
+      const isAcad =
+        e.type === "ACADEMIC" ||
+        e.disciplineId === "ACADEMIC" ||
+        e.type === "EVALUATION";
+      if (!isAcad) return false;
+      const eventDate = new Date(e.date + "T00:00:00");
+      return eventDate.getFullYear() === year;
+    });
 
-              if (
-                letter &&
-                letter !== "E" &&
-                letter !== "S" &&
-                letter !== "Q"
-              ) {
-                tClass = letter;
-              }
-            }
-          }
+    // Agrupa avaliações: mesmo dia + disciplina + tipo → um único card com turmas listadas
+    const evalGroups = new Map<string, { base: typeof filtered[0]; turmas: string[] }>();
+    const nonEvalEvents: typeof filtered = [];
 
-          const disc = useCourseStore
-            .getState()
-            .disciplines.find((d) => d.id === e.disciplineId);
-          const evalTypeMap: Record<string, string> = {
-            PARTIAL: "Parcial",
-            EXAM: "Exame",
-            FINAL: "Prova Final",
-            SECOND_CHANCE: "2ª Época",
-            REVIEW: "Vista",
-          };
-          const typeStr = e.evaluationType
-            ? evalTypeMap[e.evaluationType] || e.evaluationType
-            : "Avaliação";
-          const loc = `[${typeStr}] ${disc ? disc.code : ""}`;
+    for (const e of filtered) {
+      if (e.type !== "EVALUATION") {
+        nonEvalEvents.push(e);
+        continue;
+      }
+      const sq = e.classId?.charAt(0) || "";
+      const key = `${e.date}|${e.disciplineId}|${e.evaluationType || ""}|${sq}`;
+      const turma = e.classId || "";
+      if (!evalGroups.has(key)) {
+        evalGroups.set(key, { base: e, turmas: turma ? [turma] : [] });
+      } else {
+        const g = evalGroups.get(key)!;
+        if (turma && !g.turmas.includes(turma)) g.turmas.push(turma);
+      }
+    }
 
-          return {
-            ...e,
-            targetSquadron: !isNaN(sq) ? (sq as any) : "ALL",
-            targetCourse: tCourse as any,
-            targetClass: tClass,
-            location: loc,
-          };
-        }
-        return e;
-      });
+    const mergedEvals = [...evalGroups.values()].map(({ base: e, turmas }) => {
+      const sq = parseInt(e.classId?.charAt(0) || "");
+      const disc = useCourseStore
+        .getState()
+        .disciplines.find((d) => d.id === e.disciplineId);
+      const typeStr = e.evaluationType
+        ? evalTypeMap[e.evaluationType] || e.evaluationType
+        : "Avaliação";
+      const title = `${disc ? disc.code : ""} ${typeStr}`;
+
+      // Ordena turmas: 4A, 4B, 4C...
+      turmas.sort();
+
+      return {
+        ...e,
+        targetSquadron: !isNaN(sq) ? (sq as any) : "ALL",
+        targetCourse: "ALL" as any,
+        targetClass: "ALL",
+        location: title,
+        // guarda turmas no description para renderização
+        description: turmas.join(", "),
+      };
+    });
+
+    return [...nonEvalEvents, ...mergedEvals];
   }, [events, year]);
 
   const monthEvents = useMemo(() => {
@@ -1385,7 +1386,20 @@ const EventCard = ({
           {event.location}
         </span>
 
-        {isStart && event.targetClass && event.targetClass !== "ALL" && (
+        {isEval && isStart && event.description && (
+          <div className="flex flex-wrap gap-0.5 mt-0.5">
+            {event.description.split(", ").map((turma) => (
+              <span
+                key={turma}
+                className={`px-1 rounded text-[7px] ${theme === "dark" ? "bg-slate-700 text-slate-300" : "bg-orange-100 text-orange-700"}`}
+              >
+                {turma}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {!isEval && isStart && event.targetClass && event.targetClass !== "ALL" && (
           <div className="flex items-center gap-1 mt-0.5">
             <span
               className={`px-1 rounded text-[7px]  ${theme === "dark" ? "bg-slate-700 text-slate-400" : "bg-slate-100 text-slate-500"}`}
