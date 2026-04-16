@@ -83,17 +83,41 @@ export const FlightCalendar = () => {
       const dow = new Date(currentYear, currentMonth, day).getDay();
       if (dow === 0) return;
 
+      const isEnabled = enabledDates.has(dateStr);
+
+      // Optimistic update — Realtime não está habilitado neste projeto
+      if (isEnabled) {
+        setFlightDays((prev) =>
+          prev.filter((d) => !(d.date === dateStr && d.aircraft === selectedAircraft)),
+        );
+      } else {
+        setFlightDays((prev) => [
+          ...prev,
+          { id: dateStr, date: dateStr, aircraft: selectedAircraft, createdBy: userProfile?.uid ?? undefined },
+        ]);
+      }
+
       setToggling(dateStr);
       try {
         await toggleFlightDay(dateStr, selectedAircraft, userProfile?.uid);
-        // Real-time subscription will update state
       } catch (err) {
         console.error("Failed to toggle flight day:", err);
+        // Reverter em caso de erro
+        if (isEnabled) {
+          setFlightDays((prev) => [
+            ...prev,
+            { id: dateStr, date: dateStr, aircraft: selectedAircraft, createdBy: userProfile?.uid ?? undefined },
+          ]);
+        } else {
+          setFlightDays((prev) =>
+            prev.filter((d) => !(d.date === dateStr && d.aircraft === selectedAircraft)),
+          );
+        }
       } finally {
         setToggling(null);
       }
     },
-    [currentYear, currentMonth, selectedAircraft, userProfile],
+    [currentYear, currentMonth, selectedAircraft, userProfile, enabledDates],
   );
 
   const handlePrevMonth = () => {
