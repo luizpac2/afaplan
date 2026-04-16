@@ -87,16 +87,6 @@ export const FlightDashboard = () => {
     };
   }, [flightDays]);
 
-  // Weekday-only totals (Mon-Fri) for each aircraft
-  const weekdayTotals = useMemo(() => {
-    const result: Record<AircraftType, number> = { "T-25": 0, "T-27": 0 };
-    flightDays.forEach((fd) => {
-      const dow = new Date(fd.date + "T12:00:00").getDay();
-      if (dow >= 1 && dow <= 5) result[fd.aircraft]++;
-    });
-    return result;
-  }, [flightDays]);
-
   // Max in any month (for bar chart scaling)
   const maxMonthly = useMemo(() => {
     let m = 1;

@@ -11,7 +11,6 @@ import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
 import type { FlightDay, AircraftType } from "../types";
 import {
-  fetchFlightDaysByYear,
   toggleFlightDay,
   subscribeToFlightDays,
 } from "../services/flightService";
