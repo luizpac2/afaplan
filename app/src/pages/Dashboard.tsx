@@ -8,7 +8,7 @@ import { Badge } from "../components/common/Badge";
 import { useCourseStore } from "../store/useCourseStore";
 import { formatDateForDisplay } from "../utils/dateUtils";
 import type { ScheduleEvent, VisualConfig } from "../types";
-import { COHORT_COLORS } from "../utils/cohortColors";
+import { getCohortColorTokens } from "../utils/cohortColors";
 
 export const Dashboard = () => {
   const { disciplines, notices, cohorts, visualConfigs, fetchYearlyEvents } =
@@ -167,7 +167,7 @@ export const Dashboard = () => {
     const squadron = parseInt(classId.charAt(0));
     const entryYear = visualYear - squadron + 1;
     const cohort = cohorts.find((c) => Number(c.entryYear) === entryYear);
-    return cohort?.color ? COHORT_COLORS[cohort.color]?.dark || "#64748b" : "#64748b";
+    return cohort?.color ? getCohortColorTokens(cohort.color, theme)?.dark || "#64748b" : "#64748b";
   };
 
   const visibleEvaluations = useMemo(() => {
@@ -215,7 +215,7 @@ export const Dashboard = () => {
               const isSelected = filterSquadron === id;
               const squadronYear = visualYear - parseInt(id) + 1;
               const cohort = cohorts.find((c) => Number(c.entryYear) === squadronYear);
-              const cohortColor = cohort?.color ? COHORT_COLORS[cohort.color] : null;
+              const cohortColor = cohort?.color ? getCohortColorTokens(cohort.color, theme) : null;
               return (
                 <button
                   key={id}

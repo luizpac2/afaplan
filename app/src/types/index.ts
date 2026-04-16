@@ -255,4 +255,15 @@ export interface VisualConfig {
   iconName: string; // Lucide icon name string
 }
 
+// ── Flight Management ───────────────────────────────────────
+export type AircraftType = "T-25" | "T-27";
+
+export interface FlightDay {
+  id: string;
+  date: string; // ISO YYYY-MM-DD
+  aircraft: AircraftType;
+  createdAt?: string;
+  createdBy?: string;
+}
+
 export * from "./auditLog";

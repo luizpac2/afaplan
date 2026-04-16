@@ -116,6 +116,15 @@ const MENU_ITEMS: MenuItem[] = [
     ],
   },
   {
+    title: "INSTRUÇÃO AÉREA",
+    icon: Plane,
+    roles: ["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"],
+    submenu: [
+      { title: "Dias de Voo", path: "/flight-calendar", icon: CalendarIcon },
+      { title: "Painel", path: "/flight-dashboard", icon: BarChart3 },
+    ],
+  },
+  {
     title: "RELATÓRIOS",
     icon: BarChart3,
     roles: ["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"],

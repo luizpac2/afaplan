@@ -93,7 +93,7 @@ export const GeneralOverview = () => {
     return cohort?.color || "blue";
   };
 
-  const currentCohortColor = getCohortColorTokens(getCohortColor(selectedYear));
+  const currentCohortColor = getCohortColorTokens(getCohortColor(selectedYear), theme);
 
   // Helpers to identify Course Type based on class letter
   const getCourseType = (classLetter: string) => {
@@ -269,6 +269,7 @@ export const GeneralOverview = () => {
         {[1, 2, 3, 4].map((year) => {
           const yearColor = getCohortColorTokens(
             getCohortColor(year as CourseYear),
+            theme,
           );
           const isSelected = selectedYear === year;
           return (

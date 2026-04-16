@@ -10,7 +10,7 @@ import type { ScheduleEvent, Discipline, SystemNotice } from "../types";
 import { CheckSquare, Square, AlertCircle } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
-import { getCohortColorTokens, COHORT_COLORS } from "../utils/cohortColors";
+import { getCohortColorTokens } from "../utils/cohortColors";
 import { formatClassId } from "../utils/formatters";
 import { FileEdit } from "lucide-react";
 
@@ -279,6 +279,7 @@ export const CalendarGrid = ({
                               if (cohort) {
                                 const tokens = getCohortColorTokens(
                                   cohort.color || "blue",
+                                  theme,
                                 );
                                 primaryInfo = {
                                   label: cohort.name,
@@ -372,6 +373,7 @@ export const CalendarGrid = ({
                               if (cohort) {
                                 const tokens = getCohortColorTokens(
                                   cohort.color || "blue",
+                                  theme,
                                 );
                                 secondaryInfo = {
                                   label: cohort.name,
@@ -666,8 +668,8 @@ export const CalendarGrid = ({
                           const cohort = cohorts.find(
                             (c) => Number(c.entryYear) === entryYear,
                           );
-                          if (cohort?.color && COHORT_COLORS[cohort.color]) {
-                            return COHORT_COLORS[cohort.color].dark;
+                          if (cohort?.color) {
+                            return getCohortColorTokens(cohort.color, theme).dark;
                           }
                           return "rgba(255,255,255,0.2)";
                         }

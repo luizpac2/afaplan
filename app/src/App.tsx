@@ -40,6 +40,8 @@ const NoticeManager = lazy(() => import("./pages/admin/NoticeManager").then(m =>
 const VisualEditor = lazy(() => import("./pages/admin/VisualEditor").then(m => ({ default: m.VisualEditor })));
 const AcademicCalendar = lazy(() => import("./pages/admin/AcademicCalendar").then(m => ({ default: m.AcademicCalendar })));
 const ChangeRequestsPage = lazy(() => import("./pages/admin/ChangeRequestsPage").then(m => ({ default: m.ChangeRequestsPage })));
+const FlightCalendar = lazy(() => import("./pages/FlightCalendar").then(m => ({ default: m.FlightCalendar })));
+const FlightDashboard = lazy(() => import("./pages/FlightDashboard").then(m => ({ default: m.FlightDashboard })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center h-64">
@@ -198,6 +200,28 @@ function App() {
                         allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
                       >
                         <ChangeRequestsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* INSTRUÇÃO AÉREA */}
+                  <Route
+                    path="flight-calendar"
+                    element={
+                      <ProtectedRoute
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                      >
+                        <FlightCalendar />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="flight-dashboard"
+                    element={
+                      <ProtectedRoute
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", "VISITANTE_ADMIN"]}
+                      >
+                        <FlightDashboard />
                       </ProtectedRoute>
                     }
                   />

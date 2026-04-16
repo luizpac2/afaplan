@@ -192,7 +192,7 @@ export const CohortManager = () => {
                                 else squadronLabel = 'Futura';
 
                                 // Defensive: use blue as default if color is missing
-                                const cohortColor = getCohortColorTokens(cohort.color || 'blue');
+                                const cohortColor = getCohortColorTokens(cohort.color || 'blue', theme);
 
                                 return (
 

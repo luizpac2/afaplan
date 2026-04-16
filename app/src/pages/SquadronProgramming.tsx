@@ -141,9 +141,9 @@ export const SquadronProgramming = () => {
 
   const cohortColorTokens = useMemo(() => {
     if (currentCohort?.color)
-      return getCohortColorTokens(currentCohort.color as CohortColor);
-    return getCohortColorTokens("blue");
-  }, [currentCohort]);
+      return getCohortColorTokens(currentCohort.color as CohortColor, theme);
+    return getCohortColorTokens("blue", theme);
+  }, [currentCohort, theme]);
 
   const handlePrevWeek = () => setCurrentDate(addDays(currentDate, -7));
   const handleNextWeek = () => setCurrentDate(addDays(currentDate, 7));

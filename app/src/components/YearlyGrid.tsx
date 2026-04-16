@@ -286,7 +286,7 @@ export const YearlyGrid: React.FC<YearlyGridProps> = ({
       );
 
       if (cohort) {
-        const tokens = getCohortColorTokens(cohort.color || "blue");
+        const tokens = getCohortColorTokens(cohort.color || "blue", theme);
         mapping[s] = {
           colors: tokens,
           name: cohort.name,
@@ -1222,7 +1222,7 @@ const EventCard = ({
         const cohort = cohorts.find((c) => Number(c.entryYear) === entryYear);
 
         if (cohort) {
-          const tokens = getCohortColorTokens(cohort.color || "blue");
+          const tokens = getCohortColorTokens(cohort.color || "blue", theme);
           primaryInfo = {
             label: cohort.name,
             color: "bg-custom",
@@ -1285,7 +1285,7 @@ const EventCard = ({
         const entryYear = visualYear - Number(squad) + 1;
         const cohort = cohorts.find((c) => Number(c.entryYear) === entryYear);
         if (cohort) {
-          const tokens = getCohortColorTokens(cohort.color || "blue");
+          const tokens = getCohortColorTokens(cohort.color || "blue", theme);
           secondaryInfo = {
             label: cohort.name,
             color: "bg-custom",
@@ -1430,7 +1430,7 @@ const EventDetailModal = ({
     ) {
       const entryYear = visualYear - Number(squad) + 1;
       const cohort = cohorts.find((c) => Number(c.entryYear) === entryYear);
-      if (cohort) return getCohortColorTokens(cohort.color || "blue").primary;
+      if (cohort) return getCohortColorTokens(cohort.color || "blue", theme).primary;
     }
 
     return "#64748b"; // Default CCAer
