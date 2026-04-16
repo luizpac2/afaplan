@@ -49,6 +49,8 @@ const GanttProgramming = lazy(() => import("./pages/GanttProgramming").then(m =>
 const AcademicGantt    = lazy(() => import("./pages/AcademicGantt").then(m => ({ default: m.AcademicGantt })));
 const DisciplineGantt  = lazy(() => import("./pages/DisciplineGantt").then(m => ({ default: m.DisciplineGantt })));
 const DisciplinePanel  = lazy(() => import("./pages/DisciplinePanel").then(m => ({ default: m.DisciplinePanel })));
+const FlightCalendar = lazy(() => import("./pages/FlightCalendar").then(m => ({ default: m.FlightCalendar })));
+const FlightDashboard = lazy(() => import("./pages/FlightDashboard").then(m => ({ default: m.FlightDashboard })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center h-64">
@@ -344,6 +346,24 @@ function App() {
                     element={
                       <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
                         <FaltasReport />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* INSTRUÇÃO AÉREA */}
+                  <Route
+                    path="flight-calendar"
+                    element={
+                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                        <FlightCalendar />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="flight-dashboard"
+                    element={
+                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                        <FlightDashboard />
                       </ProtectedRoute>
                     }
                   />
