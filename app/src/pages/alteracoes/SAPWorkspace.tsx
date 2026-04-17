@@ -668,8 +668,16 @@ export const SAPWorkspace = () => {
                               e.preventDefault();
                               if (!isGhost) handleDeleteEvent(ev);
                             }}
-                            title={`${disc?.name ?? ev.disciplineId} · ${ev.startTime}–${ev.endTime}\nBotão direito para remover`}
-                            className="rounded px-1 py-0.5 mb-0.5 text-[10px] font-semibold cursor-grab active:cursor-grabbing select-none"
+                            onClick={(e) => {
+                              if (isGhost) {
+                                e.stopPropagation();
+                                setAddModal({ date: ev.date, slotStart: ev.startTime });
+                              }
+                            }}
+                            title={isGhost
+                              ? `Clique para adicionar uma aula no lugar de ${disc?.code ?? ev.disciplineId}`
+                              : `${disc?.name ?? ev.disciplineId} · ${ev.startTime}–${ev.endTime}\nBotão direito para remover`}
+                            className={`rounded px-1 py-0.5 mb-0.5 text-[10px] font-semibold select-none ${isGhost ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"}`}
                             style={{
                               border: borderStyle,
                               backgroundColor: `${color}${bgOpacity}`,
@@ -680,7 +688,7 @@ export const SAPWorkspace = () => {
                                 {disc?.code ?? ev.disciplineId.slice(0, 6)}
                               </span>
                               <div className="flex items-center gap-0.5 flex-shrink-0">
-                                {isGhost  && <span className="text-red-500 text-[8px]">DEL</span>}
+                                {isGhost  && <span className="text-red-400 text-[8px] flex items-center gap-0.5">DEL <Plus size={7} /></span>}
                                 {isMoved  && <span className="text-amber-500 text-[8px]">MOV</span>}
                                 {isAdded  && <span className="text-green-500 text-[8px]">ADD</span>}
                                 {(ev as any).changeRequestId && !isMoved && !isAdded && !isGhost && (
