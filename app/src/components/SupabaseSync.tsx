@@ -207,13 +207,19 @@ export const SupabaseSync = () => {
             supabase.from("location_issues").select("*").order("date", { ascending: false }),
             supabase.from("location_reservations").select("*").order("date"),
           ]);
-          if (locsRes.status === "fulfilled" && !locsRes.value.error)
-            setLocations((locsRes.value.data ?? []) as InstructionLocation[]);
-          if (issuesRes.status === "fulfilled" && !issuesRes.value.error)
-            setLocationIssues((issuesRes.value.data ?? []) as LocationIssue[]);
-          if (resRes.status === "fulfilled" && !resRes.value.error)
-            setLocationReservations((resRes.value.data ?? []) as LocationReservation[]);
-        } catch { /* silently ignore */ }
+          if (locsRes.status === "fulfilled") {
+            if (locsRes.value.error) console.warn("⚠️ instruction_locations:", locsRes.value.error.message);
+            else setLocations((locsRes.value.data ?? []) as InstructionLocation[]);
+          }
+          if (issuesRes.status === "fulfilled") {
+            if (issuesRes.value.error) console.warn("⚠️ location_issues:", issuesRes.value.error.message);
+            else setLocationIssues((issuesRes.value.data ?? []) as LocationIssue[]);
+          }
+          if (resRes.status === "fulfilled") {
+            if (resRes.value.error) console.warn("⚠️ location_reservations:", resRes.value.error.message);
+            else setLocationReservations((resRes.value.data ?? []) as LocationReservation[]);
+          }
+        } catch (e: any) { console.warn("⚠️ Erro ao carregar locais:", e?.message); }
 
       } catch (err) {
         console.error("❌ Erro crítico ao carregar dados estáticos:", err);
