@@ -177,7 +177,7 @@ export const SAPWorkspace = () => {
   const { userProfile } = useAuth();
   const isDark = theme === "dark";
 
-  const { changeRequests, disciplines } = useCourseStore();
+  const { changeRequests, disciplines, updateChangeRequest } = useCourseStore();
 
   // SAP being edited
   const sap = useMemo(
@@ -447,6 +447,11 @@ export const SAPWorkspace = () => {
   const activeChanges = changes.filter((c) => !c.reverted);
   const canApply = sap?.status === "APROVADA" && activeChanges.length > 0 && !applying;
 
+  const handleStatusChange = useCallback(async (newStatus: string) => {
+    if (!sap || !userProfile) return;
+    await updateChangeRequest(sap.id, { status: newStatus as any }, userProfile.uid);
+  }, [sap, userProfile, updateChangeRequest]);
+
   const bg       = isDark ? "bg-slate-950"    : "bg-slate-50";
   const cardBg   = isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200";
   const headerBg = isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200";
@@ -487,9 +492,17 @@ export const SAPWorkspace = () => {
               <span className={`text-sm font-bold truncate ${isDark ? "text-slate-100" : "text-slate-900"}`}>
                 {sap.numeroAlteracao}
               </span>
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${STATUS_BG[sap.status] ?? ""}`}>
-                {sap.status}
-              </span>
+              <select
+                value={sap.status}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                disabled={sap.status === "EXECUTADA"}
+                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border-0 outline-none cursor-pointer disabled:cursor-default ${STATUS_BG[sap.status] ?? ""}`}
+              >
+                <option value="PENDENTE">PENDENTE</option>
+                <option value="APROVADA">APROVADA</option>
+                <option value="REJEITADA">REJEITADA</option>
+                <option value="EXECUTADA" disabled>EXECUTADA</option>
+              </select>
               <span className={`hidden sm:inline text-xs truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                 {sap.motivo}
               </span>
