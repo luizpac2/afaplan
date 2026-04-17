@@ -35,15 +35,18 @@ async function contentFn(action: string, payload: Record<string, unknown>): Prom
     body: { action, ...payload },
   });
   if (error) {
-    // Tenta extrair mensagem do corpo da resposta
     const context = (error as any).context;
     if (context && typeof context.json === "function") {
       try {
         const body = await context.json();
-        console.error(`[contentFn:${action}] HTTP error body:`, body);
+        console.error(`[contentFn:${action}] HTTP error body:`, JSON.stringify(body));
         throw new Error(body?.error ?? error.message);
-      } catch (parseErr) { /* ignora */ }
+      } catch (parseErr: any) {
+        // Se o throw acima escapou, re-throw
+        if (parseErr?.message && parseErr.message !== "body used already") throw parseErr;
+      }
     }
+    console.error(`[contentFn:${action}] error:`, error.message ?? error);
     throw error;
   }
   if (data?.error) throw new Error(data.error);
