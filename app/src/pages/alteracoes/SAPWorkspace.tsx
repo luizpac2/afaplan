@@ -624,13 +624,14 @@ export const SAPWorkspace = () => {
                         handleDrop(e, cellDate, slot.start);
                       }}
                       onClick={() => {
-                        if (cellEvents.length === 0) {
+                        const realEvents = cellEvents.filter((e) => !(e as any)._ghost);
+                        if (realEvents.length === 0) {
                           setAddModal({ date: cellDate, slotStart: slot.start });
                         }
                       }}
                     >
-                      {cellEvents.length === 0 && (
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      {cellEvents.filter((e) => !(e as any)._ghost).length === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                           <Plus size={12} className={isDark ? "text-slate-600" : "text-slate-300"} />
                         </div>
                       )}
