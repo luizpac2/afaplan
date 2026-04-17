@@ -27,6 +27,7 @@ import {
   Palette,
   FileEdit,
   ClipboardList,
+  GitBranch,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -98,6 +99,14 @@ const MENU_ITEMS: MenuItem[] = [
     ],
   },
   {
+    title: "ALTERAÇÕES",
+    icon: GitBranch,
+    roles: ["SUPER_ADMIN", "ADMIN"],
+    submenu: [
+      { title: "Lista de SAPs", path: "/change-requests", icon: FileEdit },
+    ],
+  },
+  {
     title: "PLANEJAMENTO",
     icon: Layers,
     roles: ["SUPER_ADMIN", "ADMIN"],
@@ -111,7 +120,6 @@ const MENU_ITEMS: MenuItem[] = [
           { title: "Bloqueios", path: "/academic-calendar" },
         ],
       },
-      { title: "Alterações (SAP)", path: "/change-requests", icon: FileEdit },
       {
         title: "Disciplinas",
         icon: BookOpen,
