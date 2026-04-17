@@ -400,5 +400,74 @@ Deno.serve(async (req) => {
     return ok({ success: true });
   }
 
+  // ── instruction_locations CRUD ──────────────────────────────────────────────
+  if (action === "save_location") {
+    const { location } = body;
+    if (!location) return err("location required");
+    const { id, ...rest } = location as Record<string, unknown>;
+    if (id) {
+      const { error } = await adminClient.from("instruction_locations").update(rest).eq("id", id);
+      if (error) return err(error.message, 500);
+    } else {
+      const { error } = await adminClient.from("instruction_locations").insert(rest);
+      if (error) return err(error.message, 500);
+    }
+    return ok({ success: true });
+  }
+
+  if (action === "delete_location") {
+    const { id } = body;
+    if (!id) return err("id required");
+    const { error } = await adminClient.from("instruction_locations").delete().eq("id", id as string);
+    if (error) return err(error.message, 500);
+    return ok({ success: true });
+  }
+
+  // ── location_issues CRUD ────────────────────────────────────────────────────
+  if (action === "save_issue") {
+    const { issue } = body;
+    if (!issue) return err("issue required");
+    const { id, ...rest } = issue as Record<string, unknown>;
+    if (id) {
+      const { error } = await adminClient.from("location_issues").update(rest).eq("id", id);
+      if (error) return err(error.message, 500);
+    } else {
+      const { error } = await adminClient.from("location_issues").insert({ ...rest, created_by: user.id });
+      if (error) return err(error.message, 500);
+    }
+    return ok({ success: true });
+  }
+
+  if (action === "delete_issue") {
+    const { id } = body;
+    if (!id) return err("id required");
+    const { error } = await adminClient.from("location_issues").delete().eq("id", id as string);
+    if (error) return err(error.message, 500);
+    return ok({ success: true });
+  }
+
+  // ── location_reservations CRUD ───────────────────────────────────────────────
+  if (action === "save_reservation") {
+    const { reservation } = body;
+    if (!reservation) return err("reservation required");
+    const { id, ...rest } = reservation as Record<string, unknown>;
+    if (id) {
+      const { error } = await adminClient.from("location_reservations").update(rest).eq("id", id);
+      if (error) return err(error.message, 500);
+    } else {
+      const { error } = await adminClient.from("location_reservations").insert({ ...rest, created_by: user.id });
+      if (error) return err(error.message, 500);
+    }
+    return ok({ success: true });
+  }
+
+  if (action === "delete_reservation") {
+    const { id } = body;
+    if (!id) return err("id required");
+    const { error } = await adminClient.from("location_reservations").delete().eq("id", id as string);
+    if (error) return err(error.message, 500);
+    return ok({ success: true });
+  }
+
   return err("Unknown action");
 });

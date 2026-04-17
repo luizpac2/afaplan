@@ -257,6 +257,50 @@ export interface Message {
   senderDetail?: string; // Extra info like Squadron for Cadets
 }
 
+// ── Locais de Instrução ──────────────────────────────────────────────────────
+
+export type LocationType = "SALA" | "AUDITORIO" | "LABORATORIO" | "GINASIO" | "AREA_EXTERNA" | "OUTRO";
+
+export interface InstructionLocation {
+  id: string;
+  name: string;
+  type: LocationType;
+  capacity: number;
+  equipment: string[]; // e.g. ["Projetor", "Ar condicionado"]
+  status: "ATIVO" | "INATIVO";
+  notes?: string;
+  observationLog?: Array<{ date: string; text: string; author: string }>;
+  createdAt: string;
+}
+
+export type IssueSeverity = "BAIXA" | "MEDIA" | "ALTA" | "CRITICA";
+export type IssueStatus = "ABERTA" | "EM_ANDAMENTO" | "RESOLVIDA";
+
+export interface LocationIssue {
+  id: string;
+  locationId: string;
+  date: string; // ISO YYYY-MM-DD
+  description: string;
+  severity: IssueSeverity;
+  status: IssueStatus;
+  resolution?: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface LocationReservation {
+  id: string;
+  locationId: string;
+  date: string; // ISO YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  eventId?: string; // linked ScheduleEvent
+  classId?: string; // e.g. "2A"
+  label?: string; // free text for non-event reservations
+  createdAt: string;
+  createdBy: string;
+}
+
 export type MessageGroup =
   | "ADMINS"
   | "INSTRUCTORS"

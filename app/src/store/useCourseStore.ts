@@ -11,6 +11,9 @@ import type {
   InstructorOccurrence,
   SemesterConfig,
   ScheduleChangeRequest,
+  InstructionLocation,
+  LocationIssue,
+  LocationReservation,
 } from "../types";
 import { logAction, getEntityName } from "../utils/auditLogger";
 import {
@@ -157,6 +160,22 @@ interface CourseState {
   // Flag que sinaliza quando o getDocs inicial dos dados estáticos concluiu
   dataReady: boolean;
   setDataReady: (ready: boolean) => void;
+
+  // ── Locais de Instrução ────────────────────────────────────────────────────
+  locations: InstructionLocation[];
+  locationIssues: LocationIssue[];
+  locationReservations: LocationReservation[];
+  setLocations: (locations: InstructionLocation[]) => void;
+  setLocationIssues: (issues: LocationIssue[]) => void;
+  setLocationReservations: (reservations: LocationReservation[]) => void;
+  addLocation: (location: InstructionLocation) => Promise<void>;
+  updateLocation: (id: string, updates: Partial<InstructionLocation>) => Promise<void>;
+  deleteLocation: (id: string) => Promise<void>;
+  addLocationIssue: (issue: Omit<LocationIssue, "id" | "createdAt" | "createdBy">) => Promise<void>;
+  updateLocationIssue: (id: string, updates: Partial<LocationIssue>) => Promise<void>;
+  deleteLocationIssue: (id: string) => Promise<void>;
+  addLocationReservation: (reservation: Omit<LocationReservation, "id" | "createdAt" | "createdBy">) => Promise<void>;
+  deleteLocationReservation: (id: string) => Promise<void>;
 }
 
 // Invalida o cache de eventos no localStorage ao escrever/deletar (chamado nos mutators)
@@ -206,6 +225,9 @@ export const useCourseStore = create<CourseState>((set) => ({
       occurrences: [],
       semesterConfigs: [],
       changeRequests: [],
+      locations: [],
+      locationIssues: [],
+      locationReservations: [],
       dataReady: false,
     }),
 
@@ -1476,5 +1498,58 @@ export const useCourseStore = create<CourseState>((set) => ({
     } finally {
       delete ongoingWeeklyRequests[cacheKey];
     }
+  },
+
+  // ── Locais de Instrução ──────────────────────────────────────────────────────
+  locations: [],
+  locationIssues: [],
+  locationReservations: [],
+
+  setLocations: (locs: InstructionLocation[]) => set({ locations: locs }),
+  setLocationIssues: (issues: LocationIssue[]) => set({ locationIssues: issues }),
+  setLocationReservations: (reservations: LocationReservation[]) => set({ locationReservations: reservations }),
+
+  addLocation: async (location: InstructionLocation) => {
+    set((s: CourseState) => ({ locations: [...s.locations, location] }));
+    await contentFn("save_location", { location });
+  },
+
+  updateLocation: async (id: string, updates: Partial<InstructionLocation>) => {
+    set((s: CourseState) => ({ locations: s.locations.map((l: InstructionLocation) => l.id === id ? { ...l, ...updates } : l) }));
+    const loc = useCourseStore.getState().locations.find((l: InstructionLocation) => l.id === id);
+    if (loc) await contentFn("save_location", { location: loc });
+  },
+
+  deleteLocation: async (id: string) => {
+    set((s: CourseState) => ({ locations: s.locations.filter((l: InstructionLocation) => l.id !== id) }));
+    await contentFn("delete_location", { id });
+  },
+
+  addLocationIssue: async (issue: Omit<LocationIssue, "id" | "createdAt" | "createdBy">) => {
+    const newIssue: LocationIssue = { ...issue, id: crypto.randomUUID(), createdAt: new Date().toISOString(), createdBy: "" };
+    set((s: CourseState) => ({ locationIssues: [...s.locationIssues, newIssue] }));
+    await contentFn("save_issue", { issue: newIssue });
+  },
+
+  updateLocationIssue: async (id: string, updates: Partial<LocationIssue>) => {
+    set((s: CourseState) => ({ locationIssues: s.locationIssues.map((i: LocationIssue) => i.id === id ? { ...i, ...updates } : i) }));
+    const issue = useCourseStore.getState().locationIssues.find((i: LocationIssue) => i.id === id);
+    if (issue) await contentFn("save_issue", { issue });
+  },
+
+  deleteLocationIssue: async (id: string) => {
+    set((s: CourseState) => ({ locationIssues: s.locationIssues.filter((i: LocationIssue) => i.id !== id) }));
+    await contentFn("delete_issue", { id });
+  },
+
+  addLocationReservation: async (reservation: Omit<LocationReservation, "id" | "createdAt" | "createdBy">) => {
+    const newRes: LocationReservation = { ...reservation, id: crypto.randomUUID(), createdAt: new Date().toISOString(), createdBy: "" };
+    set((s: CourseState) => ({ locationReservations: [...s.locationReservations, newRes] }));
+    await contentFn("save_reservation", { reservation: newRes });
+  },
+
+  deleteLocationReservation: async (id: string) => {
+    set((s: CourseState) => ({ locationReservations: s.locationReservations.filter((r: LocationReservation) => r.id !== id) }));
+    await contentFn("delete_reservation", { id });
   },
 }));

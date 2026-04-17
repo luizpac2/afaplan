@@ -27,7 +27,8 @@ import {
   Palette,
   FileEdit,
   ClipboardList,
-  GitBranch,
+  MapPin,
+  Grid,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -91,19 +92,20 @@ const MENU_ITEMS: MenuItem[] = [
     ],
   },
   {
+    title: "LOCAIS",
+    icon: MapPin,
+    roles: ["SUPER_ADMIN", "ADMIN"],
+    submenu: [
+      { title: "Gestão de Locais", path: "/locais", icon: MapPin },
+      { title: "Grade de Ocupação", path: "/locais-grid", icon: Grid },
+    ],
+  },
+  {
     title: "DOCENTE",
     icon: UserCheck,
     roles: ["SUPER_ADMIN", "ADMIN", "DOCENTE"],
     submenu: [
       { title: "Relatórios", path: "/instructor-report", icon: FileText },
-    ],
-  },
-  {
-    title: "ALTERAÇÕES",
-    icon: GitBranch,
-    roles: ["SUPER_ADMIN", "ADMIN"],
-    submenu: [
-      { title: "Lista de SAPs", path: "/change-requests", icon: FileEdit },
     ],
   },
   {
@@ -120,6 +122,7 @@ const MENU_ITEMS: MenuItem[] = [
           { title: "Bloqueios", path: "/academic-calendar" },
         ],
       },
+      { title: "Alterações (SAP)", path: "/change-requests", icon: FileEdit },
       {
         title: "Disciplinas",
         icon: BookOpen,
@@ -155,15 +158,6 @@ const MENU_ITEMS: MenuItem[] = [
           { title: "Otimização", path: "/monthly-optimization" },
         ],
       },
-    ],
-  },
-  {
-    title: "INSTRUÇÃO AÉREA",
-    icon: Plane,
-    roles: ["SUPER_ADMIN", "ADMIN"],
-    submenu: [
-      { title: "Dias de Voo", path: "/flight-calendar", icon: CalendarIcon },
-      { title: "Painel", path: "/flight-dashboard", icon: BarChart3 },
     ],
   },
   {

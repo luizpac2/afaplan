@@ -5,6 +5,7 @@ import {
   fetchCollectionCached,
   subscribeToCollection,
 } from "../services/supabaseService";
+import { supabase } from "../config/supabase";
 import type {
   Discipline,
   CourseClass,
@@ -15,6 +16,9 @@ import type {
   InstructorOccurrence,
   SemesterConfig,
   ScheduleChangeRequest,
+  InstructionLocation,
+  LocationIssue,
+  LocationReservation,
 } from "../types";
 
 /**
@@ -35,6 +39,9 @@ export const SupabaseSync = () => {
     setOccurrences,
     setSemesterConfigs,
     setChangeRequests,
+    setLocations,
+    setLocationIssues,
+    setLocationReservations,
     setDataReady,
   } = useCourseStore();
 
@@ -67,9 +74,6 @@ export const SupabaseSync = () => {
         ] = results;
 
         if (disciplines.status === "fulfilled") {
-          // O campo `data` é um JSONB que armazena enabledCourses, enabledYears,
-          // ppcLoads, trainingField, location — expande para o nível raiz.
-          // Também suporta fallbacks PT/EN para compatibilidade.
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const expanded = (disciplines.value as any[]).map((d) => ({
             ...d,
@@ -123,7 +127,6 @@ export const SupabaseSync = () => {
           // Busca vínculos docente↔disciplina da tabela docente_disciplinas
           const ddMap: Record<string, string[]> = {};
           try {
-            const { supabase } = await import("../config/supabase");
             const { data: ddRows } = await supabase
               .from("docente_disciplinas")
               .select("docente_id, disciplina_id");
@@ -141,7 +144,6 @@ export const SupabaseSync = () => {
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const mapped = (instructors.value as any[]).map((i) => {
-            // enabledDisciplines: docente_disciplinas usa trigram como docente_id
             const rawDisciplines: string[] = ddMap[i.trigram] || ddMap[i.id] || i.data?.enabledDisciplines || i.enabledDisciplines || [];
             const normalizedDisciplines = rawDisciplines.map((ref: string) => {
               const byId = disciplinesList.find((d: any) => d.id === ref);
@@ -197,6 +199,21 @@ export const SupabaseSync = () => {
           setChangeRequests(changeRequests.value as ScheduleChangeRequest[]);
         else
           console.warn("⚠️ Falha ao carregar schedule_change_requests:", changeRequests.reason);
+
+        // Locais de instrução — sem cache (dados pequenos, precisam ser frescos)
+        try {
+          const [locsRes, issuesRes, resRes] = await Promise.allSettled([
+            supabase.from("instruction_locations").select("*").order("name"),
+            supabase.from("location_issues").select("*").order("date", { ascending: false }),
+            supabase.from("location_reservations").select("*").order("date"),
+          ]);
+          if (locsRes.status === "fulfilled" && !locsRes.value.error)
+            setLocations((locsRes.value.data ?? []) as InstructionLocation[]);
+          if (issuesRes.status === "fulfilled" && !issuesRes.value.error)
+            setLocationIssues((issuesRes.value.data ?? []) as LocationIssue[]);
+          if (resRes.status === "fulfilled" && !resRes.value.error)
+            setLocationReservations((resRes.value.data ?? []) as LocationReservation[]);
+        } catch { /* silently ignore */ }
 
       } catch (err) {
         console.error("❌ Erro crítico ao carregar dados estáticos:", err);

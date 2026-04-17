@@ -41,7 +41,6 @@ const NoticeManager = lazy(() => import("./pages/admin/NoticeManager").then(m =>
 const VisualEditor = lazy(() => import("./pages/admin/VisualEditor").then(m => ({ default: m.VisualEditor })));
 const AcademicCalendar = lazy(() => import("./pages/admin/AcademicCalendar").then(m => ({ default: m.AcademicCalendar })));
 const ChangeRequestsPage = lazy(() => import("./pages/admin/ChangeRequestsPage").then(m => ({ default: m.ChangeRequestsPage })));
-const SAPWorkspace = lazy(() => import("./pages/alteracoes/SAPWorkspace").then(m => ({ default: m.SAPWorkspace })));
 const ChefeTurmaAdmin = lazy(() => import("./pages/admin/ChefeTurmaAdmin").then(m => ({ default: m.ChefeTurmaAdmin })));
 const ChefeTurmaLancamento = lazy(() => import("./pages/ChefeTurmaLancamento").then(m => ({ default: m.ChefeTurmaLancamento })));
 const FaltasReport = lazy(() => import("./pages/FaltasReport").then(m => ({ default: m.FaltasReport })));
@@ -50,8 +49,8 @@ const GanttProgramming = lazy(() => import("./pages/GanttProgramming").then(m =>
 const AcademicGantt    = lazy(() => import("./pages/AcademicGantt").then(m => ({ default: m.AcademicGantt })));
 const DisciplineGantt  = lazy(() => import("./pages/DisciplineGantt").then(m => ({ default: m.DisciplineGantt })));
 const DisciplinePanel  = lazy(() => import("./pages/DisciplinePanel").then(m => ({ default: m.DisciplinePanel })));
-const FlightCalendar = lazy(() => import("./pages/FlightCalendar").then(m => ({ default: m.FlightCalendar })));
-const FlightDashboard = lazy(() => import("./pages/FlightDashboard").then(m => ({ default: m.FlightDashboard })));
+const Locais           = lazy(() => import("./pages/Locais"));
+const LocaisGrid       = lazy(() => import("./pages/LocaisGrid"));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center h-64">
@@ -248,16 +247,6 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
-                  <Route
-                    path="change-requests/:sapId"
-                    element={
-                      <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
-                      >
-                        <SAPWorkspace />
-                      </ProtectedRoute>
-                    }
-                  />
 
                   {/* DASHBOARD DISCIPLINAS */}
                   <Route
@@ -360,29 +349,29 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
-
-                  {/* INSTRUÇÃO AÉREA */}
-                  <Route
-                    path="flight-calendar"
-                    element={
-                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
-                        <FlightCalendar />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="flight-dashboard"
-                    element={
-                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
-                        <FlightDashboard />
-                      </ProtectedRoute>
-                    }
-                  />
                   <Route
                     path="chefe-turma-admin"
                     element={
                       <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
                         <ChefeTurmaAdmin />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* LOCAIS DE INSTRUÇÃO */}
+                  <Route
+                    path="locais"
+                    element={
+                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                        <Locais />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="locais-grid"
+                    element={
+                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                        <LocaisGrid />
                       </ProtectedRoute>
                     }
                   />
