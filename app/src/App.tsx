@@ -41,6 +41,7 @@ const NoticeManager = lazy(() => import("./pages/admin/NoticeManager").then(m =>
 const VisualEditor = lazy(() => import("./pages/admin/VisualEditor").then(m => ({ default: m.VisualEditor })));
 const AcademicCalendar = lazy(() => import("./pages/admin/AcademicCalendar").then(m => ({ default: m.AcademicCalendar })));
 const ChangeRequestsPage = lazy(() => import("./pages/admin/ChangeRequestsPage").then(m => ({ default: m.ChangeRequestsPage })));
+const SAPWorkspace = lazy(() => import("./pages/alteracoes/SAPWorkspace").then(m => ({ default: m.SAPWorkspace })));
 const ChefeTurmaAdmin = lazy(() => import("./pages/admin/ChefeTurmaAdmin").then(m => ({ default: m.ChefeTurmaAdmin })));
 const ChefeTurmaLancamento = lazy(() => import("./pages/ChefeTurmaLancamento").then(m => ({ default: m.ChefeTurmaLancamento })));
 const FaltasReport = lazy(() => import("./pages/FaltasReport").then(m => ({ default: m.FaltasReport })));
@@ -244,6 +245,16 @@ function App() {
                         allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <ChangeRequestsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="change-requests/:sapId"
+                    element={
+                      <ProtectedRoute
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
+                      >
+                        <SAPWorkspace />
                       </ProtectedRoute>
                     }
                   />

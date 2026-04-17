@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FileEdit,
   Plus,
@@ -10,6 +11,7 @@ import {
   FileDown,
   Download,
   Calendar,
+  GitBranch,
 } from "lucide-react";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -30,6 +32,7 @@ const STATUS_STYLES: Record<ChangeRequestStatus, string> = {
 export const ChangeRequestsPage = () => {
   const { theme } = useTheme();
   const { userProfile } = useAuth();
+  const navigate = useNavigate();
   const { changeRequests, deleteChangeRequest } = useCourseStore();
   const [showModal, setShowModal] = useState(false);
   const [editingRequest, setEditingRequest] =
@@ -278,6 +281,16 @@ export const ChangeRequestsPage = () => {
                   </p>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
+                  {canEdit && req.status !== "REJEITADA" && (
+                    <button
+                      onClick={() => navigate(`/change-requests/${req.id}`)}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${theme === "dark" ? "bg-amber-900/30 text-amber-400 hover:bg-amber-900/50" : "bg-amber-50 text-amber-700 hover:bg-amber-100"}`}
+                      title="Abrir workspace de simulação"
+                    >
+                      <GitBranch size={13} />
+                      Simular
+                    </button>
+                  )}
                   <button
                     onClick={() =>
                       setExpandedId(expandedId === req.id ? null : req.id)
