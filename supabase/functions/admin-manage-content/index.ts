@@ -404,12 +404,21 @@ Deno.serve(async (req) => {
   if (action === "save_location") {
     const { location } = body;
     if (!location) return err("location required");
-    const { id, ...rest } = location as Record<string, unknown>;
-    if (id) {
-      const { error } = await adminClient.from("instruction_locations").update(rest).eq("id", id);
+    const l = location as Record<string, unknown>;
+    const row: Record<string, unknown> = {
+      name:             l.name,
+      type:             l.type,
+      capacity:         l.capacity,
+      equipment:        l.equipment ?? [],
+      status:           l.status ?? "ATIVO",
+      notes:            l.notes ?? null,
+      observation_log:  l.observationLog ?? l.observation_log ?? [],
+    };
+    if (l.id) {
+      const { error } = await adminClient.from("instruction_locations").update(row).eq("id", l.id as string);
       if (error) return err(error.message, 500);
     } else {
-      const { error } = await adminClient.from("instruction_locations").insert(rest);
+      const { error } = await adminClient.from("instruction_locations").insert(row);
       if (error) return err(error.message, 500);
     }
     return ok({ success: true });
@@ -427,12 +436,21 @@ Deno.serve(async (req) => {
   if (action === "save_issue") {
     const { issue } = body;
     if (!issue) return err("issue required");
-    const { id, ...rest } = issue as Record<string, unknown>;
-    if (id) {
-      const { error } = await adminClient.from("location_issues").update(rest).eq("id", id);
+    const i = issue as Record<string, unknown>;
+    const row: Record<string, unknown> = {
+      location_id:  i.locationId ?? i.location_id,
+      date:         i.date,
+      description:  i.description,
+      severity:     i.severity ?? "MEDIA",
+      status:       i.status ?? "ABERTA",
+      resolution:   i.resolution ?? null,
+      created_by:   user.id,
+    };
+    if (i.id) {
+      const { error } = await adminClient.from("location_issues").update(row).eq("id", i.id as string);
       if (error) return err(error.message, 500);
     } else {
-      const { error } = await adminClient.from("location_issues").insert({ ...rest, created_by: user.id });
+      const { error } = await adminClient.from("location_issues").insert(row);
       if (error) return err(error.message, 500);
     }
     return ok({ success: true });
@@ -450,12 +468,22 @@ Deno.serve(async (req) => {
   if (action === "save_reservation") {
     const { reservation } = body;
     if (!reservation) return err("reservation required");
-    const { id, ...rest } = reservation as Record<string, unknown>;
-    if (id) {
-      const { error } = await adminClient.from("location_reservations").update(rest).eq("id", id);
+    const r = reservation as Record<string, unknown>;
+    const row: Record<string, unknown> = {
+      location_id: r.locationId ?? r.location_id,
+      date:        r.date,
+      start_time:  r.startTime ?? r.start_time,
+      end_time:    r.endTime   ?? r.end_time,
+      event_id:    r.eventId   ?? r.event_id   ?? null,
+      class_id:    r.classId   ?? r.class_id   ?? null,
+      label:       r.label     ?? null,
+      created_by:  user.id,
+    };
+    if (r.id) {
+      const { error } = await adminClient.from("location_reservations").update(row).eq("id", r.id as string);
       if (error) return err(error.message, 500);
     } else {
-      const { error } = await adminClient.from("location_reservations").insert({ ...rest, created_by: user.id });
+      const { error } = await adminClient.from("location_reservations").insert(row);
       if (error) return err(error.message, 500);
     }
     return ok({ success: true });
