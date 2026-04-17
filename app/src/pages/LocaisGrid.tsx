@@ -33,7 +33,7 @@ export default function LocaisGrid() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const { locations, locationReservations, events, classes, addLocationReservation, deleteLocationReservation } = useCourseStore();
+  const { locations, locationReservations, events, classes, disciplines, addLocationReservation, deleteLocationReservation } = useCourseStore();
 
   const [weekBase, setWeekBase] = useState(() => {
     const d = new Date();
@@ -61,11 +61,23 @@ export default function LocaisGrid() {
     [locationReservations, weekStart, weekEnd],
   );
 
-  // Eventos programados da semana (para referência de turma)
+  // Eventos programados da semana com local preenchido
   const weekEvents = useMemo(
-    () => events.filter((e) => e.date >= weekStart && e.date <= weekEnd),
+    () => events.filter((e) => e.date >= weekStart && e.date <= weekEnd && !!e.location?.trim()),
     [events, weekStart, weekEnd],
   );
+
+  // Helpers
+  function getDisciplineName(disciplineId?: string) {
+    if (!disciplineId) return null;
+    const d = disciplines.find((x) => x.id === disciplineId || x.code === disciplineId);
+    return d?.name ?? d?.code ?? null;
+  }
+  function getClassName(classId?: string) {
+    if (!classId) return null;
+    const c = classes.find((x) => x.id === classId);
+    return c ? `${c.year}º ${c.name}` : classId;
+  }
 
   // Capacidade: para cada local+slot, quantidade de alunos da turma alocada
   function getStudentCount(classId: string) {
@@ -194,18 +206,23 @@ export default function LocaisGrid() {
                       </td>
                       {weekDates.map((d, di) => {
                         const dateStr = toISO(d);
-                        // Find reservation for this slot
+                        // Reserva manual para este slot
                         const res = locReservations.find(
                           (r) => r.date === dateStr && r.startTime === slot.start
                         );
-                        // Find event that uses this location at this slot (indicativo)
-                        const matchEvent = !res ? weekEvents.find(
-                          (e) => e.date === dateStr && e.startTime === slot.start && e.location === loc.name
-                        ) : null;
+                        // Eventos do Gantt que usam este local neste slot (comparação case-insensitive)
+                        const locNameLower = loc.name.trim().toLowerCase();
+                        const ganttEvents = weekEvents.filter(
+                          (e) =>
+                            e.date === dateStr &&
+                            e.startTime === slot.start &&
+                            e.location!.trim().toLowerCase() === locNameLower
+                        );
 
                         const studentCount = res?.classId ? getStudentCount(res.classId) : null;
                         const overCapacity = studentCount != null && studentCount > loc.capacity;
 
+                        // Reserva manual — prioridade
                         if (res) {
                           return (
                             <td key={di} className={`px-1 py-0.5 border-r ${borderC} relative`}>
@@ -218,7 +235,7 @@ export default function LocaisGrid() {
                               >
                                 <div className="min-w-0 flex-1">
                                   <p className={`font-bold truncate text-[10px] ${overCapacity ? "text-red-400" : "text-blue-400"}`}>
-                                    {res.classId || res.label || "Reservado"}
+                                    {res.classId ? getClassName(res.classId) : (res.label || "Reservado")}
                                   </p>
                                   {overCapacity && studentCount != null && (
                                     <p className="text-[9px] text-red-400">⚠ {studentCount}/{loc.capacity}</p>
@@ -234,17 +251,29 @@ export default function LocaisGrid() {
                           );
                         }
 
-                        if (matchEvent) {
+                        // Eventos do Gantt neste local/slot
+                        if (ganttEvents.length > 0) {
                           return (
                             <td key={di} className={`px-1 py-0.5 border-r ${borderC}`}>
-                              <div className="rounded px-1 py-0.5 bg-slate-500/10 border border-slate-500/30">
-                                <p className={`font-medium truncate text-[10px] ${muted}`}>{matchEvent.classId}</p>
+                              <div className="flex flex-col gap-0.5">
+                                {ganttEvents.map((ev) => {
+                                  const discName = getDisciplineName(ev.disciplineId);
+                                  const clsName  = getClassName(ev.classId);
+                                  return (
+                                    <div key={ev.id} className="rounded px-1 py-0.5 bg-emerald-600/15 border border-emerald-600/40">
+                                      {discName && (
+                                        <p className="font-bold truncate text-[10px] text-emerald-400">{discName}</p>
+                                      )}
+                                      <p className={`truncate text-[9px] ${muted}`}>{clsName}</p>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </td>
                           );
                         }
 
-                        // Empty — click to reserve
+                        // Vazio — clique para reservar
                         return (
                           <td
                             key={di}
