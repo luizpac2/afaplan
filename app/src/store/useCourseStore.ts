@@ -1515,44 +1515,52 @@ export const useCourseStore = create<CourseState>((set) => ({
   addLocation: async (location: InstructionLocation) => {
     set((s: CourseState) => ({ locations: [...s.locations, location] }));
     await contentFn("save_location", { location });
+    invalidateStaticCache("instruction_locations");
   },
 
   updateLocation: async (id: string, updates: Partial<InstructionLocation>) => {
     set((s: CourseState) => ({ locations: s.locations.map((l: InstructionLocation) => l.id === id ? { ...l, ...updates } : l) }));
     const loc = useCourseStore.getState().locations.find((l: InstructionLocation) => l.id === id);
     if (loc) await contentFn("save_location", { location: loc });
+    invalidateStaticCache("instruction_locations");
   },
 
   deleteLocation: async (id: string) => {
     set((s: CourseState) => ({ locations: s.locations.filter((l: InstructionLocation) => l.id !== id) }));
     await contentFn("delete_location", { id });
+    invalidateStaticCache("instruction_locations");
   },
 
   addLocationIssue: async (issue: Omit<LocationIssue, "id" | "createdAt" | "createdBy">) => {
     const newIssue: LocationIssue = { ...issue, id: crypto.randomUUID(), createdAt: new Date().toISOString(), createdBy: "" };
     set((s: CourseState) => ({ locationIssues: [...s.locationIssues, newIssue] }));
     await contentFn("save_issue", { issue: newIssue });
+    invalidateStaticCache("location_issues");
   },
 
   updateLocationIssue: async (id: string, updates: Partial<LocationIssue>) => {
     set((s: CourseState) => ({ locationIssues: s.locationIssues.map((i: LocationIssue) => i.id === id ? { ...i, ...updates } : i) }));
     const issue = useCourseStore.getState().locationIssues.find((i: LocationIssue) => i.id === id);
     if (issue) await contentFn("save_issue", { issue });
+    invalidateStaticCache("location_issues");
   },
 
   deleteLocationIssue: async (id: string) => {
     set((s: CourseState) => ({ locationIssues: s.locationIssues.filter((i: LocationIssue) => i.id !== id) }));
     await contentFn("delete_issue", { id });
+    invalidateStaticCache("location_issues");
   },
 
   addLocationReservation: async (reservation: Omit<LocationReservation, "id" | "createdAt" | "createdBy">) => {
     const newRes: LocationReservation = { ...reservation, id: crypto.randomUUID(), createdAt: new Date().toISOString(), createdBy: "" };
     set((s: CourseState) => ({ locationReservations: [...s.locationReservations, newRes] }));
     await contentFn("save_reservation", { reservation: newRes });
+    invalidateStaticCache("location_reservations");
   },
 
   deleteLocationReservation: async (id: string) => {
     set((s: CourseState) => ({ locationReservations: s.locationReservations.filter((r: LocationReservation) => r.id !== id) }));
     await contentFn("delete_reservation", { id });
+    invalidateStaticCache("location_reservations");
   },
 }));

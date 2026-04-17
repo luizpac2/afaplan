@@ -16,6 +16,9 @@ export const TABLE_READ: Record<string, string> = {
   visual_configs:          "visual_configs",
   visualConfigs:           "visual_configs", // legado
   notices:                 "notices",
+  instruction_locations:   "instruction_locations",
+  location_issues:         "location_issues",
+  location_reservations:   "location_reservations",
 };
 
 /** Invalida o cache da tabela de leitura correspondente */

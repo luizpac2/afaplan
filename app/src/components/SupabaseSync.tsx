@@ -200,25 +200,34 @@ export const SupabaseSync = () => {
         else
           console.warn("⚠️ Falha ao carregar schedule_change_requests:", changeRequests.reason);
 
-        // Locais de instrução — sem cache (dados pequenos, precisam ser frescos)
+        // Locais de instrução — lidos via fetchCollectionCached (anon key + RLS authenticated)
         try {
-          const [locsRes, issuesRes, resRes] = await Promise.allSettled([
-            supabase.from("instruction_locations").select("*").order("name"),
-            supabase.from("location_issues").select("*").order("date", { ascending: false }),
-            supabase.from("location_reservations").select("*").order("date"),
+          const [locs, issues, reservations] = await Promise.all([
+            fetchCollectionCached("instruction_locations", 0.1), // TTL 6min — dados pequenos
+            fetchCollectionCached("location_issues", 0.1),
+            fetchCollectionCached("location_reservations", 0.1),
           ]);
-          if (locsRes.status === "fulfilled") {
-            if (locsRes.value.error) console.warn("⚠️ instruction_locations:", locsRes.value.error.message);
-            else setLocations((locsRes.value.data ?? []) as InstructionLocation[]);
-          }
-          if (issuesRes.status === "fulfilled") {
-            if (issuesRes.value.error) console.warn("⚠️ location_issues:", issuesRes.value.error.message);
-            else setLocationIssues((issuesRes.value.data ?? []) as LocationIssue[]);
-          }
-          if (resRes.status === "fulfilled") {
-            if (resRes.value.error) console.warn("⚠️ location_reservations:", resRes.value.error.message);
-            else setLocationReservations((resRes.value.data ?? []) as LocationReservation[]);
-          }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setLocations((locs as any[]).map((l) => ({
+            ...l,
+            observationLog: l.observation_log ?? l.observationLog ?? [],
+          })) as InstructionLocation[]);
+          setLocationIssues((issues as any[]).map((i) => ({
+            ...i,
+            locationId: i.location_id ?? i.locationId,
+            createdAt:  i.created_at  ?? i.createdAt,
+            createdBy:  i.created_by  ?? i.createdBy,
+          })) as LocationIssue[]);
+          setLocationReservations((reservations as any[]).map((r) => ({
+            ...r,
+            locationId: r.location_id ?? r.locationId,
+            startTime:  r.start_time  ?? r.startTime,
+            endTime:    r.end_time    ?? r.endTime,
+            eventId:    r.event_id    ?? r.eventId,
+            classId:    r.class_id    ?? r.classId,
+            createdAt:  r.created_at  ?? r.createdAt,
+            createdBy:  r.created_by  ?? r.createdBy,
+          })) as LocationReservation[]);
         } catch (e: any) { console.warn("⚠️ Erro ao carregar locais:", e?.message); }
 
       } catch (err) {
