@@ -116,11 +116,11 @@ export default function Locais() {
         const loc: InstructionLocation = {
           ...(emptyLocation()),
           ...editing,
-          id: crypto.randomUUID(),
+          id: "",
           createdAt: new Date().toISOString(),
         };
-        await addLocation(loc);
-        setSelectedId(loc.id);
+        const realId = await addLocation(loc);
+        setSelectedId(realId);
       } else {
         await updateLocation(editing.id!, editing);
       }

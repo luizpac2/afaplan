@@ -30,7 +30,7 @@ import { supabase } from "../config/supabase";
 import { TIME_SLOTS } from "../utils/constants";
 
 // ── Helper: chama admin-manage-content via edge function (service role) ───────
-async function contentFn(action: string, payload: Record<string, unknown>): Promise<void> {
+async function contentFn(action: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
   const { data, error } = await supabase.functions.invoke("admin-manage-content", {
     body: { action, ...payload },
   });
@@ -51,6 +51,7 @@ async function contentFn(action: string, payload: Record<string, unknown>): Prom
   }
   if (data?.error) throw new Error(data.error);
   console.log(`[contentFn:${action}] result:`, data);
+  return data ?? {};
 }
 
 interface CourseState {
@@ -171,7 +172,7 @@ interface CourseState {
   setLocations: (locations: InstructionLocation[]) => void;
   setLocationIssues: (issues: LocationIssue[]) => void;
   setLocationReservations: (reservations: LocationReservation[]) => void;
-  addLocation: (location: InstructionLocation) => Promise<void>;
+  addLocation: (location: InstructionLocation) => Promise<string>;
   updateLocation: (id: string, updates: Partial<InstructionLocation>) => Promise<void>;
   deleteLocation: (id: string) => Promise<void>;
   addLocationIssue: (issue: Omit<LocationIssue, "id" | "createdAt" | "createdBy">) => Promise<void>;
@@ -1512,10 +1513,15 @@ export const useCourseStore = create<CourseState>((set) => ({
   setLocationIssues: (issues: LocationIssue[]) => set({ locationIssues: issues }),
   setLocationReservations: (reservations: LocationReservation[]) => set({ locationReservations: reservations }),
 
-  addLocation: async (location: InstructionLocation) => {
-    set((s: CourseState) => ({ locations: [...s.locations, location] }));
-    await contentFn("save_location", { location });
+  addLocation: async (location: InstructionLocation): Promise<string> => {
+    // Não passa id — deixa o banco gerar para evitar update silencioso em row inexistente
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id: _frontendId, createdAt: _ca, ...locationWithoutId } = location;
+    const result = await contentFn("save_location", { location: locationWithoutId });
+    const realId = (result.id as string) ?? location.id;
+    set((s: CourseState) => ({ locations: [...s.locations, { ...location, id: realId }] }));
     invalidateStaticCache("instruction_locations");
+    return realId;
   },
 
   updateLocation: async (id: string, updates: Partial<InstructionLocation>) => {

@@ -414,14 +414,19 @@ Deno.serve(async (req) => {
       notes:            l.notes ?? null,
       observation_log:  l.observationLog ?? l.observation_log ?? [],
     };
-    if (l.id) row.id = l.id; // inclui id para upsert correto
-    const { error } = await adminClient.from("instruction_locations")
-      .upsert(row, { onConflict: "id", ignoreDuplicates: false });
-    if (error) {
-      console.error("save_location upsert error:", error.message);
-      return err(error.message, 500);
+    if (l.id) {
+      // UPDATE existente
+      const { error } = await adminClient.from("instruction_locations")
+        .update(row).eq("id", l.id as string);
+      if (error) { console.error("save_location update error:", error.message); return err(error.message, 500); }
+      return ok({ success: true, id: l.id });
+    } else {
+      // INSERT novo — banco gera o uuid
+      const { data, error } = await adminClient.from("instruction_locations")
+        .insert(row).select("id").single();
+      if (error) { console.error("save_location insert error:", error.message); return err(error.message, 500); }
+      return ok({ success: true, id: data.id });
     }
-    return ok({ success: true });
   }
 
   if (action === "delete_location") {
