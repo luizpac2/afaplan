@@ -1,45 +1,32 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Plane,
-  Loader2,
-  Check,
-  Minus,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Plane, Loader2, Check, Minus } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
 import type { FlightDay, AircraftType } from "../types";
-import {
-  toggleFlightDay,
-  subscribeToFlightDays,
-} from "../services/flightService";
+import { toggleFlightDay, subscribeToFlightDays } from "../services/flightService";
 
-const AIRCRAFT: { id: AircraftType; label: string; color: string; darkColor: string }[] = [
-  { id: "T-25", label: "T-25 Universal", color: "#2563eb", darkColor: "#3b82f6" },
-  { id: "T-27", label: "T-27 Tucano", color: "#059669", darkColor: "#34d399" },
+const AIRCRAFT: { id: AircraftType; label: string; color: string; darkColor: string; bg: string; darkBg: string }[] = [
+  { id: "T-25", label: "T-25", color: "#2563eb", darkColor: "#3b82f6", bg: "#2563eb18", darkBg: "#3b82f618" },
+  { id: "T-27", label: "T-27", color: "#059669", darkColor: "#34d399", bg: "#05966918", darkBg: "#34d39918" },
 ];
 
 const MONTHS = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
 ];
-
-const WEEKDAYS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+const WEEKDAYS = ["DOM","SEG","TER","QUA","QUI","SEX","SÁB"];
 
 export const FlightCalendar = () => {
   const { theme } = useTheme();
   const { userProfile } = useAuth();
   const isDark = theme === "dark";
 
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [currentYear, setCurrentYear]   = useState(new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const [selectedAircraft, setSelectedAircraft] = useState<AircraftType>("T-25");
-  const [flightDays, setFlightDays] = useState<FlightDay[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [toggling, setToggling] = useState<string | null>(null);
+  const [flightDays, setFlightDays]     = useState<FlightDay[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [toggling, setToggling]         = useState<string | null>(null); // "date|aircraft"
 
-  // Subscribe to flight days
   useEffect(() => {
     setLoading(true);
     const unsub = subscribeToFlightDays(currentYear, (data) => {
@@ -49,337 +36,214 @@ export const FlightCalendar = () => {
     return unsub;
   }, [currentYear]);
 
-  // Enabled dates set for current aircraft
-  const enabledDates = useMemo(() => {
-    const set = new Set<string>();
-    flightDays
-      .filter((d) => d.aircraft === selectedAircraft)
-      .forEach((d) => set.add(d.date));
-    return set;
-  }, [flightDays, selectedAircraft]);
+  const enabledSet = useMemo(() => {
+    const s = new Set<string>();
+    flightDays.forEach((d) => s.add(`${d.date}|${d.aircraft}`));
+    return s;
+  }, [flightDays]);
 
-  // Calendar grid for current month
   const calendarDays = useMemo(() => {
     const firstDay = new Date(currentYear, currentMonth, 1);
-    const lastDay = new Date(currentYear, currentMonth + 1, 0);
-    const startOffset = firstDay.getDay(); // 0=Sunday
-    const totalDays = lastDay.getDate();
-
+    const startOffset = firstDay.getDay();
+    const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
     const days: (number | null)[] = [];
     for (let i = 0; i < startOffset; i++) days.push(null);
     for (let d = 1; d <= totalDays; d++) days.push(d);
-    // Pad to fill last row
     while (days.length % 7 !== 0) days.push(null);
     return days;
   }, [currentYear, currentMonth]);
 
-  const handleToggle = useCallback(
-    async (day: number) => {
-      const monthStr = String(currentMonth + 1).padStart(2, "0");
-      const dayStr = String(day).padStart(2, "0");
-      const dateStr = `${currentYear}-${monthStr}-${dayStr}`;
+  const handleToggle = useCallback(async (day: number, aircraft: AircraftType) => {
+    const monthStr = String(currentMonth + 1).padStart(2, "0");
+    const dayStr   = String(day).padStart(2, "0");
+    const dateStr  = `${currentYear}-${monthStr}-${dayStr}`;
+    const dow      = new Date(currentYear, currentMonth, day).getDay();
+    if (dow === 0) return;
 
-      // Only Mon-Sat (0=Sun is excluded)
-      const dow = new Date(currentYear, currentMonth, day).getDay();
-      if (dow === 0) return;
+    const key       = `${dateStr}|${aircraft}`;
+    const isEnabled = enabledSet.has(key);
 
-      const isEnabled = enabledDates.has(dateStr);
+    // Optimistic
+    if (isEnabled) {
+      setFlightDays((p) => p.filter((d) => !(d.date === dateStr && d.aircraft === aircraft)));
+    } else {
+      setFlightDays((p) => [...p, { id: key, date: dateStr, aircraft, createdBy: userProfile?.uid ?? undefined }]);
+    }
 
-      // Optimistic update — Realtime não está habilitado neste projeto
+    setToggling(key);
+    try {
+      await toggleFlightDay(dateStr, aircraft, userProfile?.uid);
+    } catch (err) {
+      console.error("Failed to toggle flight day:", err);
+      // Revert
       if (isEnabled) {
-        setFlightDays((prev) =>
-          prev.filter((d) => !(d.date === dateStr && d.aircraft === selectedAircraft)),
-        );
+        setFlightDays((p) => [...p, { id: key, date: dateStr, aircraft, createdBy: userProfile?.uid ?? undefined }]);
       } else {
-        setFlightDays((prev) => [
-          ...prev,
-          { id: dateStr, date: dateStr, aircraft: selectedAircraft, createdBy: userProfile?.uid ?? undefined },
-        ]);
+        setFlightDays((p) => p.filter((d) => !(d.date === dateStr && d.aircraft === aircraft)));
       }
-
-      setToggling(dateStr);
-      try {
-        await toggleFlightDay(dateStr, selectedAircraft, userProfile?.uid);
-      } catch (err) {
-        console.error("Failed to toggle flight day:", err);
-        // Reverter em caso de erro
-        if (isEnabled) {
-          setFlightDays((prev) => [
-            ...prev,
-            { id: dateStr, date: dateStr, aircraft: selectedAircraft, createdBy: userProfile?.uid ?? undefined },
-          ]);
-        } else {
-          setFlightDays((prev) =>
-            prev.filter((d) => !(d.date === dateStr && d.aircraft === selectedAircraft)),
-          );
-        }
-      } finally {
-        setToggling(null);
-      }
-    },
-    [currentYear, currentMonth, selectedAircraft, userProfile, enabledDates],
-  );
+    } finally {
+      setToggling(null);
+    }
+  }, [currentYear, currentMonth, userProfile, enabledSet]);
 
   const handlePrevMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear((y) => y - 1);
-    } else {
-      setCurrentMonth((m) => m - 1);
-    }
+    if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear((y) => y - 1); }
+    else setCurrentMonth((m) => m - 1);
   };
-
   const handleNextMonth = () => {
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear((y) => y + 1);
-    } else {
-      setCurrentMonth((m) => m + 1);
-    }
+    if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear((y) => y + 1); }
+    else setCurrentMonth((m) => m + 1);
   };
 
-  // Stats for this month
   const monthStats = useMemo(() => {
-    const monthStr = String(currentMonth + 1).padStart(2, "0");
-    const prefix = `${currentYear}-${monthStr}`;
-    const t25 = flightDays.filter(
-      (d) => d.aircraft === "T-25" && d.date.startsWith(prefix),
-    ).length;
-    const t27 = flightDays.filter(
-      (d) => d.aircraft === "T-27" && d.date.startsWith(prefix),
-    ).length;
-    return { "T-25": t25, "T-27": t27 };
+    const prefix = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
+    return {
+      "T-25": flightDays.filter((d) => d.aircraft === "T-25" && d.date.startsWith(prefix)).length,
+      "T-27": flightDays.filter((d) => d.aircraft === "T-27" && d.date.startsWith(prefix)).length,
+    };
   }, [flightDays, currentYear, currentMonth]);
 
-  const aircraftConfig = AIRCRAFT.find((a) => a.id === selectedAircraft)!;
-  const accentColor = isDark ? aircraftConfig.darkColor : aircraftConfig.color;
-
-  // Count Saturdays enabled this month
-  const saturdayCount = useMemo(() => {
-    const monthStr = String(currentMonth + 1).padStart(2, "0");
-    const prefix = `${currentYear}-${monthStr}`;
-    return flightDays.filter((d) => {
-      if (d.aircraft !== selectedAircraft || !d.date.startsWith(prefix)) return false;
-      const dow = new Date(d.date + "T12:00:00").getDay();
-      return dow === 6;
-    }).length;
-  }, [flightDays, selectedAircraft, currentYear, currentMonth]);
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <header className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div
-            className="p-2.5 rounded-xl"
-            style={{ backgroundColor: `${accentColor}15` }}
-          >
-            <Plane style={{ color: accentColor }} size={24} />
+          <div className="p-2.5 rounded-xl bg-blue-500/10">
+            <Plane className="text-blue-500" size={24} />
           </div>
           <div>
-            <h1
-              className={`text-2xl font-bold tracking-tight ${isDark ? "text-slate-100" : "text-slate-900"}`}
-            >
+            <h1 className={`text-2xl font-bold tracking-tight ${isDark ? "text-slate-100" : "text-slate-900"}`}>
               Dias de Voo
             </h1>
-            <p
-              className={`text-xs font-medium uppercase tracking-widest mt-0.5 ${isDark ? "text-slate-500" : "text-slate-400"}`}
-            >
-              Selecione os dias habilitados para voo
+            <p className={`text-xs font-medium uppercase tracking-widest mt-0.5 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+              Selecione os dias habilitados por aeronave
             </p>
           </div>
         </div>
-
-        {loading && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 text-blue-500 rounded-full text-xs font-semibold animate-pulse">
-            <Loader2 className="animate-spin" size={14} />
-            Carregando...
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {/* Month stats pills */}
+          {AIRCRAFT.map((ac) => (
+            <div key={ac.id} className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold"
+              style={{ backgroundColor: isDark ? ac.darkBg : ac.bg, color: isDark ? ac.darkColor : ac.color }}>
+              <Plane size={11} />
+              {ac.label}: {monthStats[ac.id]} dias
+            </div>
+          ))}
+          {loading && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 text-blue-500 rounded-full text-xs font-semibold animate-pulse">
+              <Loader2 className="animate-spin" size={12} /> Carregando...
+            </div>
+          )}
+        </div>
       </header>
-
-      {/* Aircraft Selector */}
-      <div
-        className={`flex gap-3 p-1.5 rounded-xl border ${isDark ? "bg-slate-900 border-slate-800" : "bg-slate-50 border-slate-200"}`}
-      >
-        {AIRCRAFT.map((ac) => {
-          const isSelected = selectedAircraft === ac.id;
-          const color = isDark ? ac.darkColor : ac.color;
-          return (
-            <button
-              key={ac.id}
-              onClick={() => setSelectedAircraft(ac.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                isSelected ? "text-white shadow-md" : isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"
-              }`}
-              style={isSelected ? { backgroundColor: color } : {}}
-            >
-              <Plane size={16} />
-              {ac.label}
-              <span
-                className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                  isSelected
-                    ? "bg-white/20 text-white"
-                    : isDark
-                      ? "bg-slate-800 text-slate-500"
-                      : "bg-slate-200 text-slate-500"
-                }`}
-              >
-                {monthStats[ac.id]} dias
-              </span>
-            </button>
-          );
-        })}
-      </div>
 
       {/* Month Navigation */}
       <div className="flex items-center justify-between">
-        <button
-          onClick={handlePrevMonth}
-          className={`p-2 rounded-lg border transition-all ${isDark ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-400" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"}`}
-        >
+        <button onClick={handlePrevMonth}
+          className={`p-2 rounded-lg border transition-all ${isDark ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-400" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"}`}>
           <ChevronLeft size={20} />
         </button>
-        <h2
-          className={`text-lg font-bold uppercase tracking-wide ${isDark ? "text-slate-200" : "text-slate-800"}`}
-        >
+        <h2 className={`text-lg font-bold uppercase tracking-wide ${isDark ? "text-slate-200" : "text-slate-800"}`}>
           {MONTHS[currentMonth]} {currentYear}
         </h2>
-        <button
-          onClick={handleNextMonth}
-          className={`p-2 rounded-lg border transition-all ${isDark ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-400" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"}`}
-        >
+        <button onClick={handleNextMonth}
+          className={`p-2 rounded-lg border transition-all ${isDark ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-400" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"}`}>
           <ChevronRight size={20} />
         </button>
       </div>
 
       {/* Calendar Grid */}
-      <div
-        className={`rounded-2xl border overflow-hidden ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"} shadow-sm`}
-      >
+      <div className={`rounded-2xl border overflow-hidden shadow-sm ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"}`}>
         {/* Weekday headers */}
         <div className="grid grid-cols-7">
           {WEEKDAYS.map((wd, i) => (
-            <div
-              key={wd}
+            <div key={wd}
               className={`py-2.5 text-center text-[10px] font-bold uppercase tracking-wider border-b ${
                 i === 0
-                  ? isDark
-                    ? "text-slate-600 bg-slate-900 border-slate-800"
-                    : "text-slate-300 bg-slate-50 border-slate-200"
-                  : isDark
-                    ? "text-slate-400 bg-slate-800/50 border-slate-800"
-                    : "text-slate-500 bg-slate-50 border-slate-200"
-              }`}
-            >
+                  ? isDark ? "text-slate-600 bg-slate-900 border-slate-800" : "text-slate-300 bg-slate-50 border-slate-200"
+                  : isDark ? "text-slate-400 bg-slate-800/50 border-slate-800" : "text-slate-500 bg-slate-50 border-slate-200"
+              }`}>
               {wd}
             </div>
           ))}
         </div>
 
-        {/* Days grid */}
+        {/* Days */}
         <div className="grid grid-cols-7">
           {calendarDays.map((day, idx) => {
             if (day === null) {
               return (
-                <div
-                  key={`empty-${idx}`}
-                  className={`aspect-square border-b border-r ${isDark ? "bg-slate-900/50 border-slate-800" : "bg-slate-50/50 border-slate-100"}`}
-                />
+                <div key={`e-${idx}`}
+                  className={`border-b border-r min-h-[72px] ${isDark ? "bg-slate-900/50 border-slate-800" : "bg-slate-50/50 border-slate-100"}`} />
               );
             }
 
-            const monthStr = String(currentMonth + 1).padStart(2, "0");
-            const dayStr = String(day).padStart(2, "0");
-            const dateStr = `${currentYear}-${monthStr}-${dayStr}`;
-            const dow = new Date(currentYear, currentMonth, day).getDay();
-            const isSunday = dow === 0;
-            const isSaturday = dow === 6;
-            const isEnabled = enabledDates.has(dateStr);
-            const isToggling = toggling === dateStr;
-            const isToday =
-              new Date().toISOString().slice(0, 10) === dateStr;
+            const monthStr  = String(currentMonth + 1).padStart(2, "0");
+            const dayStr    = String(day).padStart(2, "0");
+            const dateStr   = `${currentYear}-${monthStr}-${dayStr}`;
+            const dow       = new Date(currentYear, currentMonth, day).getDay();
+            const isSunday  = dow === 0;
+            const isToday   = today === dateStr;
 
             return (
-              <div
-                key={day}
-                onClick={() => !isSunday && handleToggle(day)}
-                className={`aspect-square border-b border-r flex flex-col items-center justify-center gap-1 transition-all relative ${
+              <div key={day}
+                className={`border-b border-r min-h-[72px] flex flex-col p-1.5 gap-1 ${
                   isSunday
-                    ? isDark
-                      ? "bg-slate-950 border-slate-800 cursor-not-allowed"
-                      : "bg-slate-100 border-slate-200 cursor-not-allowed"
-                    : isEnabled
-                      ? "cursor-pointer hover:opacity-80"
-                      : isDark
-                        ? "bg-slate-900 border-slate-800 cursor-pointer hover:bg-slate-800"
-                        : "bg-white border-slate-100 cursor-pointer hover:bg-slate-50"
-                }`}
-                style={
-                  isEnabled && !isSunday
-                    ? {
-                        backgroundColor: isDark
-                          ? `${accentColor}18`
-                          : `${accentColor}10`,
-                      }
-                    : {}
-                }
-              >
-                {isToday && (
-                  <div
-                    className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: accentColor }}
-                  />
-                )}
+                    ? isDark ? "bg-slate-950 border-slate-800" : "bg-slate-100 border-slate-200"
+                    : isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"
+                }`}>
+                {/* Day number */}
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-bold leading-none ${
+                    isToday ? "text-amber-500" :
+                    isSunday ? isDark ? "text-slate-700" : "text-slate-300" :
+                    isDark ? "text-slate-300" : "text-slate-700"
+                  }`}>
+                    {day}
+                  </span>
+                  {isToday && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                </div>
 
-                <span
-                  className={`text-sm font-bold ${
-                    isSunday
-                      ? isDark
-                        ? "text-slate-700"
-                        : "text-slate-300"
-                      : isEnabled
-                        ? "text-white"
-                        : isDark
-                          ? "text-slate-300"
-                          : "text-slate-700"
-                  }`}
-                  style={isEnabled && !isSunday ? { color: accentColor } : {}}
-                >
-                  {day}
-                </span>
-
+                {/* Aircraft toggle buttons */}
                 {isSunday ? (
-                  <Minus
-                    size={12}
-                    className={isDark ? "text-slate-800" : "text-slate-200"}
-                  />
-                ) : isToggling ? (
-                  <Loader2
-                    size={16}
-                    className="animate-spin"
-                    style={{ color: accentColor }}
-                  />
-                ) : isEnabled ? (
-                  <div
-                    className="w-6 h-6 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: accentColor }}
-                  >
-                    <Check size={14} className="text-white" strokeWidth={3} />
+                  <div className="flex-1 flex items-center justify-center">
+                    <Minus size={14} className={isDark ? "text-slate-800" : "text-slate-200"} />
                   </div>
                 ) : (
-                  <div
-                    className={`w-6 h-6 rounded-full border-2 border-dashed ${isDark ? "border-slate-700" : "border-slate-200"}`}
-                  />
-                )}
-
-                {isSaturday && isEnabled && (
-                  <span
-                    className="absolute bottom-0.5 text-[7px] font-bold uppercase tracking-wider"
-                    style={{ color: accentColor }}
-                  >
-                    SÁB
-                  </span>
+                  <div className="flex flex-col gap-1 flex-1">
+                    {AIRCRAFT.map((ac) => {
+                      const key        = `${dateStr}|${ac.id}`;
+                      const isEnabled  = enabledSet.has(key);
+                      const isSpinning = toggling === key;
+                      const color      = isDark ? ac.darkColor : ac.color;
+                      return (
+                        <button
+                          key={ac.id}
+                          onClick={() => handleToggle(day, ac.id)}
+                          disabled={isSpinning}
+                          className={`w-full flex items-center justify-between px-1.5 py-0.5 rounded text-[10px] font-bold transition-all ${
+                            isEnabled
+                              ? "text-white"
+                              : isDark
+                                ? "bg-slate-800 text-slate-500 hover:bg-slate-700"
+                                : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                          }`}
+                          style={isEnabled ? { backgroundColor: color } : {}}
+                        >
+                          <span>{ac.label}</span>
+                          {isSpinning ? (
+                            <Loader2 size={9} className="animate-spin" />
+                          ) : isEnabled ? (
+                            <Check size={9} strokeWidth={3} className="text-white" />
+                          ) : (
+                            <div className={`w-2 h-2 rounded-full border border-dashed ${isDark ? "border-slate-600" : "border-slate-300"}`} />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             );
@@ -388,39 +252,21 @@ export const FlightCalendar = () => {
       </div>
 
       {/* Legend */}
-      <div
-        className={`flex flex-wrap items-center gap-4 px-4 py-3 rounded-xl border text-xs ${isDark ? "bg-slate-900/50 border-slate-800 text-slate-400" : "bg-slate-50 border-slate-200 text-slate-500"}`}
-      >
-        <div className="flex items-center gap-2">
-          <div
-            className="w-5 h-5 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: accentColor }}
-          >
-            <Check size={12} className="text-white" strokeWidth={3} />
+      <div className={`flex flex-wrap items-center gap-4 px-4 py-3 rounded-xl border text-xs ${isDark ? "bg-slate-900/50 border-slate-800 text-slate-400" : "bg-slate-50 border-slate-200 text-slate-500"}`}>
+        {AIRCRAFT.map((ac) => (
+          <div key={ac.id} className="flex items-center gap-2">
+            <div className="w-5 h-4 rounded flex items-center justify-between px-1"
+              style={{ backgroundColor: isDark ? ac.darkColor : ac.color }}>
+              <span className="text-[8px] font-bold text-white">{ac.label}</span>
+              <Check size={8} className="text-white" strokeWidth={3} />
+            </div>
+            <span>{ac.id === "T-25" ? "T-25 habilitado" : "T-27 habilitado"}</span>
           </div>
-          <span>Dia de voo habilitado</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div
-            className={`w-5 h-5 rounded-full border-2 border-dashed ${isDark ? "border-slate-700" : "border-slate-200"}`}
-          />
-          <span>Sem voo</span>
-        </div>
+        ))}
         <div className="flex items-center gap-2">
           <Minus size={14} className={isDark ? "text-slate-700" : "text-slate-300"} />
           <span>Domingo (indisponível)</span>
         </div>
-        {saturdayCount > 0 && (
-          <div
-            className="ml-auto px-3 py-1 rounded-full text-[10px] font-bold uppercase"
-            style={{
-              backgroundColor: `${accentColor}15`,
-              color: accentColor,
-            }}
-          >
-            {saturdayCount} sábado{saturdayCount !== 1 ? "s" : ""} com voo
-          </div>
-        )}
       </div>
     </div>
   );

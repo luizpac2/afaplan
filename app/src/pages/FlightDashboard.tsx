@@ -5,7 +5,6 @@ import {
   CalendarCheck,
   TrendingUp,
   Sun,
-  Calendar,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import type { FlightDay, AircraftType } from "../types";
@@ -98,16 +97,6 @@ export const FlightDashboard = () => {
     return m;
   }, [monthlyData]);
 
-  // Upcoming flight days (next 14 days)
-  const upcomingDays = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    const future = new Date();
-    future.setDate(future.getDate() + 14);
-    const futureStr = future.toISOString().slice(0, 10);
-    return flightDays
-      .filter((d) => d.date >= today && d.date <= futureStr)
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, [flightDays]);
 
   const currentMonthIdx = new Date().getMonth();
 
@@ -233,83 +222,41 @@ export const FlightDashboard = () => {
           <CalendarCheck size={16} className="inline mr-2 opacity-50" />
           Dias de Voo por Mês
         </h3>
-        <div className="space-y-1">
+        <div className="space-y-2">
           {MONTHS.map((m, i) => {
             const isCurrent = i === currentMonthIdx;
+            const v25 = monthlyData["T-25"][i];
+            const v27 = monthlyData["T-27"][i];
             return (
               <div key={m} className="flex items-center gap-2">
-                <span
-                  className={`w-8 text-[10px] font-bold uppercase tracking-wider text-right flex-shrink-0 ${
-                    isCurrent
-                      ? "text-amber-500"
-                      : isDark
-                        ? "text-slate-500"
-                        : "text-slate-400"
-                  }`}
-                >
+                <span className={`w-8 text-[10px] font-bold uppercase tracking-wider text-right flex-shrink-0 ${isCurrent ? "text-amber-500" : isDark ? "text-slate-500" : "text-slate-400"}`}>
                   {m}
                 </span>
-                <div className="flex-1 flex gap-1 items-center h-7">
-                  {/* T-25 bar */}
-                  <div
-                    className="h-3 rounded-full transition-all relative group"
-                    style={{
-                      width: `${Math.max((monthlyData["T-25"][i] / maxMonthly) * 100, monthlyData["T-25"][i] > 0 ? 4 : 0)}%`,
-                      backgroundColor: isDark
-                        ? AIRCRAFT_META["T-25"].darkColor
-                        : AIRCRAFT_META["T-25"].color,
-                      opacity: isCurrent ? 1 : 0.7,
-                    }}
-                  >
-                    {monthlyData["T-25"][i] > 0 && (
-                      <span className="absolute -right-1 top-1/2 -translate-y-1/2 translate-x-full text-[9px] font-bold ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        style={{ color: isDark ? AIRCRAFT_META["T-25"].darkColor : AIRCRAFT_META["T-25"].color }}
-                      >
-                        {monthlyData["T-25"][i]}
-                      </span>
-                    )}
-                  </div>
-                  {/* T-27 bar */}
-                  <div
-                    className="h-3 rounded-full transition-all relative group"
-                    style={{
-                      width: `${Math.max((monthlyData["T-27"][i] / maxMonthly) * 100, monthlyData["T-27"][i] > 0 ? 4 : 0)}%`,
-                      backgroundColor: isDark
-                        ? AIRCRAFT_META["T-27"].darkColor
-                        : AIRCRAFT_META["T-27"].color,
-                      opacity: isCurrent ? 1 : 0.7,
-                    }}
-                  >
-                    {monthlyData["T-27"][i] > 0 && (
-                      <span className="absolute -right-1 top-1/2 -translate-y-1/2 translate-x-full text-[9px] font-bold ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        style={{ color: isDark ? AIRCRAFT_META["T-27"].darkColor : AIRCRAFT_META["T-27"].color }}
-                      >
-                        {monthlyData["T-27"][i]}
-                      </span>
-                    )}
-                  </div>
+                {/* Two independent bars, each relative to maxMonthly */}
+                <div className="flex-1 flex flex-col gap-0.5">
+                  {(["T-25","T-27"] as AircraftType[]).map((ac) => {
+                    const v     = monthlyData[ac][i];
+                    const meta  = AIRCRAFT_META[ac];
+                    const color = isDark ? meta.darkColor : meta.color;
+                    const pct   = maxMonthly > 0 ? (v / maxMonthly) * 100 : 0;
+                    return (
+                      <div key={ac} className={`relative h-3 rounded-full ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
+                        <div
+                          className="absolute inset-y-0 left-0 rounded-full transition-all"
+                          style={{ width: v > 0 ? `${Math.max(pct, 3)}%` : "0%", backgroundColor: color, opacity: isCurrent ? 1 : 0.65 }}
+                        />
+                        {v > 0 && (
+                          <span className="absolute inset-y-0 flex items-center text-[8px] font-bold text-white pl-1.5">
+                            {pct >= 15 ? `${ac} · ${v}d` : ""}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="flex gap-3 w-20 flex-shrink-0 text-right">
-                  <span
-                    className="text-[10px] font-bold w-10 text-right"
-                    style={{
-                      color: isDark
-                        ? AIRCRAFT_META["T-25"].darkColor
-                        : AIRCRAFT_META["T-25"].color,
-                    }}
-                  >
-                    {monthlyData["T-25"][i] || "–"}
-                  </span>
-                  <span
-                    className="text-[10px] font-bold w-10 text-right"
-                    style={{
-                      color: isDark
-                        ? AIRCRAFT_META["T-27"].darkColor
-                        : AIRCRAFT_META["T-27"].color,
-                    }}
-                  >
-                    {monthlyData["T-27"][i] || "–"}
-                  </span>
+                <div className="flex gap-2 w-16 flex-shrink-0 justify-end">
+                  <span className="text-[10px] font-bold" style={{ color: isDark ? AIRCRAFT_META["T-25"].darkColor : AIRCRAFT_META["T-25"].color }}>{v25 || "–"}</span>
+                  <span className="text-[10px] font-bold" style={{ color: isDark ? AIRCRAFT_META["T-27"].darkColor : AIRCRAFT_META["T-27"].color }}>{v27 || "–"}</span>
                 </div>
               </div>
             );
@@ -502,57 +449,6 @@ export const FlightDashboard = () => {
         </div>
       </div>
 
-      {/* Upcoming Flight Days */}
-      {upcomingDays.length > 0 && (
-        <div
-          className={`rounded-2xl border p-5 ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"} shadow-sm`}
-        >
-          <h3
-            className={`text-sm font-bold uppercase tracking-wider mb-3 ${isDark ? "text-slate-300" : "text-slate-700"}`}
-          >
-            <Calendar size={16} className="inline mr-2 opacity-50" />
-            Próximos Dias de Voo (14 dias)
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {upcomingDays.map((fd) => {
-              const meta = AIRCRAFT_META[fd.aircraft];
-              const color = isDark ? meta.darkColor : meta.color;
-              const dt = new Date(fd.date + "T12:00:00");
-              const isSat = dt.getDay() === 6;
-              const dayLabel = dt.toLocaleDateString("pt-BR", {
-                weekday: "short",
-                day: "numeric",
-                month: "short",
-              });
-              return (
-                <div
-                  key={fd.id}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"
-                  style={{
-                    backgroundColor: `${color}15`,
-                    color,
-                    border: `1px solid ${color}30`,
-                  }}
-                >
-                  <Plane size={12} />
-                  <span className="font-bold">{meta.label}</span>
-                  <span className="opacity-70">
-                    {dayLabel}
-                  </span>
-                  {isSat && (
-                    <span
-                      className="px-1 py-0 rounded text-[8px] font-bold uppercase"
-                      style={{ backgroundColor: `${color}30` }}
-                    >
-                      SÁB
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
