@@ -246,8 +246,13 @@ Deno.serve(async (req) => {
   if (action === "save_event") {
     const { event } = body;
     if (!event || !event.id) return err("event with id required");
-    const { classIds: _ci, isBlocking: _ib, changeRequestId: _cr, instructorTrigram, evaluationType, ...rest } = event as any;
-    const safeEvent = { ...rest, instructorId: instructorTrigram || null, ...(evaluationType !== undefined ? { evaluationType } : {}) };
+    const { classIds: _ci, isBlocking: _ib, instructorTrigram, evaluationType, changeRequestId, ...rest } = event as any;
+    const safeEvent = {
+      ...rest,
+      instructorId: instructorTrigram || null,
+      ...(evaluationType    !== undefined ? { evaluationType }    : {}),
+      ...(changeRequestId   !== undefined ? { changeRequestId }   : {}),
+    };
     console.log("save_event upsert payload:", JSON.stringify(safeEvent));
     // Upsert by id — cria se não existir, atualiza se já existir (evita duplicatas)
     const { error: upsErr } = await adminClient
@@ -282,8 +287,9 @@ Deno.serve(async (req) => {
     if (u.targetSquadron   !== undefined) safeUpdates.targetSquadron  = u.targetSquadron;
     if (u.targetCourse     !== undefined) safeUpdates.targetCourse    = u.targetCourse;
     if (u.targetClass      !== undefined) safeUpdates.targetClass     = u.targetClass;
-    if (u.endDate          !== undefined) safeUpdates.endDate         = u.endDate;
-    if (u.instructorTrigram !== undefined) safeUpdates.instructorId   = u.instructorTrigram || null;
+    if (u.endDate            !== undefined) safeUpdates.endDate          = u.endDate;
+    if (u.instructorTrigram  !== undefined) safeUpdates.instructorId    = u.instructorTrigram || null;
+    if (u.changeRequestId    !== undefined) safeUpdates.changeRequestId = u.changeRequestId;
     console.log("update_event upsert id:", id, "payload:", JSON.stringify(safeUpdates));
 
     // Upsert by id: atualiza se existir, cria se não existir (nunca deixa 0 linhas afetadas)

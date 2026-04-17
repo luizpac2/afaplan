@@ -1,6 +1,14 @@
 import { supabase } from "../config/supabase";
 import type { ScheduleEvent } from "../types";
 
+async function edgeFn(action: string, payload: Record<string, unknown>): Promise<void> {
+  const { data, error } = await supabase.functions.invoke("admin-manage-content", {
+    body: { action, ...payload },
+  });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+}
+
 export type SAPChangeAction = "MOVE" | "DELETE" | "ADD" | "MODIFY";
 
 export interface SAPSimulationChange {
@@ -125,60 +133,51 @@ export async function applySAPToProduction(
   for (const change of active) {
     try {
       if (change.action === "DELETE" && change.eventId) {
-        const { error } = await supabase
-          .from("programacao_aulas")
-          .delete()
-          .eq("id", change.eventId);
-        if (error) throw error;
+        await edgeFn("delete_event", { id: change.eventId });
         applied++;
 
       } else if (change.action === "MOVE" && change.eventId && change.newData) {
-        const { error } = await supabase
-          .from("programacao_aulas")
-          .update({
-            date: change.newData.date,
-            startTime: change.newData.startTime,
-            endTime: change.newData.endTime,
-            classId: change.newData.classId,
+        await edgeFn("update_event", {
+          id: change.eventId,
+          updates: {
+            date:            change.newData.date,
+            startTime:       change.newData.startTime,
+            endTime:         change.newData.endTime,
+            classId:         change.newData.classId,
             changeRequestId: sapId,
-          })
-          .eq("id", change.eventId);
-        if (error) throw error;
+          },
+        });
         applied++;
 
       } else if (change.action === "MODIFY" && change.eventId && change.newData) {
-        const update: Record<string, unknown> = { changeRequestId: sapId };
         const nd = change.newData;
-        if (nd.date)           update.date = nd.date;
-        if (nd.startTime)      update.startTime = nd.startTime;
-        if (nd.endTime)        update.endTime = nd.endTime;
-        if (nd.location)       update.location = nd.location;
-        if (nd.instructorTrigram !== undefined) update.instructorId = nd.instructorTrigram;
-        const { error } = await supabase
-          .from("programacao_aulas")
-          .update(update)
-          .eq("id", change.eventId);
-        if (error) throw error;
+        const updates: Record<string, unknown> = { changeRequestId: sapId };
+        if (nd.date)           updates.date = nd.date;
+        if (nd.startTime)      updates.startTime = nd.startTime;
+        if (nd.endTime)        updates.endTime = nd.endTime;
+        if (nd.location)       updates.location = nd.location;
+        if (nd.instructorTrigram !== undefined) updates.instructorId = nd.instructorTrigram;
+        await edgeFn("update_event", { id: change.eventId, updates });
         applied++;
 
       } else if (change.action === "ADD" && change.newData) {
         const nd = change.newData as ScheduleEvent;
         const squadron = nd.classId ? Number(nd.classId[0]) || null : null;
-        const row: Record<string, unknown> = {
-          date:           nd.date,
-          startTime:      nd.startTime,
-          endTime:        nd.endTime,
-          disciplineId:   nd.disciplineId,
-          classId:        nd.classId,
-          type:           nd.type ?? "CLASS",
-          targetSquadron: squadron ? String(squadron) : null,
-          instructorId:   nd.instructorTrigram ?? null,
+        const event: Record<string, unknown> = {
+          id:              nd.id ?? crypto.randomUUID(),
+          date:            nd.date,
+          startTime:       nd.startTime,
+          endTime:         nd.endTime,
+          disciplineId:    nd.disciplineId,
+          classId:         nd.classId,
+          type:            nd.type ?? "CLASS",
+          targetSquadron:  squadron ? String(squadron) : null,
+          instructorTrigram: nd.instructorTrigram ?? null,
           changeRequestId: sapId,
         };
-        if (nd.location) row.location = nd.location;
-        if (nd.color)    row.color    = nd.color;
-        const { error } = await supabase.from("programacao_aulas").insert(row);
-        if (error) throw error;
+        if (nd.location) event.location = nd.location;
+        if (nd.color)    event.color    = nd.color;
+        await edgeFn("save_event", { event });
         applied++;
       }
     } catch (err: unknown) {
