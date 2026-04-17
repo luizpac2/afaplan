@@ -5,6 +5,7 @@ import {
   Trash2, Plus, MoveRight, AlertTriangle, CheckCircle2, Loader2,
   FileEdit, Clock, PanelRightClose, PanelRight, Shield,
 } from "lucide-react";
+import { TIME_SLOTS } from "../../utils/constants";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCourseStore } from "../../store/useCourseStore";
@@ -25,13 +26,8 @@ import type { ScheduleEvent, Discipline } from "../../types";
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-const TIME_SLOTS = [
-  "07:00","08:00","09:00","10:00","11:00","12:00",
-  "13:00","14:00","15:00","16:00","17:00","18:00",
-];
-const SLOT_DURATION = 60; // minutes
 const DAYS = ["SEG","TER","QUA","QUI","SEX","SÁB"];
-const DAY_OFFSETS = [1,2,3,4,5,6]; // Mon=1…Sat=6
+const DAY_OFFSETS = [0,1,2,3,4,5];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -61,14 +57,13 @@ function formatWeekLabel(start: Date): string {
   return `${start.toLocaleDateString("pt-BR", opts)} – ${end.toLocaleDateString("pt-BR", opts)}`;
 }
 
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + (m ?? 0);
-}
-
 function slotEnd(slotStart: string): string {
-  const m = timeToMinutes(slotStart) + SLOT_DURATION;
-  return `${String(Math.floor(m / 60)).padStart(2,"0")}:${String(m % 60).padStart(2,"0")}`;
+  const slot = TIME_SLOTS.find((s) => s.start === slotStart);
+  if (slot) return slot.end;
+  // fallback: +1h
+  const [h, m] = slotStart.split(":").map(Number);
+  const total = h * 60 + (m ?? 0) + 60;
+  return `${String(Math.floor(total / 60)).padStart(2,"0")}:${String(total % 60).padStart(2,"0")}`;
 }
 
 const ACTION_LABEL: Record<SAPSimulationChange["action"], string> = {
@@ -576,7 +571,7 @@ export const SAPWorkspace = () => {
           {/* Gantt Grid */}
           <div className={`rounded-xl border overflow-hidden shadow-sm ${cardBg}`}>
             {/* Day headers */}
-            <div className="grid grid-cols-[56px_repeat(6,1fr)] border-b">
+            <div className="grid grid-cols-[64px_repeat(6,1fr)] border-b">
               <div className={`py-2 ${isDark ? "bg-slate-800 border-slate-700" : "bg-slate-50 border-slate-200"}`} />
               {DAYS.map((day, i) => {
                 const d = addDays(weekStart, i);
@@ -601,26 +596,22 @@ export const SAPWorkspace = () => {
 
             {/* Time slots */}
             {TIME_SLOTS.map((slot) => (
-              <div key={slot} className={`grid grid-cols-[56px_repeat(6,1fr)] border-b last:border-b-0 ${isDark ? "border-slate-800" : "border-slate-100"}`}>
+              <div key={slot.start} className={`grid grid-cols-[64px_repeat(6,1fr)] border-b last:border-b-0 ${isDark ? "border-slate-800" : "border-slate-100"}`}>
                 {/* Time label */}
-                <div className={`flex items-start justify-end pr-2 pt-1 text-[10px] font-medium tabular-nums ${isDark ? "text-slate-600 bg-slate-900" : "text-slate-400 bg-white"}`}>
-                  {slot}
+                <div className={`flex items-start justify-end pr-2 pt-1 text-[10px] font-medium tabular-nums leading-tight ${isDark ? "text-slate-600 bg-slate-900" : "text-slate-400 bg-white"}`}>
+                  {slot.start}
                 </div>
 
                 {/* Day cells */}
-                {DAY_OFFSETS.map((_, dayIdx) => {
-                  const cellDate = toDateStr(addDays(weekStart, dayIdx));
-                  const slotMin  = timeToMinutes(slot);
-                  const nextMin  = slotMin + SLOT_DURATION;
-                  const cellEvents = allVisible.filter((e) => {
-                    if (e.date !== cellDate) return false;
-                    const evMin = timeToMinutes(e.startTime);
-                    return evMin >= slotMin && evMin < nextMin;
-                  });
+                {DAY_OFFSETS.map((offset) => {
+                  const cellDate = toDateStr(addDays(weekStart, offset));
+                  const cellEvents = allVisible.filter(
+                    (e) => e.date === cellDate && e.startTime === slot.start,
+                  );
 
                   return (
                     <div
-                      key={dayIdx}
+                      key={offset}
                       className={`min-h-[52px] border-l p-1 relative transition-colors group ${
                         isDark
                           ? "border-slate-800 hover:bg-slate-800/40"
@@ -630,11 +621,11 @@ export const SAPWorkspace = () => {
                       onDragLeave={(e) => { e.currentTarget.classList.remove(isDark ? "bg-amber-900/20" : "bg-amber-50"); }}
                       onDrop={(e) => {
                         e.currentTarget.classList.remove(isDark ? "bg-amber-900/20" : "bg-amber-50");
-                        handleDrop(e, cellDate, slot);
+                        handleDrop(e, cellDate, slot.start);
                       }}
                       onClick={() => {
                         if (cellEvents.length === 0) {
-                          setAddModal({ date: cellDate, slotStart: slot });
+                          setAddModal({ date: cellDate, slotStart: slot.start });
                         }
                       }}
                     >
