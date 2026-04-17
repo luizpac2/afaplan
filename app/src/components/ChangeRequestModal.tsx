@@ -92,7 +92,7 @@ export const ChangeRequestModal = ({
             changeRequests,
           );
           const newRequest: ScheduleChangeRequest = {
-            id: `sap_${Date.now()}`,
+            id: crypto.randomUUID(),
             ...form,
             numeroAlteracao: autoNumber,
             dataSolicitacao: new Date().toISOString(),
