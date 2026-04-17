@@ -30,7 +30,7 @@ export const EventForm = ({
   isBatchMode = false,
   lockClass = false,
 }: EventFormProps) => {
-  const { disciplines, swapEvents, instructors, classes } = useCourseStore();
+  const { disciplines, swapEvents, instructors, classes, locations } = useCourseStore();
   const { theme } = useTheme();
 
   // Verifica se um docente está habilitado para uma turma.
@@ -74,6 +74,42 @@ export const EventForm = ({
     instructorTrigram: "",
   });
 
+  // Locais ativos da Gestão de Locais
+  const activeLocations = useMemo(
+    () => locations.filter((l) => l.status === "ATIVO"),
+    [locations],
+  );
+
+  // TODO: Sala padrão da turma — a ser implementado quando o vínculo turma→sala existir
+  const defaultTurmaRoom: string | null = null;
+
+  // Resolve o local default ao abrir o form:
+  // 1. Local já salvo no evento (initialData.location) → usa direto se existir nos locais ativos
+  // 2. Local da disciplina → busca nos locais ativos pelo nome
+  //    2a. Se for "Sala de Aula" → usa defaultTurmaRoom (futuro) ou deixa vazio
+  // 3. Sem match → null (campo vazio, sem inconsistência)
+  const resolvedDefaultLocation = useMemo(() => {
+    const candidateName =
+      initialData?.location ||
+      disciplines.find((d) => d.id === initialData?.disciplineId)?.location ||
+      "";
+
+    if (!candidateName) return "";
+
+    // Caso especial: "Sala de Aula" → usar sala padrão da turma (TODO)
+    if (candidateName.toLowerCase() === "sala de aula") {
+      return defaultTurmaRoom ?? "";
+    }
+
+    // Busca exata pelo nome no catálogo de locais ativos
+    const match = activeLocations.find(
+      (l) => l.name.toLowerCase() === candidateName.toLowerCase(),
+    );
+    // Se não encontrar no catálogo → retorna vazio para evitar inconsistência
+    return match ? match.name : "";
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Calculado apenas no mount — não reage a mudanças posteriores
+
   // Sorted disciplines for dropdowns
   const sortedDisciplines = useMemo(() => {
     return [...disciplines].sort((a, b) => {
@@ -97,11 +133,7 @@ export const EventForm = ({
         date: initialData.date || new Date().toISOString().split("T")[0],
         startTime: initialData.startTime || "07:00",
         endTime: initialData.endTime || "08:00",
-        location:
-          initialData.location ||
-          disciplines.find((d) => d.id === initialData.disciplineId)
-            ?.location ||
-          "",
+        location: resolvedDefaultLocation,
         type: initialData.type || "CLASS",
         evaluationType: initialData.evaluationType || "PARTIAL",
         instructorTrigram: initialData.instructorTrigram || "",
@@ -736,12 +768,24 @@ export const EventForm = ({
                                 key={d.id}
                                 type="button"
                                 onClick={() => {
+                                  // Resolve local da disciplina contra o catálogo de locais ativos
+                                  const discLoc = d.location ?? "";
+                                  let resolvedLoc = "";
+                                  if (discLoc && discLoc.toLowerCase() !== "sala de aula") {
+                                    const match = activeLocations.find(
+                                      (l) => l.name.toLowerCase() === discLoc.toLowerCase(),
+                                    );
+                                    resolvedLoc = match ? match.name : "";
+                                  }
+                                  // "Sala de Aula" → defaultTurmaRoom (TODO) ou vazio
+                                  if (discLoc.toLowerCase() === "sala de aula") {
+                                    resolvedLoc = defaultTurmaRoom ?? "";
+                                  }
                                   setFormData((prev) => ({
                                     ...prev,
                                     disciplineId: d.id,
-                                    location: d.location || prev.location,
-                                    instructorTrigram:
-                                      d.instructorTrigram || "",
+                                    location: resolvedLoc || prev.location,
+                                    instructorTrigram: d.instructorTrigram || "",
                                   }));
                                   setDisciplineSearch(d.name);
                                 }}
@@ -796,22 +840,42 @@ export const EventForm = ({
               </div>
               <div>
                 <label
-                  className={`block text-sm  mb-1 ${theme === "dark" ? "text-slate-300" : "text-gray-700"}`}
+                  className={`block text-sm mb-1 ${theme === "dark" ? "text-slate-300" : "text-gray-700"}`}
                 >
                   Local da Aula
                 </label>
-                <input
-                  type="text"
+                {(() => {
+                  // Aviso: local da disciplina não encontrado no catálogo
+                  const discLocation =
+                    disciplines.find((d) => d.id === formData.disciplineId)?.location ?? "";
+                  const notInCatalog =
+                    discLocation &&
+                    discLocation.toLowerCase() !== "sala de aula" &&
+                    !activeLocations.find(
+                      (l) => l.name.toLowerCase() === discLocation.toLowerCase(),
+                    );
+                  return notInCatalog ? (
+                    <p className="text-[10px] text-amber-400 mb-1 flex items-center gap-1">
+                      <AlertTriangle size={11} />
+                      Local "{discLocation}" da disciplina não está no catálogo de locais.
+                    </p>
+                  ) : null;
+                })()}
+                <select
                   value={formData.location}
                   onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      location: e.target.value,
-                    }))
+                    setFormData((prev) => ({ ...prev, location: e.target.value }))
                   }
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${theme === "dark" ? "bg-slate-700 border-slate-600 text-slate-100" : "border-gray-300"}`}
-                  placeholder="Ex: Sala de Aula, Cinema"
-                />
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${theme === "dark" ? "bg-slate-700 border-slate-600 text-slate-100" : "border-gray-300 text-slate-900"}`}
+                >
+                  <option value="">— Sem local definido —</option>
+                  {activeLocations.map((l) => (
+                    <option key={l.id} value={l.name}>
+                      {l.name}
+                      {l.capacity > 0 ? ` (${l.capacity} lug.)` : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           )}
