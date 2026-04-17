@@ -414,12 +414,12 @@ Deno.serve(async (req) => {
       notes:            l.notes ?? null,
       observation_log:  l.observationLog ?? l.observation_log ?? [],
     };
-    if (l.id) {
-      const { error } = await adminClient.from("instruction_locations").update(row).eq("id", l.id as string);
-      if (error) return err(error.message, 500);
-    } else {
-      const { error } = await adminClient.from("instruction_locations").insert(row);
-      if (error) return err(error.message, 500);
+    if (l.id) row.id = l.id; // inclui id para upsert correto
+    const { error } = await adminClient.from("instruction_locations")
+      .upsert(row, { onConflict: "id", ignoreDuplicates: false });
+    if (error) {
+      console.error("save_location upsert error:", error.message);
+      return err(error.message, 500);
     }
     return ok({ success: true });
   }
@@ -446,13 +446,10 @@ Deno.serve(async (req) => {
       resolution:   i.resolution ?? null,
       created_by:   user.id,
     };
-    if (i.id) {
-      const { error } = await adminClient.from("location_issues").update(row).eq("id", i.id as string);
-      if (error) return err(error.message, 500);
-    } else {
-      const { error } = await adminClient.from("location_issues").insert(row);
-      if (error) return err(error.message, 500);
-    }
+    if (i.id) row.id = i.id;
+    const { error } = await adminClient.from("location_issues")
+      .upsert(row, { onConflict: "id", ignoreDuplicates: false });
+    if (error) return err(error.message, 500);
     return ok({ success: true });
   }
 
@@ -479,13 +476,10 @@ Deno.serve(async (req) => {
       label:       r.label     ?? null,
       created_by:  user.id,
     };
-    if (r.id) {
-      const { error } = await adminClient.from("location_reservations").update(row).eq("id", r.id as string);
-      if (error) return err(error.message, 500);
-    } else {
-      const { error } = await adminClient.from("location_reservations").insert(row);
-      if (error) return err(error.message, 500);
-    }
+    if (r.id) row.id = r.id;
+    const { error } = await adminClient.from("location_reservations")
+      .upsert(row, { onConflict: "id", ignoreDuplicates: false });
+    if (error) return err(error.message, 500);
     return ok({ success: true });
   }
 
