@@ -93,34 +93,67 @@ interface AddEventModalProps {
 }
 
 function AddEventModal({ date, slotStart, disciplines, isDark, onConfirm, onCancel }: AddEventModalProps) {
-  const [selected, setSelected] = useState("");
-  const bg = isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200";
+  const [query, setQuery]       = useState("");
+  const [selected, setSelected] = useState<Discipline | null>(null);
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    if (!q) return disciplines.slice(0, 8);
+    return disciplines.filter(
+      (d) => d.code.toLowerCase().includes(q) || d.name.toLowerCase().includes(q),
+    ).slice(0, 8);
+  }, [query, disciplines]);
+
+  const bg   = isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200";
+  const item = (active: boolean) =>
+    `flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-xs transition-colors ${
+      active
+        ? "bg-green-600 text-white"
+        : isDark ? "hover:bg-slate-700 text-slate-200" : "hover:bg-slate-100 text-slate-700"
+    }`;
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onCancel}>
-      <div className={`rounded-2xl border shadow-xl p-5 w-80 ${bg}`} onClick={(e) => e.stopPropagation()}>
-        <h3 className={`text-sm font-bold mb-1 ${isDark ? "text-slate-100" : "text-slate-800"}`}>
+      <div className={`rounded-2xl border shadow-xl p-4 w-80 ${bg}`} onClick={(e) => e.stopPropagation()}>
+        <h3 className={`text-sm font-bold mb-0.5 ${isDark ? "text-slate-100" : "text-slate-800"}`}>
           Adicionar aula
         </h3>
         <p className={`text-xs mb-3 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
           {date} às {slotStart}
         </p>
-        <select
-          value={selected}
-          onChange={(e) => setSelected(e.target.value)}
-          className={`w-full p-2 rounded-lg border text-sm mb-3 outline-none ${isDark ? "bg-slate-700 border-slate-600 text-slate-100" : "bg-white border-slate-300 text-slate-800"}`}
-        >
-          <option value="">Selecione uma disciplina...</option>
-          {disciplines.map((d) => (
-            <option key={d.id} value={d.id}>{d.code} – {d.name}</option>
-          ))}
-        </select>
+
+        <input
+          autoFocus
+          type="text"
+          placeholder="Buscar disciplina (código ou nome)..."
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setSelected(null); }}
+          className={`w-full px-3 py-2 rounded-lg border text-xs outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 mb-2 ${isDark ? "bg-slate-700 border-slate-600 text-slate-100 placeholder:text-slate-500" : "bg-white border-slate-300 text-slate-800 placeholder:text-slate-400"}`}
+        />
+
+        <div className={`rounded-lg border overflow-hidden mb-3 max-h-48 overflow-y-auto ${isDark ? "border-slate-700" : "border-slate-200"}`}>
+          {filtered.length === 0 ? (
+            <p className={`px-3 py-3 text-xs text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+              Nenhuma disciplina encontrada
+            </p>
+          ) : (
+            <div className="p-1 space-y-0.5">
+              {filtered.map((d) => (
+                <div key={d.id} className={item(selected?.id === d.id)} onClick={() => setSelected(d)}>
+                  <span className="font-bold w-14 flex-shrink-0" style={{ color: selected?.id === d.id ? "white" : d.color }}>
+                    {d.code}
+                  </span>
+                  <span className="truncate">{d.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="flex gap-2">
           <button
             disabled={!selected}
-            onClick={() => {
-              const d = disciplines.find((x) => x.id === selected);
-              if (d) onConfirm(d);
-            }}
+            onClick={() => { if (selected) onConfirm(selected); }}
             className="flex-1 py-2 rounded-lg bg-green-600 text-white text-xs font-semibold disabled:opacity-40 hover:bg-green-700 transition-colors"
           >
             Adicionar
