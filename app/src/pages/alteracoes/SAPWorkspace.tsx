@@ -610,9 +610,13 @@ export const SAPWorkspace = () => {
                 {/* Day cells */}
                 {DAY_OFFSETS.map((_, dayIdx) => {
                   const cellDate = toDateStr(addDays(weekStart, dayIdx));
-                  const cellEvents = allVisible.filter(
-                    (e) => e.date === cellDate && e.startTime === slot,
-                  );
+                  const slotMin  = timeToMinutes(slot);
+                  const nextMin  = slotMin + SLOT_DURATION;
+                  const cellEvents = allVisible.filter((e) => {
+                    if (e.date !== cellDate) return false;
+                    const evMin = timeToMinutes(e.startTime);
+                    return evMin >= slotMin && evMin < nextMin;
+                  });
 
                   return (
                     <div
