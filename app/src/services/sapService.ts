@@ -162,29 +162,30 @@ export async function applySAPToProduction(
         applied++;
 
       } else if (change.action === "ADD" && change.newData) {
-        const nd = change.newData;
-        const { error } = await supabase
-          .from("programacao_aulas")
-          .insert({
-            id:             nd.id,
-            date:           nd.date,
-            startTime:      nd.startTime,
-            endTime:        nd.endTime,
-            disciplineId:   nd.disciplineId,
-            classId:        nd.classId,
-            type:           nd.type ?? "CLASS",
-            location:       nd.location ?? null,
-            color:          nd.color ?? null,
-            targetSquadron: nd.targetSquadron != null ? String(nd.targetSquadron) : null,
-            targetCourse:   nd.targetCourse ?? null,
-            instructorId:   nd.instructorTrigram ?? null,
-            changeRequestId: sapId,
-          });
+        const nd = change.newData as ScheduleEvent;
+        const squadron = nd.classId ? Number(nd.classId[0]) || null : null;
+        const row: Record<string, unknown> = {
+          date:           nd.date,
+          startTime:      nd.startTime,
+          endTime:        nd.endTime,
+          disciplineId:   nd.disciplineId,
+          classId:        nd.classId,
+          type:           nd.type ?? "CLASS",
+          targetSquadron: squadron ? String(squadron) : null,
+          instructorId:   nd.instructorTrigram ?? null,
+          changeRequestId: sapId,
+        };
+        if (nd.location) row.location = nd.location;
+        if (nd.color)    row.color    = nd.color;
+        const { error } = await supabase.from("programacao_aulas").insert(row);
         if (error) throw error;
         applied++;
       }
     } catch (err: unknown) {
-      errors.push(`${change.action} [${change.eventId ?? "novo"}]: ${err instanceof Error ? err.message : String(err)}`);
+      const msg = err instanceof Error
+        ? err.message
+        : (err as any)?.message ?? (err as any)?.details ?? JSON.stringify(err);
+      errors.push(`${change.action} [${change.eventId ?? "novo"}]: ${msg}`);
     }
   }
 
