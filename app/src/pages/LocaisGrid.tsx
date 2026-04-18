@@ -71,13 +71,10 @@ export default function LocaisGrid() {
   );
 
   // Eventos programados da semana com local preenchido
-  const weekEvents = useMemo(() => {
-    const filtered = events.filter((e) => e.date >= weekStart && e.date <= weekEnd && !!e.location?.trim());
-    console.log(`[LocaisGrid] locais cadastrados:`, locations.map(l => `"${l.name}"`).join(', '));
-    console.log(`[LocaisGrid] eventos semana ${weekStart}→${weekEnd}: total=${events.length} comLocal=${filtered.length}`);
-    filtered.forEach(e => console.log(`  evento: date=${e.date} start=${e.startTime} loc="${e.location}" cls=${e.classId}`));
-    return filtered;
-  }, [events, weekStart, weekEnd]);
+  const weekEvents = useMemo(
+    () => events.filter((e) => e.date >= weekStart && e.date <= weekEnd && !!e.location?.trim()),
+    [events, weekStart, weekEnd],
+  );
 
   // Helpers
   function getDisciplineName(disciplineId?: string) {
@@ -212,17 +209,15 @@ export default function LocaisGrid() {
                 </thead>
                 <tbody>
                   {TIME_SLOTS.map((slot, si) => (
-                    <tr key={si} className={`${rowBg} border-b ${borderC} last:border-b-0`}>
-                      <td className={`px-2 py-1 border-r ${borderC} font-mono text-[10px] ${muted} whitespace-nowrap`}>
-                        {slot.start}<br />{slot.end}
+                    <tr key={si} className={`${rowBg} border-b ${borderC} last:border-b-0`} style={{ height: 48 }}>
+                      <td className={`px-2 border-r ${borderC} font-mono text-[10px] ${muted} whitespace-nowrap align-middle`} style={{ width: 72 }}>
+                        {slot.start}–{slot.end}
                       </td>
                       {weekDates.map((d, di) => {
                         const dateStr = toISO(d);
-                        // Reserva manual para este slot
                         const res = locReservations.find(
                           (r) => r.date === dateStr && r.startTime === slot.start
                         );
-                        // Eventos do Gantt que usam este local neste slot (comparação case-insensitive)
                         const locNameLower = loc.name.trim().toLowerCase();
                         const ganttEvents = weekEvents.filter(
                           (e) =>
@@ -237,46 +232,31 @@ export default function LocaisGrid() {
                         // Reserva manual — prioridade
                         if (res) {
                           return (
-                            <td key={di} className={`px-1 py-0.5 border-r ${borderC} relative`}>
-                              <div
-                                className={`rounded px-1 py-0.5 flex items-start justify-between gap-0.5 ${
-                                  overCapacity
-                                    ? "bg-red-600/20 border border-red-600"
-                                    : "bg-blue-600/20 border border-blue-600/40"
-                                }`}
-                              >
-                                <div className="min-w-0 flex-1">
-                                  <p className={`font-bold truncate text-[10px] ${overCapacity ? "text-red-400" : "text-blue-400"}`}>
-                                    {res.classId ? getClassName(res.classId) : (res.label || "Reservado")}
-                                  </p>
-                                  {overCapacity && studentCount != null && (
-                                    <p className="text-[9px] text-red-400">⚠ {studentCount}/{loc.capacity}</p>
-                                  )}
-                                </div>
-                                <button
-                                  onClick={() => deleteLocationReservation(res.id)}
-                                  className="text-[9px] text-slate-400 hover:text-red-400 flex-shrink-0 leading-none"
-                                  title="Remover reserva"
-                                >✕</button>
+                            <td key={di} className={`px-1 border-r ${borderC} align-middle`} style={{ maxWidth: 110 }}>
+                              <div className={`rounded px-1.5 py-1 flex items-center justify-between gap-1 overflow-hidden ${overCapacity ? "bg-red-600/20 border border-red-600" : "bg-blue-600/20 border border-blue-600/40"}`}>
+                                <p className={`font-bold truncate text-[10px] leading-tight ${overCapacity ? "text-red-400" : "text-blue-400"}`}>
+                                  {res.classId ? getClassName(res.classId) : (res.label || "Reservado")}
+                                  {overCapacity && studentCount != null && ` ⚠${studentCount}/${loc.capacity}`}
+                                </p>
+                                <button onClick={() => deleteLocationReservation(res.id)} className="text-[9px] text-slate-400 hover:text-red-400 flex-shrink-0">✕</button>
                               </div>
                             </td>
                           );
                         }
 
-                        // Eventos do Gantt neste local/slot
+                        // Eventos do Gantt neste local/slot — altura fixa, texto truncado
                         if (ganttEvents.length > 0) {
                           return (
-                            <td key={di} className={`px-1 py-0.5 border-r ${borderC}`}>
-                              <div className="flex flex-col gap-0.5">
+                            <td key={di} className={`px-1 border-r ${borderC} align-middle`} style={{ maxWidth: 110 }}>
+                              <div className="flex flex-col gap-0.5 overflow-hidden" style={{ maxHeight: 44 }}>
                                 {ganttEvents.map((ev) => {
-                                  const discName = getDisciplineName(ev.disciplineId);
-                                  const clsName  = getClassName(ev.classId);
+                                  const disc = getDisciplineName(ev.disciplineId) ?? ev.disciplineId ?? "";
+                                  const cls  = ev.classId ?? "";
+                                  const tip  = `${disc} · ${getClassName(cls)}`;
                                   return (
-                                    <div key={ev.id} className="rounded px-1 py-0.5 bg-emerald-600/15 border border-emerald-600/40">
-                                      {discName && (
-                                        <p className="font-bold truncate text-[10px] text-emerald-400">{discName}</p>
-                                      )}
-                                      <p className={`truncate text-[9px] ${muted}`}>{clsName}</p>
+                                    <div key={ev.id} className="rounded px-1.5 bg-emerald-600/15 border border-emerald-600/40 flex items-center gap-1 overflow-hidden" style={{ height: 20 }} title={tip}>
+                                      <span className="font-bold truncate text-[10px] leading-none text-emerald-400">{disc}</span>
+                                      <span className={`truncate text-[9px] leading-none flex-shrink-0 ${muted}`}>{cls}</span>
                                     </div>
                                   );
                                 })}
@@ -289,15 +269,10 @@ export default function LocaisGrid() {
                         return (
                           <td
                             key={di}
-                            className={`px-1 py-0.5 border-r ${borderC} hover:bg-blue-500/10 cursor-pointer transition-colors`}
-                            onClick={() => {
-                              setAddingSlot({ locationId: loc.id, date: dateStr, slotIdx: si });
-                              setSlotForm({ classId: "", label: "" });
-                            }}
+                            className={`px-1 border-r ${borderC} hover:bg-blue-500/10 cursor-pointer transition-colors align-middle`}
+                            onClick={() => { setAddingSlot({ locationId: loc.id, date: dateStr, slotIdx: si }); setSlotForm({ classId: "", label: "" }); }}
                             title="Clique para reservar"
-                          >
-                            <div className="h-7" />
-                          </td>
+                          />
                         );
                       })}
                     </tr>
