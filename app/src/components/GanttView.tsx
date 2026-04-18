@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
+import { useDefaultRoomsMap } from "../hooks/useDefaultRoom";
 import type { ScheduleEvent, Discipline } from "../types";
 import { TIME_SLOTS } from "../utils/constants";
 
@@ -59,8 +60,9 @@ export const GanttView = ({
   onSlotSelect,
   onDeleteEvent,
 }: Props) => {
-  const { instructors } = useCourseStore();
+  const { instructors, locations } = useCourseStore();
   const { theme } = useTheme();
+  const defaultRoomsMap = useDefaultRoomsMap();
   const isDark = theme === "dark";
   const dragEventRef = useRef<ScheduleEvent | null>(null);
   // Overlap popover: { key: "classId_slotIdx", events }
@@ -160,7 +162,14 @@ export const GanttView = ({
                 const inst = trigram ? instructors.find((ins) => ins.trigram === trigram) : null;
                 const displayInstructor = inst?.warName || trigram || "—";
                 const rawLocation = ev ? (ev.location || disc?.location || "") : "";
-                const displayLocation = TRAINING_FIELDS.has(rawLocation) ? "" : rawLocation;
+                // Fallback: sala padrão da turma quando nem o evento nem a disciplina têm local
+                const effectiveLocation = (() => {
+                  if (rawLocation && !TRAINING_FIELDS.has(rawLocation) && rawLocation.toLowerCase() !== "sala de aula") return rawLocation;
+                  const defaultLocId = defaultRoomsMap[ev?.classId ?? ""];
+                  if (defaultLocId) return locations.find((l) => l.id === defaultLocId)?.name ?? rawLocation;
+                  return rawLocation;
+                })();
+                const displayLocation = TRAINING_FIELDS.has(effectiveLocation) ? "" : effectiveLocation;
                 const rawCode = disc?.code || ev?.disciplineId || "";
                 // Se não achou a disciplina e o id parece UUID, mostra só "???"
                 const code = disc ? rawCode : (rawCode.includes("-") ? "???" : rawCode);
