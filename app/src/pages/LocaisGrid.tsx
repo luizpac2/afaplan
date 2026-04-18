@@ -77,10 +77,12 @@ export default function LocaisGrid() {
   );
 
   // Helpers
-  function getDisciplineName(disciplineId?: string) {
+  function getDiscipline(disciplineId?: string) {
     if (!disciplineId) return null;
-    const d = disciplines.find((x) => x.id === disciplineId || x.code === disciplineId);
-    return d?.name ?? d?.code ?? null;
+    return disciplines.find((x) => x.id === disciplineId || x.code === disciplineId) ?? null;
+  }
+  function getDisciplineName(disciplineId?: string) {
+    return getDiscipline(disciplineId)?.name ?? getDiscipline(disciplineId)?.code ?? null;
   }
   function getClassName(classId?: string) {
     if (!classId) return null;
@@ -213,7 +215,7 @@ export default function LocaisGrid() {
                 </thead>
                 <tbody>
                   {TIME_SLOTS.map((slot, si) => (
-                    <tr key={si} className={`${rowBg} border-b ${borderC} last:border-b-0`} style={{ height: 48 }}>
+                    <tr key={si} className={`${rowBg} border-b ${borderC} last:border-b-0`}>
                       <td className={`px-2 border-r ${borderC} font-mono text-[10px] ${muted} whitespace-nowrap align-middle`}>
                         {slot.start}–{slot.end}
                       </td>
@@ -248,19 +250,29 @@ export default function LocaisGrid() {
                           );
                         }
 
-                        // Eventos do Gantt neste local/slot — altura fixa, texto truncado
+                        // Eventos do Gantt neste local/slot
                         if (ganttEvents.length > 0) {
                           return (
-                            <td key={di} className={`px-1 border-r ${borderC} align-middle`} style={{ overflow: "hidden" }}>
-                              <div className="flex flex-col gap-0.5 overflow-hidden" style={{ maxHeight: 44 }}>
+                            <td key={di} className={`px-1 py-0.5 border-r ${borderC} align-top`}>
+                              <div className="flex flex-col gap-0.5">
                                 {ganttEvents.map((ev) => {
-                                  const disc = getDisciplineName(ev.disciplineId) ?? ev.disciplineId ?? "";
-                                  const cls  = ev.classId ?? "";
-                                  const tip  = `${disc} · ${getClassName(cls)}`;
+                                  const disc     = getDiscipline(ev.disciplineId);
+                                  const discName = disc?.name ?? disc?.code ?? ev.disciplineId ?? "";
+                                  const cls      = ev.classId ?? "";
+                                  const color    = disc?.color || ev.color || "#10b981";
+                                  const tip      = `${discName} · ${cls}`;
+                                  // Gera bg/border com opacidade a partir da cor hex
+                                  const bg     = `${color}22`;
+                                  const border = `${color}99`;
                                   return (
-                                    <div key={ev.id} className="rounded px-1.5 bg-emerald-600/15 border border-emerald-600/40 flex items-center gap-1 overflow-hidden" style={{ height: 20 }} title={tip}>
-                                      <span className="font-bold truncate text-[10px] leading-none text-emerald-400">{disc}</span>
-                                      <span className={`truncate text-[9px] leading-none flex-shrink-0 ${muted}`}>{cls}</span>
+                                    <div
+                                      key={ev.id}
+                                      className="rounded px-1.5 py-0.5 flex items-center gap-1 overflow-hidden"
+                                      style={{ background: bg, border: `1px solid ${border}`, minHeight: 20 }}
+                                      title={tip}
+                                    >
+                                      <span className="font-bold truncate text-[10px] leading-tight" style={{ color }}>{discName}</span>
+                                      <span className={`text-[9px] leading-tight flex-shrink-0 ${muted}`}>{cls}</span>
                                     </div>
                                   );
                                 })}
