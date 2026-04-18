@@ -77,7 +77,7 @@ export const EventForm = ({
 
   // Locais ativos da Gestão de Locais
   const activeLocations = useMemo(
-    () => locations.filter((l) => l.status === "ATIVO"),
+    () => locations.filter((l) => l.status === "ATIVO").sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
     [locations],
   );
 

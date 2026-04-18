@@ -19,7 +19,7 @@ export function SalasPadrao() {
   const [saved, setSaved] = useState<string | null>(null);
 
   const salas = useMemo(
-    () => locations.filter((l) => l.status === "ATIVO" && l.type === "SALA"),
+    () => locations.filter((l) => l.status === "ATIVO" && l.type === "SALA").sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
     [locations],
   );
 

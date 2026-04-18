@@ -58,7 +58,7 @@ export default function LocaisGrid() {
   const weekStart = toISO(weekDates[0]);
   const weekEnd   = toISO(weekDates[6]);
 
-  const activeLocations = useMemo(() => locations.filter((l) => l.status === "ATIVO"), [locations]);
+  const activeLocations = useMemo(() => locations.filter((l) => l.status === "ATIVO").sort((a, b) => a.name.localeCompare(b.name, "pt-BR")), [locations]);
   const displayLocations = useMemo(
     () => selectedLocationId === "ALL" ? activeLocations : activeLocations.filter((l) => l.id === selectedLocationId),
     [activeLocations, selectedLocationId],
