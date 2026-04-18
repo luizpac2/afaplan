@@ -778,9 +778,8 @@ export const EventForm = ({
                                     );
                                     resolvedLoc = match ? match.name : "";
                                   }
-                                  // "Sala de Aula" → defaultTurmaRoom (TODO) ou vazio
                                   if (discLoc.toLowerCase() === "sala de aula") {
-                                    resolvedLoc = defaultTurmaRoom ?? "";
+                                    resolvedLoc = defaultTurmaRoomName ?? "";
                                   }
                                   setFormData((prev) => ({
                                     ...prev,

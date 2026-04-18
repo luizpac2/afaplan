@@ -7,7 +7,6 @@ import { CheckCircle } from "lucide-react";
 // Turmas de aula fixas por ano de esquadrão (1º–4º) × letra (A–E)
 const YEARS = [1, 2, 3, 4];
 const LETTERS = ["A", "B", "C", "D", "E"];
-const ALL_CLASS_IDS = YEARS.flatMap((y) => LETTERS.map((l) => `${y}${l}`));
 
 export function SalasPadrao() {
   const { theme } = useTheme();
@@ -34,10 +33,10 @@ export function SalasPadrao() {
     if (!locationId) delete newData[classId];
 
     await updateVisualConfig(configId, {
+      ...(existing ?? {}),
       id: configId,
       name: `Salas Padrão ${selectedYear}`,
       data: newData,
-      ...(existing ?? {}),
     });
 
     setSaving(null);

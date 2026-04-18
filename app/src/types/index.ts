@@ -358,6 +358,9 @@ export interface VisualConfig {
   // Icon Style
   showIcon: boolean;
   iconName: string; // Lucide icon name string
+
+  // Generic extra data (used e.g. for default_rooms_YYYY configs)
+  data?: Record<string, unknown>;
 }
 
 // ── Flight Management ───────────────────────────────────────
