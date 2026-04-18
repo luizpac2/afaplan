@@ -86,7 +86,7 @@ export function SalasPadrao() {
       {salas.length > 0 && (
         <div className={`rounded-xl border overflow-hidden ${card}`}>
           {/* Cabeçalho da tabela */}
-          <div className={`grid border-b ${border} ${header}`} style={{ gridTemplateColumns: "80px repeat(5, 1fr)" }}>
+          <div className={`grid border-b ${border} ${header}`} style={{ gridTemplateColumns: "80px repeat(6, 1fr)" }}>
             <div className={`px-3 py-2 text-xs font-bold ${muted}`}>Esquadrão</div>
             {LETTERS.map((l) => (
               <div key={l} className={`px-2 py-2 text-xs font-bold text-center ${muted}`}>Turma {l}</div>
@@ -98,7 +98,7 @@ export function SalasPadrao() {
             <div
               key={yr}
               className={`grid border-b last:border-b-0 ${border}`}
-              style={{ gridTemplateColumns: "80px repeat(5, 1fr)" }}
+              style={{ gridTemplateColumns: "80px repeat(6, 1fr)" }}
             >
               <div className={`px-3 py-3 flex items-center font-bold text-sm ${text}`}>
                 {yr}º Ano
