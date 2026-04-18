@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useDefaultRoom } from "../hooks/useDefaultRoom";
 import {
   X,
   Save,
@@ -80,8 +81,8 @@ export const EventForm = ({
     [locations],
   );
 
-  // TODO: Sala padrão da turma — a ser implementado quando o vínculo turma→sala existir
-  const defaultTurmaRoom: string | null = null;
+  // Sala padrão da turma configurada em Salas Padrão
+  const defaultTurmaRoomName = useDefaultRoom(initialData?.classId);
 
   // Resolve o local default ao abrir o form:
   // 1. Local já salvo no evento (initialData.location) → usa direto se existir nos locais ativos
@@ -98,7 +99,7 @@ export const EventForm = ({
 
     // Caso especial: "Sala de Aula" → usar sala padrão da turma (TODO)
     if (candidateName.toLowerCase() === "sala de aula") {
-      return defaultTurmaRoom ?? "";
+      return defaultTurmaRoomName ?? "";
     }
 
     // Busca exata pelo nome no catálogo de locais ativos

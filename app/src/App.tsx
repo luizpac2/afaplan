@@ -51,6 +51,7 @@ const DisciplineGantt  = lazy(() => import("./pages/DisciplineGantt").then(m => 
 const DisciplinePanel  = lazy(() => import("./pages/DisciplinePanel").then(m => ({ default: m.DisciplinePanel })));
 const Locais           = lazy(() => import("./pages/Locais"));
 const LocaisGrid       = lazy(() => import("./pages/LocaisGrid"));
+const SalasPadrao      = lazy(() => import("./pages/SalasPadrao").then(m => ({ default: m.SalasPadrao })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center h-64">
@@ -372,6 +373,14 @@ function App() {
                     element={
                       <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
                         <LocaisGrid />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="salas-padrao"
+                    element={
+                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                        <SalasPadrao />
                       </ProtectedRoute>
                     }
                   />

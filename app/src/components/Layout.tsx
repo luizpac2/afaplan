@@ -29,6 +29,7 @@ import {
   ClipboardList,
   MapPin,
   Grid,
+  DoorOpen,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -98,6 +99,7 @@ const MENU_ITEMS: MenuItem[] = [
     submenu: [
       { title: "Gestão de Locais", path: "/locais", icon: MapPin },
       { title: "Grade de Ocupação", path: "/locais-grid", icon: Grid },
+      { title: "Salas Padrão", path: "/salas-padrao", icon: DoorOpen },
     ],
   },
   {
