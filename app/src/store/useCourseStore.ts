@@ -116,6 +116,11 @@ interface CourseState {
   setVisualConfigs: (configs: VisualConfig[]) => void;
   updateVisualConfig: (id: string, updates: Partial<VisualConfig>) => void;
 
+  // App configs (key/value genérico em app_configs)
+  appConfigs: Record<string, unknown>;
+  setAppConfig: (key: string, value: unknown) => Promise<void>;
+  loadAppConfigs: (configs: Record<string, unknown>) => void;
+
   // Instructor actions
   setInstructors: (instructors: Instructor[]) => void;
   addInstructor: (instructor: Instructor) => void;
@@ -214,6 +219,7 @@ export const useCourseStore = create<CourseState>((set) => ({
   yearEventsCache: {},
   weeklyEventsCache: {},
   dataReady: false,
+  appConfigs: {},
 
   setDataReady: (ready) => set({ dataReady: ready }),
 
@@ -232,6 +238,7 @@ export const useCourseStore = create<CourseState>((set) => ({
       locations: [],
       locationIssues: [],
       locationReservations: [],
+      appConfigs: {},
       dataReady: false,
     }),
 
@@ -1568,5 +1575,13 @@ export const useCourseStore = create<CourseState>((set) => ({
     set((s: CourseState) => ({ locationReservations: s.locationReservations.filter((r: LocationReservation) => r.id !== id) }));
     await contentFn("delete_reservation", { id });
     invalidateStaticCache("location_reservations");
+  },
+
+  setAppConfig: async (key: string, value: unknown) => {
+    set((s: CourseState) => ({ appConfigs: { ...s.appConfigs, [key]: value } }));
+    await contentFn("save_app_config", { key, value });
+  },
+  loadAppConfigs: (configs: Record<string, unknown>) => {
+    set((s: CourseState) => ({ appConfigs: { ...s.appConfigs, ...configs } }));
   },
 }));

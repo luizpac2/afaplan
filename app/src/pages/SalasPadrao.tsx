@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
-import { useDefaultRoomsMap } from "../hooks/useDefaultRoom";
+
 import { CheckCircle } from "lucide-react";
 
 // A–D: Aviação (D pode não existir); E: Intendência; F: Infantaria
@@ -12,7 +12,7 @@ export function SalasPadrao() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const { locations, visualConfigs, updateVisualConfig } = useCourseStore();
+  const { locations, appConfigs, setAppConfig } = useCourseStore();
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [saving, setSaving] = useState<string | null>(null);
@@ -23,25 +23,20 @@ export function SalasPadrao() {
     [locations],
   );
 
-  const roomsMap = useDefaultRoomsMap(selectedYear);
+  const configKey = `default_rooms_${selectedYear}`;
+  const roomsMap = (appConfigs[configKey] ?? {}) as Record<string, string>;
 
   const handleChange = async (classId: string, locationId: string) => {
     setSaving(classId);
-    const configId = `default_rooms_${selectedYear}`;
-    const existing = visualConfigs.find((v) => v.id === configId);
-    const newData = { ...(roomsMap ?? {}), [classId]: locationId || undefined };
+    const newData = { ...roomsMap, [classId]: locationId || undefined };
     if (!locationId) delete newData[classId];
-
-    await updateVisualConfig(configId, {
-      ...(existing ?? {}),
-      id: configId,
-      name: `Salas Padrão ${selectedYear}`,
-      data: newData,
-    });
-
-    setSaving(null);
-    setSaved(classId);
-    setTimeout(() => setSaved(null), 1500);
+    try {
+      await setAppConfig(configKey, newData);
+      setSaved(classId);
+      setTimeout(() => setSaved(null), 1500);
+    } finally {
+      setSaving(null);
+    }
   };
 
   const text   = isDark ? "text-slate-100" : "text-slate-900";

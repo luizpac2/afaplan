@@ -230,6 +230,16 @@ export const SupabaseSync = () => {
           })) as LocationReservation[]);
         } catch (e: any) { console.warn("⚠️ Erro ao carregar locais:", e?.message); }
 
+        // app_configs — chave/valor genérico (salas padrão, etc.)
+        try {
+          const { data: cfgRows } = await supabase.from("app_configs").select("key, value");
+          if (cfgRows) {
+            const map: Record<string, unknown> = {};
+            for (const row of cfgRows) map[row.key] = row.value;
+            useCourseStore.getState().loadAppConfigs(map);
+          }
+        } catch (e: any) { console.warn("⚠️ Erro ao carregar app_configs:", e?.message); }
+
       } catch (err) {
         console.error("❌ Erro crítico ao carregar dados estáticos:", err);
       } finally {
