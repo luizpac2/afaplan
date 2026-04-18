@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { TIME_SLOTS } from "../utils/constants";
@@ -33,7 +33,12 @@ export default function LocaisGrid() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const { locations, locationReservations, events, classes, disciplines, addLocationReservation, deleteLocationReservation } = useCourseStore();
+  const { locations, locationReservations, events, classes, disciplines, fetchYearlyEvents, addLocationReservation, deleteLocationReservation } = useCourseStore();
+
+  // Garante que os eventos do ano corrente estejam carregados
+  useEffect(() => {
+    fetchYearlyEvents(new Date().getFullYear());
+  }, [fetchYearlyEvents]);
 
   const [weekBase, setWeekBase] = useState(() => {
     const d = new Date();
