@@ -1087,10 +1087,10 @@ export const useCourseStore = create<CourseState>((set) => ({
           before: existing as unknown as Record<string, unknown>,
           after: updated as unknown as Record<string, unknown>,
         });
-        if (true) {
-          saveDocument("visual_configs", id, updated);
-          invalidateStaticCache("visual_configs");
-        }
+        contentFn("save_visual_config", { config: updated }).catch((err) =>
+          console.error("save_visual_config error:", err)
+        );
+        invalidateStaticCache("visual_configs");
       }
     } else {
       // Add new rule
@@ -1104,10 +1104,10 @@ export const useCourseStore = create<CourseState>((set) => ({
         entityId: id,
         entityName: newConfig.name,
       });
-      if (true) {
-        saveDocument("visual_configs", id, newConfig);
-        invalidateStaticCache("visual_configs");
-      }
+      contentFn("save_visual_config", { config: newConfig }).catch((err) =>
+        console.error("save_visual_config error:", err)
+      );
+      invalidateStaticCache("visual_configs");
     }
   },
 
