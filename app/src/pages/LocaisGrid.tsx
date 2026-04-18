@@ -71,10 +71,11 @@ export default function LocaisGrid() {
   );
 
   // Eventos programados da semana com local preenchido
-  const weekEvents = useMemo(
-    () => events.filter((e) => e.date >= weekStart && e.date <= weekEnd && !!e.location?.trim()),
-    [events, weekStart, weekEnd],
-  );
+  const weekEvents = useMemo(() => {
+    const filtered = events.filter((e) => e.date >= weekStart && e.date <= weekEnd && !!e.location?.trim());
+    console.log(`[LocaisGrid] eventos semana ${weekStart}→${weekEnd}: total=${events.length} comLocal=${filtered.length}`, filtered.map(e => ({date:e.date, start:e.startTime, loc:e.location, cls:e.classId})));
+    return filtered;
+  }, [events, weekStart, weekEnd]);
 
   // Helpers
   function getDisciplineName(disciplineId?: string) {
