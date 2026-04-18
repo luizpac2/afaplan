@@ -133,7 +133,7 @@ export const EventForm = ({
         date: initialData.date || new Date().toISOString().split("T")[0],
         startTime: initialData.startTime || "07:00",
         endTime: initialData.endTime || "08:00",
-        location: resolvedDefaultLocation,
+        location: initialData.location || resolvedDefaultLocation,
         type: initialData.type || "CLASS",
         evaluationType: initialData.evaluationType || "PARTIAL",
         instructorTrigram: initialData.instructorTrigram || "",

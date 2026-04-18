@@ -33,12 +33,16 @@ export default function LocaisGrid() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const { locations, locationReservations, events, classes, disciplines, fetchYearlyEvents, addLocationReservation, deleteLocationReservation } = useCourseStore();
+  const { locations, locationReservations, yearEventsCache, classes, disciplines, fetchYearlyEvents, addLocationReservation, deleteLocationReservation } = useCourseStore();
+
+  const currentYear = new Date().getFullYear();
 
   // Garante que os eventos do ano corrente estejam carregados
   useEffect(() => {
-    fetchYearlyEvents(new Date().getFullYear());
-  }, [fetchYearlyEvents]);
+    fetchYearlyEvents(currentYear);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const events = yearEventsCache[currentYear] ?? [];
 
   const [weekBase, setWeekBase] = useState(() => {
     const d = new Date();
