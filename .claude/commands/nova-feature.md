@@ -2,6 +2,8 @@
 
 Use este guia SEMPRE que implementar uma nova entidade com CRUD (tabela + edge function + store + componente).
 
+> **Regra de ouro**: `saveDocument` e `updateDocument` usam a **anon key** — bloqueados por RLS em qualquer tabela que tenha `ALL TO service_role`. **Toda escrita** deve passar pela edge function `admin-manage-content` com service role. Nunca use `saveDocument`/`updateDocument` para persistir dados de admin.
+
 ---
 
 ## 1. Tabela SQL
