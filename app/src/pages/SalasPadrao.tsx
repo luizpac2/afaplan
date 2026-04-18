@@ -4,9 +4,9 @@ import { useCourseStore } from "../store/useCourseStore";
 import { useDefaultRoomsMap } from "../hooks/useDefaultRoom";
 import { CheckCircle } from "lucide-react";
 
-// Turmas de aula fixas por ano de esquadrão (1º–4º) × letra (A–E)
+// A–D: Aviação (D pode não existir); E: Intendência; F: Infantaria
 const YEARS = [1, 2, 3, 4];
-const LETTERS = ["A", "B", "C", "D", "E"];
+const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
 export function SalasPadrao() {
   const { theme } = useTheme();
