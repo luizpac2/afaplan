@@ -81,9 +81,6 @@ export default function LocaisGrid() {
     if (!disciplineId) return null;
     return disciplines.find((x) => x.id === disciplineId || x.code === disciplineId) ?? null;
   }
-  function getDisciplineName(disciplineId?: string) {
-    return getDiscipline(disciplineId)?.name ?? getDiscipline(disciplineId)?.code ?? null;
-  }
   function getClassName(classId?: string) {
     if (!classId) return null;
     const c = classes.find((x) => x.id === classId);
