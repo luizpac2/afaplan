@@ -192,10 +192,14 @@ export default function LocaisGrid() {
 
             {/* Grid */}
             <div className="overflow-x-auto">
-              <table className="w-full text-xs border-collapse" style={{ minWidth: 640 }}>
+              <table className="w-full text-xs border-collapse table-fixed" style={{ minWidth: 640 }}>
+                <colgroup>
+                  <col style={{ width: 80 }} />
+                  {weekDates.map((_, i) => <col key={i} />)}
+                </colgroup>
                 <thead>
                   <tr className={headerBg}>
-                    <th className={`w-20 px-2 py-2 text-left font-semibold border-r border-b ${borderC} ${muted}`}>Horário</th>
+                    <th className={`px-2 py-2 text-left font-semibold border-r border-b ${borderC} ${muted}`}>Horário</th>
                     {weekDates.map((d, di) => {
                       const isToday = toISO(d) === toISO(new Date());
                       return (
@@ -210,7 +214,7 @@ export default function LocaisGrid() {
                 <tbody>
                   {TIME_SLOTS.map((slot, si) => (
                     <tr key={si} className={`${rowBg} border-b ${borderC} last:border-b-0`} style={{ height: 48 }}>
-                      <td className={`px-2 border-r ${borderC} font-mono text-[10px] ${muted} whitespace-nowrap align-middle`} style={{ width: 72 }}>
+                      <td className={`px-2 border-r ${borderC} font-mono text-[10px] ${muted} whitespace-nowrap align-middle`}>
                         {slot.start}–{slot.end}
                       </td>
                       {weekDates.map((d, di) => {
@@ -232,7 +236,7 @@ export default function LocaisGrid() {
                         // Reserva manual — prioridade
                         if (res) {
                           return (
-                            <td key={di} className={`px-1 border-r ${borderC} align-middle`} style={{ maxWidth: 110 }}>
+                            <td key={di} className={`px-1 border-r ${borderC} align-middle`} style={{ overflow: "hidden" }}>
                               <div className={`rounded px-1.5 py-1 flex items-center justify-between gap-1 overflow-hidden ${overCapacity ? "bg-red-600/20 border border-red-600" : "bg-blue-600/20 border border-blue-600/40"}`}>
                                 <p className={`font-bold truncate text-[10px] leading-tight ${overCapacity ? "text-red-400" : "text-blue-400"}`}>
                                   {res.classId ? getClassName(res.classId) : (res.label || "Reservado")}
@@ -247,7 +251,7 @@ export default function LocaisGrid() {
                         // Eventos do Gantt neste local/slot — altura fixa, texto truncado
                         if (ganttEvents.length > 0) {
                           return (
-                            <td key={di} className={`px-1 border-r ${borderC} align-middle`} style={{ maxWidth: 110 }}>
+                            <td key={di} className={`px-1 border-r ${borderC} align-middle`} style={{ overflow: "hidden" }}>
                               <div className="flex flex-col gap-0.5 overflow-hidden" style={{ maxHeight: 44 }}>
                                 {ganttEvents.map((ev) => {
                                   const disc = getDisciplineName(ev.disciplineId) ?? ev.disciplineId ?? "";
