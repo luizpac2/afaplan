@@ -98,7 +98,7 @@ export const TurmasAula = () => {
       setLoading(true);
       const [{ data: c }, { data: a }, { data: co }, { data: f }] = await Promise.all([
         supabase.from('cadetes').select('*').order('nome_guerra'),
-        supabase.from('cadete_alocacoes').select('*').eq('ano', ANO_ATUAL),
+        supabase.from('cadete_alocacoes').select('*').order('ano', { ascending: false }),
         supabase.from('cohorts').select('*').order('entryYear', { ascending: false }),
         supabase.from('vw_faltas_resumo').select(
           'cadet_id,nome_guerra,data_aula,disciplina_sigla,disciplina_nome,turma_aula,motivo'
@@ -132,7 +132,10 @@ export const TurmasAula = () => {
 
   // ── enrich cadetes with turma_aula ───────────────────────────────────────
   const enriched = useMemo(() => {
-    const map = new Map(alocacoes.map((a) => [a.cadet_id, a.turma_aula]));
+    // alocacoes vem ordenado por ano desc — o Map mantém o primeiro valor inserido por chave,
+    // então map.get(id) = turma_aula do ano mais recente para cada cadete
+    const map = new Map<string, string>();
+    alocacoes.forEach((a) => { if (!map.has(a.cadet_id)) map.set(a.cadet_id, a.turma_aula); });
     return cadets.map((c) => ({ ...c, turma_aula: map.get(c.id) ?? c.turma_aula ?? null }));
   }, [cadets, alocacoes]);
 
