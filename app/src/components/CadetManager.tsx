@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import {
   Users, Search, Edit2, Save, X, ChevronDown,
-  AlertCircle, Plus, Trash2, KeyRound, Copy, Check,
+  AlertCircle, Plus, Trash2, KeyRound, Copy, Check, UserPlus,
 } from 'lucide-react';
 import type { Cadet, CadetAlocacao, CadetQuadro, CadetTurma, CadetSituacao, Cohort } from '../types';
 
@@ -88,6 +88,9 @@ export const CadetManager = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [addDraft, setAddDraft]       = useState<AddDraft>(EMPTY_ADD);
   const [addSaving, setAddSaving]     = useState(false);
+
+  const [bulkCreating, setBulkCreating]   = useState(false);
+  const [bulkResult, setBulkResult]       = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
 
   // Password result modal
   const [passwordResult, setPasswordResult] = useState<{ name: string; email: string; password: string } | null>(null);
@@ -329,6 +332,22 @@ export const CadetManager = () => {
     }
   };
 
+  // ── Bulk create cadets ──────────────────────────────────────
+  const bulkCreateCadets = async () => {
+    if (!window.confirm('Criar acesso para todos os cadetes com email cadastrado?\n\nSenha padrão: fab1941\nO cadete será obrigado a trocar no primeiro login.')) return;
+    setBulkCreating(true);
+    setBulkResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-bulk-create-cadets', {});
+      if (error) throw error;
+      setBulkResult(data as { created: number; skipped: number; errors: string[] });
+    } catch (e: unknown) {
+      alert('Erro: ' + (e as Error).message);
+    } finally {
+      setBulkCreating(false);
+    }
+  };
+
   // ── Reset password ──────────────────────────────────────────
   const resetCadetPassword = async (cadet: Cadet) => {
     if (!cadet.email) { alert('Cadete sem email cadastrado.'); return; }
@@ -394,15 +413,26 @@ export const CadetManager = () => {
             </div>
           </div>
 
-          {/* Botão adicionar */}
+          {/* Botão adicionar + bulk create */}
           {canEdit && (
-            <button
-              onClick={() => { setShowAddForm(true); setEditingId(null); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"
-            >
-              <Plus size={15} />
-              Novo
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void bulkCreateCadets()}
+                disabled={bulkCreating}
+                title="Criar acesso para todos os cadetes com email cadastrado"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+              >
+                <UserPlus size={15} />
+                {bulkCreating ? 'Criando...' : 'Criar acessos'}
+              </button>
+              <button
+                onClick={() => { setShowAddForm(true); setEditingId(null); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"
+              >
+                <Plus size={15} />
+                Novo
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -798,6 +828,42 @@ export const CadetManager = () => {
       <p className={`text-xs mt-3 ${muted}`}>
         {filtered.length} de {cadets.length} cadetes exibidos
       </p>
+
+      {/* Bulk Create Result */}
+      {bulkResult && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className={`rounded-xl shadow-xl w-full max-w-sm overflow-hidden border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <div className={`px-6 py-4 border-b flex items-center gap-3 ${isDark ? 'border-slate-700 bg-emerald-950/50' : 'border-emerald-200 bg-emerald-50'}`}>
+              <UserPlus size={20} className="text-emerald-500" />
+              <h3 className={`font-semibold ${isDark ? 'text-emerald-300' : 'text-emerald-800'}`}>Acessos criados</h3>
+            </div>
+            <div className="p-6 space-y-3">
+              <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                <strong>{bulkResult.created}</strong> usuários criados &nbsp;·&nbsp; <strong>{bulkResult.skipped}</strong> já existiam
+              </p>
+              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Senha padrão: <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">fab1941</code> — os cadetes serão obrigados a trocar no primeiro login.
+              </p>
+              {bulkResult.errors.length > 0 && (
+                <details className="text-xs text-red-500">
+                  <summary className="cursor-pointer font-medium">{bulkResult.errors.length} erro(s)</summary>
+                  <ul className="mt-1 space-y-0.5 max-h-40 overflow-y-auto">
+                    {bulkResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                </details>
+              )}
+            </div>
+            <div className={`px-6 py-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+              <button
+                onClick={() => setBulkResult(null)}
+                className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Password Result Modal */}
       {passwordResult && (

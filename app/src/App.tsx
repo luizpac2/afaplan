@@ -12,6 +12,7 @@ import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { Inbox } from "./pages/Inbox";
 import { Profile } from "./pages/Profile";
+import { ChangePassword } from "./pages/ChangePassword";
 
 // Lazy loading — páginas pesadas (PDF, Excel, gráficos carregados sob demanda)
 const Disciplinas = lazy(() => import("./pages/Disciplinas").then(m => ({ default: m.Disciplinas })));
@@ -70,6 +71,7 @@ function App() {
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/change-password" element={<ChangePassword />} />
                 <Route path="/pending-approval" element={<Navigate to="/" replace />} />
                 <Route
                   path="/"

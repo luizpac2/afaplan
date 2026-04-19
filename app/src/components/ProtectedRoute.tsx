@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-    const { user, userProfile, loading } = useAuth();
+    const { user, userProfile, loading, mustChangePassword } = useAuth();
     const location = useLocation();
 
     if (loading) {
@@ -21,6 +21,10 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
 
     if (!user) {
         return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    if (mustChangePassword) {
+        return <Navigate to="/change-password" replace />;
     }
 
     // Usuário autenticado mas sem role no sistema — mostra mensagem de acesso negado

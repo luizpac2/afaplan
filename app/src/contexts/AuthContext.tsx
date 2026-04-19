@@ -9,6 +9,7 @@ interface AuthContextType {
   user: SupabaseUser;
   userProfile: UserProfile | null;
   loading: boolean;
+  mustChangePassword: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   userProfile: null,
   loading: true,
+  mustChangePassword: false,
   signInWithEmail: async () => {},
   logout: async () => {},
 });
@@ -43,18 +45,21 @@ const buildProfile = async (_user: NonNullable<SupabaseUser>): Promise<UserProfi
 };
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser]               = useState<SupabaseUser>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading]         = useState(true);
+  const [user, setUser]                         = useState<SupabaseUser>(null);
+  const [userProfile, setUserProfile]           = useState<UserProfile | null>(null);
+  const [loading, setLoading]                   = useState(true);
+  const [mustChangePassword, setMustChange]     = useState(false);
 
   const handleSession = async (session: SupabaseSession) => {
     if (session?.user) {
       setUser(session.user);
       const profile = await buildProfile(session.user);
       setUserProfile(profile);
+      setMustChange(session.user.user_metadata?.must_change_password === true);
     } else {
       setUser(null);
       setUserProfile(null);
+      setMustChange(false);
     }
     setLoading(false);
   };
@@ -82,7 +87,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, signInWithEmail, logout }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, mustChangePassword, signInWithEmail, logout }}>
       {children}
     </AuthContext.Provider>
   );
