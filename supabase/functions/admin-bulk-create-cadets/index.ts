@@ -7,6 +7,11 @@ const corsHeaders = {
 
 const DEFAULT_PASSWORD = "fab1941";
 
+// Remove acentos e normaliza email para ASCII puro
+function normalizeEmail(email: string): string {
+  return email.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -76,9 +81,16 @@ Deno.serve(async (req: Request) => {
 
     for (const cadet of toCreate) {
       try {
+        const cadetEmail = normalizeEmail(cadet.email);
+
+        // Atualiza email normalizado no banco se diferente
+        if (cadetEmail !== cadet.email) {
+          await adminClient.from("cadetes").update({ email: cadetEmail }).eq("id", cadet.id);
+        }
+
         // Cria usuário no Auth com senha padrão e flag de troca obrigatória
         const { data: authData, error: createErr } = await adminClient.auth.admin.createUser({
-          email: cadet.email,
+          email: cadetEmail,
           password: DEFAULT_PASSWORD,
           email_confirm: true,
           user_metadata: {
@@ -91,7 +103,7 @@ Deno.serve(async (req: Request) => {
           // Email já existe no auth — tenta vincular pelo email
           if (createErr?.message?.includes("already been registered")) {
             const { data: listData } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
-            const existing = listData?.users?.find((u) => u.email === cadet.email);
+            const existing = listData?.users?.find((u) => u.email === cadetEmail);
             if (existing) {
               await adminClient.from("user_roles").upsert(
                 { user_id: existing.id, role: "cadete", cadet_id: cadet.id },
