@@ -16,13 +16,13 @@ import type { Cadet, CadetAlocacao, Cohort } from '../types';
 
 const ANO_ATUAL = new Date().getFullYear();
 
-const TURMAS: Array<{ key: string; label: string; letter: string }> = [
-  { key: 'TURMA_A', label: 'Turma A', letter: 'A' },
-  { key: 'TURMA_B', label: 'Turma B', letter: 'B' },
-  { key: 'TURMA_C', label: 'Turma C', letter: 'C' },
-  { key: 'TURMA_D', label: 'Turma D', letter: 'D' },
-  { key: 'TURMA_E', label: 'Turma E', letter: 'E' },
-  { key: 'TURMA_F', label: 'Turma F', letter: 'F' },
+const TURMAS: Array<{ key: string; letter: string }> = [
+  { key: 'TURMA_A', letter: 'A' },
+  { key: 'TURMA_B', letter: 'B' },
+  { key: 'TURMA_C', letter: 'C' },
+  { key: 'TURMA_D', letter: 'D' },
+  { key: 'TURMA_E', letter: 'E' },
+  { key: 'TURMA_F', letter: 'F' },
 ];
 
 const TURMA_CURSO: Record<string, string> = {
@@ -34,10 +34,10 @@ const QUADRO_LABEL: Record<string, string> = {
   CFOAV: 'Aviação', CFOINT: 'Intendência', CFOINF: 'Infantaria',
 };
 
-const QUADRO_COLOR: Record<string, { bg: string; text: string; bar: string }> = {
-  CFOAV:  { bg: 'bg-sky-100 dark:bg-sky-900/30',    text: 'text-sky-700 dark:text-sky-300',    bar: '#0ea5e9' },
-  CFOINT: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', bar: '#f59e0b' },
-  CFOINF: { bg: 'bg-orange-100 dark:bg-orange-900/30',text: 'text-orange-700 dark:text-orange-300',bar: '#f97316' },
+const QUADRO_COLOR: Record<string, { bg: string; text: string }> = {
+  CFOAV:  { bg: 'bg-sky-100 dark:bg-sky-900/30',     text: 'text-sky-700 dark:text-sky-300' },
+  CFOINT: { bg: 'bg-amber-100 dark:bg-amber-900/30',  text: 'text-amber-700 dark:text-amber-300' },
+  CFOINF: { bg: 'bg-orange-100 dark:bg-orange-900/30',text: 'text-orange-700 dark:text-orange-300' },
 };
 
 const SITUACAO_STYLE: Record<string, string> = {
@@ -47,13 +47,13 @@ const SITUACAO_STYLE: Record<string, string> = {
   TRANSFERIDO: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
 };
 
-const TURMA_ACCENT: Record<string, string> = {
-  TURMA_A: 'border-sky-500 bg-sky-500',
-  TURMA_B: 'border-violet-500 bg-violet-500',
-  TURMA_C: 'border-emerald-500 bg-emerald-500',
-  TURMA_D: 'border-rose-500 bg-rose-500',
-  TURMA_E: 'border-amber-500 bg-amber-500',
-  TURMA_F: 'border-orange-500 bg-orange-500',
+const TURMA_ACCENT: Record<string, { border: string; dot: string }> = {
+  TURMA_A: { border: 'border-sky-500',     dot: 'bg-sky-500' },
+  TURMA_B: { border: 'border-violet-500',  dot: 'bg-violet-500' },
+  TURMA_C: { border: 'border-emerald-500', dot: 'bg-emerald-500' },
+  TURMA_D: { border: 'border-rose-500',    dot: 'bg-rose-500' },
+  TURMA_E: { border: 'border-amber-500',   dot: 'bg-amber-500' },
+  TURMA_F: { border: 'border-orange-500',  dot: 'bg-orange-500' },
 };
 
 // ─── types ───────────────────────────────────────────────────────────────────
@@ -67,8 +67,6 @@ interface FaltaRow {
   turma_aula: string | null;
   motivo: string;
 }
-
-// ─── helpers ─────────────────────────────────────────────────────────────────
 
 const fmtDate = (d: string) =>
   new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -85,9 +83,9 @@ export const TurmasAula = () => {
   const [faltas,    setFaltas]    = useState<FaltaRow[]>([]);
   const [loading,   setLoading]   = useState(true);
 
-  const [anoFiltro,   setAnoFiltro]   = useState(ANO_ATUAL);
-  const [turmaSel,    setTurmaSel]    = useState('TURMA_A');
-  const [search,      setSearch]      = useState('');
+  const [turmaSel,   setTurmaSel]   = useState('TURMA_A');
+  const [esquadraoSel, setEsquadraoSel] = useState<number | null>(null); // null = todos
+  const [search,     setSearch]     = useState('');
 
   // ── data loading ──────────────────────────────────────────────────────────
 
@@ -96,7 +94,7 @@ export const TurmasAula = () => {
       setLoading(true);
       const [{ data: c }, { data: a }, { data: co }, { data: f }] = await Promise.all([
         supabase.from('cadetes').select('*').order('nome_guerra'),
-        supabase.from('cadete_alocacoes').select('*'),
+        supabase.from('cadete_alocacoes').select('*').eq('ano', ANO_ATUAL),
         supabase.from('cohorts').select('*').order('entryYear', { ascending: false }),
         supabase.from('vw_faltas_resumo').select(
           'cadet_id,nome_guerra,data_aula,disciplina_sigla,disciplina_nome,turma_aula,motivo'
@@ -111,28 +109,40 @@ export const TurmasAula = () => {
     void load();
   }, []);
 
-  // ── derived: cadetes enriquecidos com turma_aula do ano selecionado ───────
-
-  const enriched = useMemo(() => {
-    const map = new Map(
-      alocacoes.filter((a) => a.ano === anoFiltro).map((a) => [a.cadet_id, a.turma_aula]),
-    );
-    return cadets.map((c) => ({ ...c, turma_aula: map.get(c.id) ?? c.turma_aula ?? null }));
-  }, [cadets, alocacoes, anoFiltro]);
+  // ── cohort helpers ────────────────────────────────────────────────────────
 
   const cohortMap = useMemo(() => new Map(cohorts.map((co) => [co.id, co])), [cohorts]);
 
-  const squadronNum = (cohortId: string) => {
+  // Ordena cohorts do mais recente (1º esq) ao mais antigo (4º esq)
+  const squadrons = useMemo(() => {
+    return [...cohorts]
+      .map((co) => ({ ...co, num: ANO_ATUAL - co.entryYear + 1 }))
+      .filter((co) => co.num >= 1 && co.num <= 4)
+      .sort((a, b) => a.num - b.num);
+  }, [cohorts]);
+
+  const squadronNumOf = (cohortId: string) => {
     const co = cohortMap.get(cohortId);
-    return co ? anoFiltro - co.entryYear + 1 : 99;
+    return co ? ANO_ATUAL - co.entryYear + 1 : 99;
   };
 
-  // ── cadetes da turma selecionada ──────────────────────────────────────────
+  // ── cadetes enriquecidos com turma_aula atual ─────────────────────────────
 
-  const cadetesTurma = useMemo(
-    () => enriched.filter((c) => c.turma_aula === turmaSel),
-    [enriched, turmaSel],
-  );
+  const enriched = useMemo(() => {
+    const map = new Map(alocacoes.map((a) => [a.cadet_id, a.turma_aula]));
+    return cadets.map((c) => ({ ...c, turma_aula: map.get(c.id) ?? c.turma_aula ?? null }));
+  }, [cadets, alocacoes]);
+
+  // ── cadetes da turma selecionada (opcionalmente filtrado por esquadrão) ───
+
+  const cadetesTurma = useMemo(() => {
+    let list = enriched.filter((c) => c.turma_aula === turmaSel);
+    if (esquadraoSel !== null) {
+      list = list.filter((c) => squadronNumOf(c.cohort_id) === esquadraoSel);
+    }
+    return list;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enriched, turmaSel, esquadraoSel, cohortMap]);
 
   const cadetesFiltrados = useMemo(() => {
     const txt = search.toLowerCase();
@@ -145,15 +155,24 @@ export const TurmasAula = () => {
     );
   }, [cadetesTurma, search]);
 
-  const ativos    = useMemo(() => cadetesTurma.filter((c) => c.situacao === 'ATIVO'), [cadetesTurma]);
-  const inativos  = useMemo(() => cadetesTurma.filter((c) => c.situacao !== 'ATIVO'), [cadetesTurma]);
+  const ativos   = useMemo(() => cadetesTurma.filter((c) => c.situacao === 'ATIVO'), [cadetesTurma]);
+  const inativos = useMemo(() => cadetesTurma.filter((c) => c.situacao !== 'ATIVO'), [cadetesTurma]);
 
   // ── faltas da turma selecionada ────────────────────────────────────────────
 
-  const faltasTurma = useMemo(
-    () => faltas.filter((f) => f.turma_aula === turmaSel),
-    [faltas, turmaSel],
-  );
+  const faltasTurma = useMemo(() => {
+    let list = faltas.filter((f) => f.turma_aula === turmaSel);
+    if (esquadraoSel !== null) {
+      const cohortIdsDoEsq = new Set(
+        squadrons.filter((s) => s.num === esquadraoSel).map((s) => s.id)
+      );
+      const cadetIdsDoEsq = new Set(
+        enriched.filter((c) => cohortIdsDoEsq.has(c.cohort_id)).map((c) => c.id)
+      );
+      list = list.filter((f) => cadetIdsDoEsq.has(f.cadet_id));
+    }
+    return list;
+  }, [faltas, turmaSel, esquadraoSel, squadrons, enriched]);
 
   const faltasPorCadete = useMemo(() => {
     const acc: Record<string, number> = {};
@@ -165,31 +184,25 @@ export const TurmasAula = () => {
     const acc: Record<string, number> = {};
     faltasTurma.forEach((f) => { acc[f.motivo] = (acc[f.motivo] ?? 0) + 1; });
     return Object.entries(acc)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
+      .sort((a, b) => b[1] - a[1]).slice(0, 6)
       .map(([motivo, total]) => ({ motivo, total }));
   }, [faltasTurma]);
 
   const faltasPorDisciplina = useMemo(() => {
     const acc: Record<string, { sigla: string; nome: string; total: number }> = {};
     faltasTurma.forEach((f) => {
-      if (!acc[f.disciplina_sigla]) acc[f.disciplina_sigla] = { sigla: f.disciplina_sigla, nome: f.disciplina_nome, total: 0 };
+      if (!acc[f.disciplina_sigla])
+        acc[f.disciplina_sigla] = { sigla: f.disciplina_sigla, nome: f.disciplina_nome, total: 0 };
       acc[f.disciplina_sigla].total++;
     });
     return Object.values(acc).sort((a, b) => b.total - a.total).slice(0, 8);
   }, [faltasTurma]);
 
-  const topFaltosos = useMemo(
-    () =>
-      Object.entries(faltasPorCadete)
-        .map(([cadet_id, total]) => ({
-          cadet_id,
-          total,
-          cadet: enriched.find((c) => c.id === cadet_id),
-        }))
-        .filter((x) => x.cadet?.situacao === 'ATIVO')
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 5),
+  const topFaltosos = useMemo(() =>
+    Object.entries(faltasPorCadete)
+      .map(([cadet_id, total]) => ({ cadet_id, total, cadet: enriched.find((c) => c.id === cadet_id) }))
+      .filter((x) => x.cadet?.situacao === 'ATIVO')
+      .sort((a, b) => b.total - a.total).slice(0, 5),
     [faltasPorCadete, enriched],
   );
 
@@ -198,37 +211,29 @@ export const TurmasAula = () => {
     [faltasTurma],
   );
 
-  // ── por quadro ────────────────────────────────────────────────────────────
-
   const porQuadro = useMemo(() => {
     const acc: Record<string, number> = { CFOAV: 0, CFOINT: 0, CFOINF: 0 };
     ativos.forEach((c) => { if (c.quadro in acc) acc[c.quadro]++; });
-    return Object.entries(acc)
-      .filter(([, v]) => v > 0)
+    return Object.entries(acc).filter(([, v]) => v > 0)
       .map(([quadro, total]) => ({ quadro, label: QUADRO_LABEL[quadro], total }));
   }, [ativos]);
-
-  // ── por esquadrão ─────────────────────────────────────────────────────────
 
   const porEsquadrao = useMemo(() => {
     const acc: Record<string, { nome: string; num: number; total: number }> = {};
     ativos.forEach((c) => {
       if (!acc[c.cohort_id]) {
         const co = cohortMap.get(c.cohort_id);
-        acc[c.cohort_id] = { nome: co?.name ?? c.cohort_id, num: squadronNum(c.cohort_id), total: 0 };
+        acc[c.cohort_id] = { nome: co?.name ?? c.cohort_id, num: squadronNumOf(c.cohort_id), total: 0 };
       }
       acc[c.cohort_id].total++;
     });
     return Object.values(acc).sort((a, b) => a.num - b.num);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ativos, cohortMap, anoFiltro]);
+  }, [ativos, cohortMap]);
 
-  // ── anos disponíveis ──────────────────────────────────────────────────────
-
-  const anosDisponiveis = useMemo(() => {
-    const anos = [...new Set(alocacoes.map((a) => a.ano))].sort((a, b) => b - a);
-    return anos.length ? anos : [ANO_ATUAL];
-  }, [alocacoes]);
+  // ── tab counts (total turma sem filtro esq) ───────────────────────────────
+  const countAtivos = (turmaKey: string) =>
+    enriched.filter((c) => c.turma_aula === turmaKey && c.situacao === 'ATIVO').length;
 
   // ── styles ────────────────────────────────────────────────────────────────
 
@@ -238,9 +243,9 @@ export const TurmasAula = () => {
   const muted = dark ? 'text-slate-400' : 'text-slate-500';
   const input = dark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900';
   const axis  = dark ? '#94a3b8' : '#64748b';
-  const grid  = dark ? '#1e293b' : '#f1f5f9';
+  const gridC = dark ? '#1e293b' : '#f1f5f9';
 
-  const accent = TURMA_ACCENT[turmaSel] ?? 'border-slate-400 bg-slate-400';
+  const accent = TURMA_ACCENT[turmaSel] ?? TURMA_ACCENT['TURMA_A'];
 
   if (loading) {
     return (
@@ -254,66 +259,75 @@ export const TurmasAula = () => {
     <div className={`min-h-screen ${bg} p-4 md:p-6 space-y-6`}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className={`text-xl font-bold ${text}`}>Turmas de Aula</h1>
-          <p className={`text-sm ${muted}`}>Composição, indicadores e faltas por turma de aula.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <label className={`text-sm font-medium ${muted}`}>Ano:</label>
-          <select
-            value={anoFiltro}
-            onChange={(e) => setAnoFiltro(Number(e.target.value))}
-            className={`px-3 py-2 text-sm rounded-lg border ${input}`}
-          >
-            {anosDisponiveis.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
-        </div>
+      <div>
+        <h1 className={`text-xl font-bold ${text}`}>Turmas de Aula</h1>
+        <p className={`text-sm ${muted}`}>Composição, indicadores e faltas por turma de aula · {ANO_ATUAL}</p>
       </div>
 
-      {/* ── Seletor de turma (tabs) ─────────────────────────────────────────── */}
-      <div className={`flex gap-2 flex-wrap`}>
+      {/* ── Seletor de turma (tabs A–F) ─────────────────────────────────────── */}
+      <div className="flex gap-2 flex-wrap">
         {TURMAS.map((t) => {
-          const count = enriched.filter((c) => c.turma_aula === t.key && c.situacao === 'ATIVO').length;
+          const count = countAtivos(t.key);
           const active = turmaSel === t.key;
-          const acc = TURMA_ACCENT[t.key].split(' ')[0]; // border color class
+          const a = TURMA_ACCENT[t.key];
           return (
             <button
               key={t.key}
-              onClick={() => setTurmaSel(t.key)}
-              className={`flex flex-col items-center px-5 py-3 rounded-xl border-2 transition-all duration-200 min-w-[80px]
+              onClick={() => { setTurmaSel(t.key); setEsquadraoSel(null); }}
+              className={`flex flex-col items-center px-5 py-3 rounded-xl border-2 transition-all duration-200 min-w-[76px]
                 ${active
-                  ? `${acc} border-opacity-100 ${dark ? 'bg-slate-800' : 'bg-white'} shadow-md`
-                  : `border-transparent ${dark ? 'bg-slate-800/50 hover:bg-slate-800' : 'bg-white/70 hover:bg-white'}`}
-              `}
+                  ? `${a.border} ${dark ? 'bg-slate-800' : 'bg-white'} shadow-md`
+                  : `border-transparent ${dark ? 'bg-slate-800/50 hover:bg-slate-800' : 'bg-white/70 hover:bg-white'}`}`}
             >
-              <span className={`text-lg font-bold ${active ? (dark ? 'text-white' : 'text-slate-900') : muted}`}>
-                {t.letter}
-              </span>
-              <span className={`text-xs ${active ? (dark ? 'text-slate-300' : 'text-slate-600') : muted}`}>
-                {count} ativos
-              </span>
+              <span className={`text-lg font-bold ${active ? text : muted}`}>{t.letter}</span>
+              <span className={`text-xs ${active ? muted : muted}`}>{count} ativos</span>
             </button>
           );
         })}
       </div>
 
-      {/* ── Curso badge ───────────────────────────────────────────────────── */}
+      {/* ── Seletor de esquadrão (botões 1º–4º + Todos) ──────────────────── */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className={`text-xs font-semibold ${muted}`}>Filtrar por esquadrão:</span>
+        {[null, 1, 2, 3, 4].map((num) => {
+          const sq = num === null ? null : squadrons.find((s) => s.num === num);
+          const active = esquadraoSel === num;
+          const label = num === null ? 'Todos' : `${num}º`;
+          const sub = num === null ? '' : (sq ? sq.name : '—');
+          return (
+            <button
+              key={num ?? 'all'}
+              onClick={() => setEsquadraoSel(num)}
+              title={sub}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold border-2 transition-all duration-150
+                ${active
+                  ? `${accent.border} ${dark ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'} shadow`
+                  : `border-transparent ${dark ? 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'bg-white/70 text-slate-500 hover:bg-white hover:text-slate-800'}`}`}
+            >
+              {label}
+              {sub && <span className={`ml-1 text-xs font-normal ${active ? muted : 'text-slate-400'}`}>{sub}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Curso + resumo ───────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
-        <div className={`h-1 w-10 rounded-full ${accent.split(' ')[1]}`} />
+        <div className={`h-1 w-10 rounded-full ${accent.dot}`} />
         <span className={`text-sm font-semibold ${muted}`}>
           Curso de {TURMA_CURSO[turmaSel]} · {ativos.length} cadetes ativos
           {inativos.length > 0 && ` · ${inativos.length} inativo${inativos.length > 1 ? 's' : ''}`}
+          {esquadraoSel !== null && ` · ${esquadraoSel}º Esquadrão`}
         </span>
       </div>
 
       {/* ── KPI cards ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { icon: Users,        label: 'Total na turma',   value: cadetesTurma.length,  sub: `${ativos.length} ativos` },
-          { icon: TrendingDown, label: 'Total de faltas',  value: faltasTurma.length,   sub: ativos.length ? `${(faltasTurma.length / ativos.length).toFixed(1)} p/ cadete` : '—' },
-          { icon: Award,        label: 'Maior número',     value: topFaltosos[0]?.total ?? 0, sub: topFaltosos[0]?.cadet?.nome_guerra ?? '—' },
-          { icon: BookOpen,     label: 'Disciplinas c/ falta', value: faltasPorDisciplina.length, sub: faltasPorDisciplina[0]?.sigla ?? '—' },
+          { icon: Users,        label: 'Total na turma',        value: cadetesTurma.length, sub: `${ativos.length} ativos` },
+          { icon: TrendingDown, label: 'Total de faltas',        value: faltasTurma.length,  sub: ativos.length ? `${(faltasTurma.length / ativos.length).toFixed(1)} p/ cadete` : '—' },
+          { icon: Award,        label: 'Maior número de faltas', value: topFaltosos[0]?.total ?? 0, sub: topFaltosos[0]?.cadet?.nome_guerra ?? '—' },
+          { icon: BookOpen,     label: 'Disciplinas c/ falta',  value: faltasPorDisciplina.length, sub: faltasPorDisciplina[0]?.sigla ?? '—' },
         ].map(({ icon: Icon, label, value, sub }) => (
           <div key={label} className={`rounded-xl border p-4 ${card}`}>
             <div className="flex items-start justify-between mb-2">
@@ -326,7 +340,7 @@ export const TurmasAula = () => {
         ))}
       </div>
 
-      {/* ── Row: composição + faltas por motivo ──────────────────────────── */}
+      {/* ── Composição + Faltas por motivo ────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* Composição por esquadrão */}
@@ -336,15 +350,16 @@ export const TurmasAula = () => {
             <h3 className={`text-sm font-semibold ${text}`}>Composição por Esquadrão</h3>
           </div>
           {porEsquadrao.length === 0 ? (
-            <p className={`text-sm ${muted}`}>Sem dados para o ano selecionado.</p>
+            <p className={`text-sm ${muted}`}>Sem dados.</p>
           ) : (
             <div className="space-y-3">
               {porEsquadrao.map((s) => (
                 <div key={s.nome} className="flex items-center gap-3">
-                  <span className={`text-xs w-24 truncate font-medium ${muted}`}>{s.num}º · {s.nome}</span>
+                  <span className={`text-xs w-6 font-bold ${muted}`}>{s.num}º</span>
+                  <span className={`text-xs w-28 truncate ${muted}`}>{s.nome}</span>
                   <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-blue-500"
+                      className={`h-full rounded-full ${accent.dot}`}
                       style={{ width: `${ativos.length ? (s.total / ativos.length) * 100 : 0}%` }}
                     />
                   </div>
@@ -354,7 +369,6 @@ export const TurmasAula = () => {
             </div>
           )}
 
-          {/* por quadro */}
           {porQuadro.length > 0 && (
             <div className={`mt-5 pt-4 border-t ${dark ? 'border-slate-800' : 'border-slate-100'}`}>
               <p className={`text-xs font-semibold mb-3 ${muted}`}>Por Quadro</p>
@@ -381,7 +395,7 @@ export const TurmasAula = () => {
           ) : (
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={faltasPorMotivo} layout="vertical" margin={{ left: 8, right: 20, top: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={grid} horizontal={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={gridC} horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 11, fill: axis }} />
                 <YAxis
                   type="category" dataKey="motivo" width={130}
@@ -409,7 +423,7 @@ export const TurmasAula = () => {
           </div>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={faltasPorDisciplina} margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={gridC} vertical={false} />
               <XAxis dataKey="sigla" tick={{ fontSize: 11, fill: axis }} />
               <YAxis tick={{ fontSize: 11, fill: axis }} allowDecimals={false} />
               <Tooltip
@@ -427,10 +441,9 @@ export const TurmasAula = () => {
         </div>
       )}
 
-      {/* ── Row: top faltosos + últimas faltas ───────────────────────────── */}
+      {/* ── Top faltosos + Últimas faltas ────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        {/* Top faltosos */}
         <div className={`rounded-xl border p-5 ${card}`}>
           <div className="flex items-center gap-2 mb-4">
             <TrendingDown size={16} className={muted} />
@@ -442,9 +455,7 @@ export const TurmasAula = () => {
             <div className="space-y-2">
               {topFaltosos.map(({ cadet_id, total, cadet }, rank) => (
                 <div key={cadet_id} className={`flex items-center gap-3 px-3 py-2 rounded-lg ${dark ? 'bg-slate-800/50' : 'bg-slate-50'}`}>
-                  <span className={`text-xs font-bold w-5 text-center ${rank === 0 ? 'text-red-500' : muted}`}>
-                    {rank + 1}
-                  </span>
+                  <span className={`text-xs font-bold w-5 text-center ${rank === 0 ? 'text-red-500' : muted}`}>{rank + 1}</span>
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-semibold truncate ${text}`}>{cadet?.nome_guerra ?? cadet_id}</p>
                     <p className={`text-xs truncate ${muted}`}>{cadet?.nome_completo ?? ''}</p>
@@ -456,7 +467,6 @@ export const TurmasAula = () => {
           )}
         </div>
 
-        {/* Últimas faltas */}
         <div className={`rounded-xl border p-5 ${card}`}>
           <div className="flex items-center gap-2 mb-4">
             <Clock size={16} className={muted} />
@@ -486,6 +496,7 @@ export const TurmasAula = () => {
             <GraduationCap size={16} className={muted} />
             <h3 className={`text-sm font-semibold ${text}`}>
               Cadetes da Turma {turmaSel.replace('TURMA_', '')}
+              {esquadraoSel !== null && ` · ${esquadraoSel}º Esquadrão`}
             </h3>
             <span className={`text-xs px-2 py-0.5 rounded-full ${dark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
               {cadetesTurma.length}
@@ -505,12 +516,12 @@ export const TurmasAula = () => {
         {cadetesFiltrados.length === 0 ? (
           <div className={`p-8 text-center text-sm ${muted}`}>
             {cadetesTurma.length === 0
-              ? `Nenhum cadete alocado na Turma ${turmaSel.replace('TURMA_', '')} em ${anoFiltro}.`
+              ? `Nenhum cadete alocado${esquadraoSel !== null ? ` no ${esquadraoSel}º Esquadrão` : ''} na Turma ${turmaSel.replace('TURMA_', '')} em ${ANO_ATUAL}.`
               : 'Nenhum cadete encontrado para a busca.'}
           </div>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {cadetesFiltrados
+            {[...cadetesFiltrados]
               .sort((a, b) => {
                 if (a.situacao === 'ATIVO' && b.situacao !== 'ATIVO') return -1;
                 if (a.situacao !== 'ATIVO' && b.situacao === 'ATIVO') return 1;
@@ -519,46 +530,34 @@ export const TurmasAula = () => {
               .map((c) => {
                 const faltas = faltasPorCadete[c.id] ?? 0;
                 const co = cohortMap.get(c.cohort_id);
-                const esqNum = squadronNum(c.cohort_id);
+                const esqNum = squadronNumOf(c.cohort_id);
                 return (
-                  <div key={c.id} className={`flex items-center gap-3 px-5 py-3 hover:${dark ? 'bg-slate-800/40' : 'bg-slate-50'} transition-colors`}>
-                    {/* Avatar */}
+                  <div key={c.id} className={`flex items-center gap-3 px-5 py-3 transition-colors ${dark ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50'}`}>
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-sm
                       ${c.quadro === 'CFOAV' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300'
                       : c.quadro === 'CFOINT' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
                       : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'}`}>
                       {c.nome_guerra.charAt(0)}
                     </div>
-
-                    {/* Info */}
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-semibold truncate ${text}`}>{c.nome_guerra}</p>
                       <p className={`text-xs truncate ${muted}`}>{c.nome_completo}</p>
                     </div>
-
-                    {/* Meta */}
                     <div className="hidden sm:flex items-center gap-3">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${QUADRO_COLOR[c.quadro]?.bg ?? ''} ${QUADRO_COLOR[c.quadro]?.text ?? ''}`}>
                         {QUADRO_LABEL[c.quadro] ?? c.quadro}
                       </span>
-                      {co && (
-                        <span className={`text-xs ${muted}`}>{esqNum}º Esq · {co.name}</span>
-                      )}
+                      {co && <span className={`text-xs ${muted}`}>{esqNum}º · {co.name}</span>}
                     </div>
-
-                    {/* Faltas badge */}
-                    <div className={`text-xs font-bold px-2 py-0.5 rounded-full min-w-[40px] text-center
+                    <div className={`text-xs font-bold px-2 py-0.5 rounded-full min-w-[52px] text-center
                       ${faltas === 0 ? (dark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')
                       : faltas <= 3 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
                       : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'}`}>
                       {faltas} {faltas === 1 ? 'falta' : 'faltas'}
                     </div>
-
-                    {/* Situação */}
                     <span className={`text-xs px-2 py-0.5 rounded-full hidden md:inline-block ${SITUACAO_STYLE[c.situacao] ?? ''}`}>
                       {c.situacao}
                     </span>
-
                     <ChevronRight size={14} className={muted} />
                   </div>
                 );
