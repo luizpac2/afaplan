@@ -12,22 +12,21 @@ import {
 } from 'recharts';
 import type { Cadet, CadetAlocacao, Cohort } from '../types';
 
-// ─── constants ────────────────────────────────────────────────────────────────
-
 const ANO_ATUAL = new Date().getFullYear();
 
-const TURMAS: Array<{ key: string; letter: string }> = [
-  { key: 'TURMA_A', letter: 'A' },
-  { key: 'TURMA_B', letter: 'B' },
-  { key: 'TURMA_C', letter: 'C' },
-  { key: 'TURMA_D', letter: 'D' },
-  { key: 'TURMA_E', letter: 'E' },
-  { key: 'TURMA_F', letter: 'F' },
+const TURMAS: Array<{ key: string; letter: string; curso: string; cursoShort: string }> = [
+  { key: 'TURMA_A', letter: 'A', curso: 'Aviação',     cursoShort: 'AV' },
+  { key: 'TURMA_B', letter: 'B', curso: 'Aviação',     cursoShort: 'AV' },
+  { key: 'TURMA_C', letter: 'C', curso: 'Aviação',     cursoShort: 'AV' },
+  { key: 'TURMA_D', letter: 'D', curso: 'Aviação',     cursoShort: 'AV' },
+  { key: 'TURMA_E', letter: 'E', curso: 'Intendência', cursoShort: 'INT' },
+  { key: 'TURMA_F', letter: 'F', curso: 'Infantaria',  cursoShort: 'INF' },
 ];
 
-const TURMA_CURSO: Record<string, string> = {
-  TURMA_A: 'Aviação', TURMA_B: 'Aviação', TURMA_C: 'Aviação', TURMA_D: 'Aviação',
-  TURMA_E: 'Intendência', TURMA_F: 'Infantaria',
+const CURSO_STYLE: Record<string, string> = {
+  AV:  'bg-sky-600 text-white',
+  INT: 'bg-amber-600 text-white',
+  INF: 'bg-orange-600 text-white',
 };
 
 const QUADRO_LABEL: Record<string, string> = {
@@ -35,9 +34,9 @@ const QUADRO_LABEL: Record<string, string> = {
 };
 
 const QUADRO_COLOR: Record<string, { bg: string; text: string }> = {
-  CFOAV:  { bg: 'bg-sky-100 dark:bg-sky-900/30',     text: 'text-sky-700 dark:text-sky-300' },
-  CFOINT: { bg: 'bg-amber-100 dark:bg-amber-900/30',  text: 'text-amber-700 dark:text-amber-300' },
-  CFOINF: { bg: 'bg-orange-100 dark:bg-orange-900/30',text: 'text-orange-700 dark:text-orange-300' },
+  CFOAV:  { bg: 'bg-sky-100 dark:bg-sky-900/30',      text: 'text-sky-700 dark:text-sky-300' },
+  CFOINT: { bg: 'bg-amber-100 dark:bg-amber-900/30',   text: 'text-amber-700 dark:text-amber-300' },
+  CFOINF: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300' },
 };
 
 const SITUACAO_STYLE: Record<string, string> = {
@@ -47,16 +46,24 @@ const SITUACAO_STYLE: Record<string, string> = {
   TRANSFERIDO: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
 };
 
-const TURMA_ACCENT: Record<string, { border: string; dot: string }> = {
-  TURMA_A: { border: 'border-sky-500',     dot: 'bg-sky-500' },
-  TURMA_B: { border: 'border-violet-500',  dot: 'bg-violet-500' },
-  TURMA_C: { border: 'border-emerald-500', dot: 'bg-emerald-500' },
-  TURMA_D: { border: 'border-rose-500',    dot: 'bg-rose-500' },
-  TURMA_E: { border: 'border-amber-500',   dot: 'bg-amber-500' },
-  TURMA_F: { border: 'border-orange-500',  dot: 'bg-orange-500' },
+// Cor do indicador lateral de cada turma
+const TURMA_COLOR: Record<string, string> = {
+  TURMA_A: 'bg-sky-500',
+  TURMA_B: 'bg-violet-500',
+  TURMA_C: 'bg-emerald-500',
+  TURMA_D: 'bg-rose-500',
+  TURMA_E: 'bg-amber-500',
+  TURMA_F: 'bg-orange-500',
 };
 
-// ─── types ───────────────────────────────────────────────────────────────────
+const TURMA_BORDER: Record<string, string> = {
+  TURMA_A: 'border-sky-500',
+  TURMA_B: 'border-violet-500',
+  TURMA_C: 'border-emerald-500',
+  TURMA_D: 'border-rose-500',
+  TURMA_E: 'border-amber-500',
+  TURMA_F: 'border-orange-500',
+};
 
 interface FaltaRow {
   cadet_id: string;
@@ -71,8 +78,6 @@ interface FaltaRow {
 const fmtDate = (d: string) =>
   new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
-// ─── component ───────────────────────────────────────────────────────────────
-
 export const TurmasAula = () => {
   const { theme } = useTheme();
   const dark = theme === 'dark';
@@ -83,11 +88,10 @@ export const TurmasAula = () => {
   const [faltas,    setFaltas]    = useState<FaltaRow[]>([]);
   const [loading,   setLoading]   = useState(true);
 
-  const [turmaSel,   setTurmaSel]   = useState('TURMA_A');
-  const [esquadraoSel, setEsquadraoSel] = useState<number | null>(null); // null = todos
-  const [search,     setSearch]     = useState('');
-
-  // ── data loading ──────────────────────────────────────────────────────────
+  // Hierarquia: Esquadrão (null = todos) → Turma (null = todas)
+  const [esquadraoSel, setEsquadraoSel] = useState<number | null>(null);
+  const [turmaSel,     setTurmaSel]     = useState<string | null>(null);
+  const [search,       setSearch]       = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -109,94 +113,86 @@ export const TurmasAula = () => {
     void load();
   }, []);
 
-  // ── cohort helpers ────────────────────────────────────────────────────────
-
+  // ── squadrons sorted 1º → 4º ──────────────────────────────────────────────
   const cohortMap = useMemo(() => new Map(cohorts.map((co) => [co.id, co])), [cohorts]);
 
-  // Ordena cohorts do mais recente (1º esq) ao mais antigo (4º esq)
-  const squadrons = useMemo(() => {
-    return [...cohorts]
+  const squadrons = useMemo(() =>
+    [...cohorts]
       .map((co) => ({ ...co, num: ANO_ATUAL - co.entryYear + 1 }))
       .filter((co) => co.num >= 1 && co.num <= 4)
-      .sort((a, b) => a.num - b.num);
-  }, [cohorts]);
+      .sort((a, b) => a.num - b.num),
+    [cohorts],
+  );
 
   const squadronNumOf = (cohortId: string) => {
     const co = cohortMap.get(cohortId);
     return co ? ANO_ATUAL - co.entryYear + 1 : 99;
   };
 
-  // ── cadetes enriquecidos com turma_aula atual ─────────────────────────────
-
+  // ── enrich cadetes with turma_aula ───────────────────────────────────────
   const enriched = useMemo(() => {
     const map = new Map(alocacoes.map((a) => [a.cadet_id, a.turma_aula]));
     return cadets.map((c) => ({ ...c, turma_aula: map.get(c.id) ?? c.turma_aula ?? null }));
   }, [cadets, alocacoes]);
 
-  // ── cadetes da turma selecionada (opcionalmente filtrado por esquadrão) ───
-
-  const cadetesTurma = useMemo(() => {
-    let list = enriched.filter((c) => c.turma_aula === turmaSel);
-    if (esquadraoSel !== null) {
+  // ── filtered cadetes (esquadrão + turma) ─────────────────────────────────
+  const cadetesFiltBase = useMemo(() => {
+    let list = enriched;
+    if (esquadraoSel !== null)
       list = list.filter((c) => squadronNumOf(c.cohort_id) === esquadraoSel);
-    }
+    if (turmaSel !== null)
+      list = list.filter((c) => c.turma_aula === turmaSel);
     return list;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enriched, turmaSel, esquadraoSel, cohortMap]);
+  }, [enriched, esquadraoSel, turmaSel, cohortMap]);
 
   const cadetesFiltrados = useMemo(() => {
     const txt = search.toLowerCase();
-    if (!txt) return cadetesTurma;
-    return cadetesTurma.filter(
-      (c) =>
-        c.nome_guerra.toLowerCase().includes(txt) ||
-        c.nome_completo.toLowerCase().includes(txt) ||
-        c.id.includes(txt),
+    if (!txt) return cadetesFiltBase;
+    return cadetesFiltBase.filter(
+      (c) => c.nome_guerra.toLowerCase().includes(txt) ||
+             c.nome_completo.toLowerCase().includes(txt) ||
+             c.id.includes(txt),
     );
-  }, [cadetesTurma, search]);
+  }, [cadetesFiltBase, search]);
 
-  const ativos   = useMemo(() => cadetesTurma.filter((c) => c.situacao === 'ATIVO'), [cadetesTurma]);
-  const inativos = useMemo(() => cadetesTurma.filter((c) => c.situacao !== 'ATIVO'), [cadetesTurma]);
+  const ativos   = useMemo(() => cadetesFiltBase.filter((c) => c.situacao === 'ATIVO'), [cadetesFiltBase]);
+  const inativos = useMemo(() => cadetesFiltBase.filter((c) => c.situacao !== 'ATIVO'), [cadetesFiltBase]);
 
-  // ── faltas da turma selecionada ────────────────────────────────────────────
-
-  const faltasTurma = useMemo(() => {
-    let list = faltas.filter((f) => f.turma_aula === turmaSel);
+  // ── faltas filtered ───────────────────────────────────────────────────────
+  const faltasFilt = useMemo(() => {
+    let list = faltas;
+    if (turmaSel !== null) list = list.filter((f) => f.turma_aula === turmaSel);
     if (esquadraoSel !== null) {
-      const cohortIdsDoEsq = new Set(
-        squadrons.filter((s) => s.num === esquadraoSel).map((s) => s.id)
-      );
-      const cadetIdsDoEsq = new Set(
-        enriched.filter((c) => cohortIdsDoEsq.has(c.cohort_id)).map((c) => c.id)
-      );
-      list = list.filter((f) => cadetIdsDoEsq.has(f.cadet_id));
+      const cohortIds = new Set(squadrons.filter((s) => s.num === esquadraoSel).map((s) => s.id));
+      const cadetIds  = new Set(enriched.filter((c) => cohortIds.has(c.cohort_id)).map((c) => c.id));
+      list = list.filter((f) => cadetIds.has(f.cadet_id));
     }
     return list;
   }, [faltas, turmaSel, esquadraoSel, squadrons, enriched]);
 
   const faltasPorCadete = useMemo(() => {
     const acc: Record<string, number> = {};
-    faltasTurma.forEach((f) => { acc[f.cadet_id] = (acc[f.cadet_id] ?? 0) + 1; });
+    faltasFilt.forEach((f) => { acc[f.cadet_id] = (acc[f.cadet_id] ?? 0) + 1; });
     return acc;
-  }, [faltasTurma]);
+  }, [faltasFilt]);
 
   const faltasPorMotivo = useMemo(() => {
     const acc: Record<string, number> = {};
-    faltasTurma.forEach((f) => { acc[f.motivo] = (acc[f.motivo] ?? 0) + 1; });
-    return Object.entries(acc)
-      .sort((a, b) => b[1] - a[1]).slice(0, 6)
+    faltasFilt.forEach((f) => { acc[f.motivo] = (acc[f.motivo] ?? 0) + 1; });
+    return Object.entries(acc).sort((a, b) => b[1] - a[1]).slice(0, 6)
       .map(([motivo, total]) => ({ motivo, total }));
-  }, [faltasTurma]);
+  }, [faltasFilt]);
 
   const faltasPorDisciplina = useMemo(() => {
     const acc: Record<string, { sigla: string; nome: string; total: number }> = {};
-    faltasTurma.forEach((f) => {
+    faltasFilt.forEach((f) => {
       if (!acc[f.disciplina_sigla])
         acc[f.disciplina_sigla] = { sigla: f.disciplina_sigla, nome: f.disciplina_nome, total: 0 };
       acc[f.disciplina_sigla].total++;
     });
     return Object.values(acc).sort((a, b) => b.total - a.total).slice(0, 8);
-  }, [faltasTurma]);
+  }, [faltasFilt]);
 
   const topFaltosos = useMemo(() =>
     Object.entries(faltasPorCadete)
@@ -207,8 +203,8 @@ export const TurmasAula = () => {
   );
 
   const ultimasFaltas = useMemo(
-    () => [...faltasTurma].sort((a, b) => b.data_aula.localeCompare(a.data_aula)).slice(0, 8),
-    [faltasTurma],
+    () => [...faltasFilt].sort((a, b) => b.data_aula.localeCompare(a.data_aula)).slice(0, 8),
+    [faltasFilt],
   );
 
   const porQuadro = useMemo(() => {
@@ -218,25 +214,31 @@ export const TurmasAula = () => {
       .map(([quadro, total]) => ({ quadro, label: QUADRO_LABEL[quadro], total }));
   }, [ativos]);
 
-  const porEsquadrao = useMemo(() => {
-    const acc: Record<string, { nome: string; num: number; total: number }> = {};
-    ativos.forEach((c) => {
-      if (!acc[c.cohort_id]) {
-        const co = cohortMap.get(c.cohort_id);
-        acc[c.cohort_id] = { nome: co?.name ?? c.cohort_id, num: squadronNumOf(c.cohort_id), total: 0 };
-      }
-      acc[c.cohort_id].total++;
-    });
-    return Object.values(acc).sort((a, b) => a.num - b.num);
+  // composição por turma (dentro do esquadrão selecionado, ou geral)
+  const porTurma = useMemo(() => {
+    return TURMAS.map((t) => {
+      let list = enriched.filter((c) => c.turma_aula === t.key && c.situacao === 'ATIVO');
+      if (esquadraoSel !== null)
+        list = list.filter((c) => squadronNumOf(c.cohort_id) === esquadraoSel);
+      return { ...t, total: list.length };
+    }).filter((t) => t.total > 0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ativos, cohortMap]);
+  }, [enriched, esquadraoSel, cohortMap]);
 
-  // ── tab counts (total turma sem filtro esq) ───────────────────────────────
-  const countAtivos = (turmaKey: string) =>
-    enriched.filter((c) => c.turma_aula === turmaKey && c.situacao === 'ATIVO').length;
+  // count ativos por turma para os tabs (sem filtro de esquadrão)
+  const countByTurma = useMemo(() => {
+    const acc: Record<string, number> = {};
+    enriched.forEach((c) => {
+      if (c.situacao === 'ATIVO' && c.turma_aula) {
+        if (esquadraoSel === null || squadronNumOf(c.cohort_id) === esquadraoSel)
+          acc[c.turma_aula] = (acc[c.turma_aula] ?? 0) + 1;
+      }
+    });
+    return acc;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enriched, esquadraoSel, cohortMap]);
 
   // ── styles ────────────────────────────────────────────────────────────────
-
   const bg    = dark ? 'bg-slate-950' : 'bg-slate-50';
   const card  = dark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200';
   const text  = dark ? 'text-slate-100' : 'text-slate-900';
@@ -245,89 +247,142 @@ export const TurmasAula = () => {
   const axis  = dark ? '#94a3b8' : '#64748b';
   const gridC = dark ? '#1e293b' : '#f1f5f9';
 
-  const accent = TURMA_ACCENT[turmaSel] ?? TURMA_ACCENT['TURMA_A'];
+  const dotSel = turmaSel ? (TURMA_COLOR[turmaSel] ?? 'bg-slate-400') : 'bg-slate-400';
+
+  // label do contexto atual
+  const ctxLabel = [
+    esquadraoSel !== null ? `${esquadraoSel}º Esq. · ${squadrons.find((s) => s.num === esquadraoSel)?.name ?? ''}` : null,
+    turmaSel !== null ? `Turma ${turmaSel.replace('TURMA_', '')} · ${TURMAS.find((t) => t.key === turmaSel)?.curso ?? ''}` : null,
+  ].filter(Boolean).join(' › ') || `Todos os esquadrões · Todas as turmas`;
 
   if (loading) {
     return (
       <div className={`flex items-center justify-center min-h-screen ${bg}`}>
-        <div className={`text-sm animate-pulse ${muted}`}>Carregando dados da turma…</div>
+        <div className={`text-sm animate-pulse ${muted}`}>Carregando dados…</div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen ${bg} p-4 md:p-6 space-y-6`}>
+    <div className={`min-h-screen ${bg} p-4 md:p-6 space-y-5`}>
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div>
-        <h1 className={`text-xl font-bold ${text}`}>Turmas de Aula</h1>
-        <p className={`text-sm ${muted}`}>Composição, indicadores e faltas por turma de aula · {ANO_ATUAL}</p>
-      </div>
+      {/* ── HEADER com filtros integrados ──────────────────────────────────── */}
+      <div className={`rounded-xl border p-4 ${card}`}>
+        <div className="flex flex-wrap items-start justify-between gap-4">
 
-      {/* ── Seletor de turma (tabs A–F) ─────────────────────────────────────── */}
-      <div className="flex gap-2 flex-wrap">
-        {TURMAS.map((t) => {
-          const count = countAtivos(t.key);
-          const active = turmaSel === t.key;
-          const a = TURMA_ACCENT[t.key];
-          return (
+          {/* Título + contexto */}
+          <div className="min-w-0">
+            <h1 className={`text-lg font-bold ${text}`}>Turmas de Aula · {ANO_ATUAL}</h1>
+            <p className={`text-xs mt-0.5 ${muted}`}>{ctxLabel}</p>
+          </div>
+
+          {/* Busca */}
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${input}`}>
+            <Search size={14} className={muted} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar cadete…"
+              className="bg-transparent text-sm outline-none w-36 placeholder:text-slate-400"
+            />
+          </div>
+        </div>
+
+        <div className={`my-4 h-px ${dark ? 'bg-slate-800' : 'bg-slate-100'}`} />
+
+        {/* Nível 1: Esquadrão */}
+        <div className="space-y-2">
+          <p className={`text-[11px] font-semibold uppercase tracking-wider ${muted}`}>Esquadrão</p>
+          <div className="flex gap-2 flex-wrap">
+            {/* Todos */}
             <button
-              key={t.key}
-              onClick={() => { setTurmaSel(t.key); setEsquadraoSel(null); }}
-              className={`flex flex-col items-center px-5 py-3 rounded-xl border-2 transition-all duration-200 min-w-[76px]
-                ${active
-                  ? `${a.border} ${dark ? 'bg-slate-800' : 'bg-white'} shadow-md`
-                  : `border-transparent ${dark ? 'bg-slate-800/50 hover:bg-slate-800' : 'bg-white/70 hover:bg-white'}`}`}
+              onClick={() => { setEsquadraoSel(null); setTurmaSel(null); }}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold border-2 transition-all
+                ${esquadraoSel === null
+                  ? `border-slate-500 ${dark ? 'bg-slate-700 text-white' : 'bg-slate-800 text-white'}`
+                  : `border-transparent ${dark ? 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'}`}`}
             >
-              <span className={`text-lg font-bold ${active ? text : muted}`}>{t.letter}</span>
-              <span className={`text-xs ${active ? muted : muted}`}>{count} ativos</span>
+              Todos
             </button>
-          );
-        })}
-      </div>
+            {squadrons.map((sq) => {
+              const active = esquadraoSel === sq.num;
+              const countEsq = enriched.filter((c) => c.situacao === 'ATIVO' && squadronNumOf(c.cohort_id) === sq.num).length;
+              return (
+                <button
+                  key={sq.id}
+                  onClick={() => { setEsquadraoSel(sq.num); setTurmaSel(null); }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border-2 transition-all
+                    ${active
+                      ? `border-blue-500 ${dark ? 'bg-slate-700 text-white' : 'bg-blue-50 text-blue-900'}`
+                      : `border-transparent ${dark ? 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'}`}`}
+                >
+                  <span>{sq.num}º {sq.name}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${active ? (dark ? 'bg-blue-900/60 text-blue-300' : 'bg-blue-100 text-blue-700') : (dark ? 'bg-slate-700 text-slate-400' : 'bg-slate-200 text-slate-500')}`}>
+                    {countEsq}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-      {/* ── Seletor de esquadrão (botões 1º–4º + Todos) ──────────────────── */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className={`text-xs font-semibold ${muted}`}>Filtrar por esquadrão:</span>
-        {[null, 1, 2, 3, 4].map((num) => {
-          const sq = num === null ? null : squadrons.find((s) => s.num === num);
-          const active = esquadraoSel === num;
-          const label = num === null ? 'Todos' : `${num}º`;
-          const sub = num === null ? '' : (sq ? sq.name : '—');
-          return (
+        <div className={`my-3 h-px ${dark ? 'bg-slate-800' : 'bg-slate-100'}`} />
+
+        {/* Nível 2: Turma de Aula */}
+        <div className="space-y-2">
+          <p className={`text-[11px] font-semibold uppercase tracking-wider ${muted}`}>Turma de Aula</p>
+          <div className="flex gap-2 flex-wrap">
             <button
-              key={num ?? 'all'}
-              onClick={() => setEsquadraoSel(num)}
-              title={sub}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold border-2 transition-all duration-150
-                ${active
-                  ? `${accent.border} ${dark ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'} shadow`
-                  : `border-transparent ${dark ? 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'bg-white/70 text-slate-500 hover:bg-white hover:text-slate-800'}`}`}
+              onClick={() => setTurmaSel(null)}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold border-2 transition-all
+                ${turmaSel === null
+                  ? `border-slate-500 ${dark ? 'bg-slate-700 text-white' : 'bg-slate-800 text-white'}`
+                  : `border-transparent ${dark ? 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'}`}`}
             >
-              {label}
-              {sub && <span className={`ml-1 text-xs font-normal ${active ? muted : 'text-slate-400'}`}>{sub}</span>}
+              Todas
             </button>
-          );
-        })}
+            {TURMAS.map((t) => {
+              const active  = turmaSel === t.key;
+              const count   = countByTurma[t.key] ?? 0;
+              const border  = TURMA_BORDER[t.key];
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTurmaSel(active ? null : t.key)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border-2 transition-all
+                    ${active
+                      ? `${border} ${dark ? 'bg-slate-700 text-white' : 'bg-white text-slate-900'} shadow`
+                      : `border-transparent ${dark ? 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'}`}`}
+                >
+                  <span className="font-bold">{t.letter}</span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${CURSO_STYLE[t.cursoShort]}`}>
+                    {t.cursoShort}
+                  </span>
+                  <span className={`text-xs ${active ? muted : 'text-slate-400'}`}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* ── Curso + resumo ───────────────────────────────────────────────── */}
+      {/* ── Resumo contextual ──────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
-        <div className={`h-1 w-10 rounded-full ${accent.dot}`} />
-        <span className={`text-sm font-semibold ${muted}`}>
-          Curso de {TURMA_CURSO[turmaSel]} · {ativos.length} cadetes ativos
-          {inativos.length > 0 && ` · ${inativos.length} inativo${inativos.length > 1 ? 's' : ''}`}
-          {esquadraoSel !== null && ` · ${esquadraoSel}º Esquadrão`}
+        {turmaSel && <div className={`h-1 w-8 rounded-full ${dotSel}`} />}
+        <span className={`text-sm ${muted}`}>
+          <span className="font-semibold">{ativos.length}</span> ativos
+          {inativos.length > 0 && <> · <span className="font-semibold">{inativos.length}</span> inativos</>}
+          {' '}· <span className="font-semibold">{faltasFilt.length}</span> faltas registradas
         </span>
       </div>
 
       {/* ── KPI cards ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { icon: Users,        label: 'Total na turma',        value: cadetesTurma.length, sub: `${ativos.length} ativos` },
-          { icon: TrendingDown, label: 'Total de faltas',        value: faltasTurma.length,  sub: ativos.length ? `${(faltasTurma.length / ativos.length).toFixed(1)} p/ cadete` : '—' },
-          { icon: Award,        label: 'Maior número de faltas', value: topFaltosos[0]?.total ?? 0, sub: topFaltosos[0]?.cadet?.nome_guerra ?? '—' },
-          { icon: BookOpen,     label: 'Disciplinas c/ falta',  value: faltasPorDisciplina.length, sub: faltasPorDisciplina[0]?.sigla ?? '—' },
+          { icon: Users,        label: 'Cadetes',           value: cadetesFiltBase.length, sub: `${ativos.length} ativos` },
+          { icon: TrendingDown, label: 'Total de faltas',   value: faltasFilt.length, sub: ativos.length ? `${(faltasFilt.length / ativos.length).toFixed(1)} p/ cadete` : '—' },
+          { icon: Award,        label: 'Maior faltoso',     value: topFaltosos[0]?.total ?? 0, sub: topFaltosos[0]?.cadet?.nome_guerra ?? '—' },
+          { icon: BookOpen,     label: 'Disciplinas c/ falta', value: faltasPorDisciplina.length, sub: faltasPorDisciplina[0]?.sigla ?? '—' },
         ].map(({ icon: Icon, label, value, sub }) => (
           <div key={label} className={`rounded-xl border p-4 ${card}`}>
             <div className="flex items-start justify-between mb-2">
@@ -340,65 +395,69 @@ export const TurmasAula = () => {
         ))}
       </div>
 
-      {/* ── Composição + Faltas por motivo ────────────────────────────────── */}
+      {/* ── Composição por turma + Faltas por motivo ──────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        {/* Composição por esquadrão */}
         <div className={`rounded-xl border p-5 ${card}`}>
           <div className="flex items-center gap-2 mb-4">
             <Shield size={16} className={muted} />
-            <h3 className={`text-sm font-semibold ${text}`}>Composição por Esquadrão</h3>
+            <h3 className={`text-sm font-semibold ${text}`}>
+              {turmaSel ? 'Composição por Quadro' : 'Cadetes por Turma de Aula'}
+            </h3>
           </div>
-          {porEsquadrao.length === 0 ? (
-            <p className={`text-sm ${muted}`}>Sem dados.</p>
-          ) : (
-            <div className="space-y-3">
-              {porEsquadrao.map((s) => (
-                <div key={s.nome} className="flex items-center gap-3">
-                  <span className={`text-xs w-6 font-bold ${muted}`}>{s.num}º</span>
-                  <span className={`text-xs w-28 truncate ${muted}`}>{s.nome}</span>
-                  <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${accent.dot}`}
-                      style={{ width: `${ativos.length ? (s.total / ativos.length) * 100 : 0}%` }}
-                    />
-                  </div>
-                  <span className={`text-xs font-bold w-5 text-right ${text}`}>{s.total}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {porQuadro.length > 0 && (
-            <div className={`mt-5 pt-4 border-t ${dark ? 'border-slate-800' : 'border-slate-100'}`}>
-              <p className={`text-xs font-semibold mb-3 ${muted}`}>Por Quadro</p>
-              <div className="flex gap-3 flex-wrap">
+          {turmaSel ? (
+            porQuadro.length === 0 ? <p className={`text-sm ${muted}`}>Sem dados.</p> : (
+              <div className="space-y-3">
                 {porQuadro.map(({ quadro, label, total }) => (
-                  <div key={quadro} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${QUADRO_COLOR[quadro].bg}`}>
-                    <span className={`text-xs font-semibold ${QUADRO_COLOR[quadro].text}`}>{label}</span>
-                    <span className={`text-sm font-bold ${QUADRO_COLOR[quadro].text}`}>{total}</span>
+                  <div key={quadro} className="flex items-center gap-3">
+                    <span className={`text-xs w-24 ${muted}`}>{label}</span>
+                    <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${dotSel}`}
+                        style={{ width: `${ativos.length ? (total / ativos.length) * 100 : 0}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs font-bold w-5 text-right ${text}`}>{total}</span>
                   </div>
                 ))}
               </div>
-            </div>
+            )
+          ) : (
+            porTurma.length === 0 ? <p className={`text-sm ${muted}`}>Sem dados.</p> : (
+              <div className="space-y-3">
+                {porTurma.map((t) => (
+                  <div key={t.key} className="flex items-center gap-3">
+                    <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-white ${TURMA_COLOR[t.key]}`}>
+                      {t.letter}
+                    </div>
+                    <span className={`text-xs w-20 ${muted}`}>{t.curso}</span>
+                    <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${TURMA_COLOR[t.key]}`}
+                        style={{ width: `${ativos.length ? (t.total / ativos.length) * 100 : 0}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs font-bold w-5 text-right ${text}`}>{t.total}</span>
+                  </div>
+                ))}
+              </div>
+            )
           )}
         </div>
 
-        {/* Faltas por motivo */}
         <div className={`rounded-xl border p-5 ${card}`}>
           <div className="flex items-center gap-2 mb-4">
             <AlertCircle size={16} className={muted} />
             <h3 className={`text-sm font-semibold ${text}`}>Faltas por Motivo (top 6)</h3>
           </div>
           {faltasPorMotivo.length === 0 ? (
-            <p className={`text-sm ${muted}`}>Nenhuma falta registrada para esta turma.</p>
+            <p className={`text-sm ${muted}`}>Nenhuma falta registrada.</p>
           ) : (
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={faltasPorMotivo} layout="vertical" margin={{ left: 8, right: 20, top: 0, bottom: 0 }}>
+              <BarChart data={faltasPorMotivo} layout="vertical" margin={{ left: 8, right: 24, top: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridC} horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 11, fill: axis }} />
-                <YAxis
-                  type="category" dataKey="motivo" width={130}
+                <YAxis type="category" dataKey="motivo" width={130}
                   tick={{ fontSize: 10, fill: axis }}
                   tickFormatter={(v: string) => v.length > 18 ? v.slice(0, 18) + '…' : v}
                 />
@@ -433,7 +492,7 @@ export const TurmasAula = () => {
               />
               <Bar dataKey="total" radius={[4, 4, 0, 0]}>
                 {faltasPorDisciplina.map((_, i) => (
-                  <Cell key={i} fill={['#6366f1','#8b5cf6','#a78bfa','#c4b5fd','#ddd6fe','#818cf8','#4f46e5','#4338ca'][i % 8]} />
+                  <Cell key={i} fill={['#6366f1','#8b5cf6','#a78bfa','#c4b5fd','#818cf8','#4f46e5','#4338ca','#3730a3'][i % 8]} />
                 ))}
               </Bar>
             </BarChart>
@@ -443,7 +502,6 @@ export const TurmasAula = () => {
 
       {/* ── Top faltosos + Últimas faltas ────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
         <div className={`rounded-xl border p-5 ${card}`}>
           <div className="flex items-center gap-2 mb-4">
             <TrendingDown size={16} className={muted} />
@@ -495,29 +553,18 @@ export const TurmasAula = () => {
           <div className="flex items-center gap-2">
             <GraduationCap size={16} className={muted} />
             <h3 className={`text-sm font-semibold ${text}`}>
-              Cadetes da Turma {turmaSel.replace('TURMA_', '')}
+              {turmaSel ? `Cadetes · Turma ${turmaSel.replace('TURMA_', '')}` : 'Cadetes'}
               {esquadraoSel !== null && ` · ${esquadraoSel}º Esquadrão`}
             </h3>
             <span className={`text-xs px-2 py-0.5 rounded-full ${dark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
-              {cadetesTurma.length}
+              {cadetesFiltBase.length}
             </span>
-          </div>
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${input} w-full sm:w-auto`}>
-            <Search size={14} className={muted} />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar cadete…"
-              className="bg-transparent text-sm outline-none w-40 placeholder:text-slate-400"
-            />
           </div>
         </div>
 
         {cadetesFiltrados.length === 0 ? (
           <div className={`p-8 text-center text-sm ${muted}`}>
-            {cadetesTurma.length === 0
-              ? `Nenhum cadete alocado${esquadraoSel !== null ? ` no ${esquadraoSel}º Esquadrão` : ''} na Turma ${turmaSel.replace('TURMA_', '')} em ${ANO_ATUAL}.`
-              : 'Nenhum cadete encontrado para a busca.'}
+            Nenhum cadete encontrado para os filtros selecionados.
           </div>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -528,13 +575,14 @@ export const TurmasAula = () => {
                 return a.nome_guerra.localeCompare(b.nome_guerra, 'pt-BR');
               })
               .map((c) => {
-                const faltas = faltasPorCadete[c.id] ?? 0;
+                const nFaltas = faltasPorCadete[c.id] ?? 0;
                 const co = cohortMap.get(c.cohort_id);
                 const esqNum = squadronNumOf(c.cohort_id);
+                const turmaLetter = c.turma_aula?.replace('TURMA_', '') ?? '—';
                 return (
                   <div key={c.id} className={`flex items-center gap-3 px-5 py-3 transition-colors ${dark ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50'}`}>
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-sm
-                      ${c.quadro === 'CFOAV' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300'
+                      ${c.quadro === 'CFOAV'  ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300'
                       : c.quadro === 'CFOINT' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
                       : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'}`}>
                       {c.nome_guerra.charAt(0)}
@@ -543,17 +591,22 @@ export const TurmasAula = () => {
                       <p className={`text-sm font-semibold truncate ${text}`}>{c.nome_guerra}</p>
                       <p className={`text-xs truncate ${muted}`}>{c.nome_completo}</p>
                     </div>
-                    <div className="hidden sm:flex items-center gap-3">
+                    <div className="hidden sm:flex items-center gap-2">
+                      {!turmaSel && c.turma_aula && (
+                        <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-white ${TURMA_COLOR[c.turma_aula] ?? 'bg-slate-400'}`}>
+                          {turmaLetter}
+                        </div>
+                      )}
                       <span className={`text-xs px-2 py-0.5 rounded-full ${QUADRO_COLOR[c.quadro]?.bg ?? ''} ${QUADRO_COLOR[c.quadro]?.text ?? ''}`}>
                         {QUADRO_LABEL[c.quadro] ?? c.quadro}
                       </span>
                       {co && <span className={`text-xs ${muted}`}>{esqNum}º · {co.name}</span>}
                     </div>
                     <div className={`text-xs font-bold px-2 py-0.5 rounded-full min-w-[52px] text-center
-                      ${faltas === 0 ? (dark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')
-                      : faltas <= 3 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+                      ${nFaltas === 0 ? (dark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')
+                      : nFaltas <= 3 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
                       : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'}`}>
-                      {faltas} {faltas === 1 ? 'falta' : 'faltas'}
+                      {nFaltas} {nFaltas === 1 ? 'falta' : 'faltas'}
                     </div>
                     <span className={`text-xs px-2 py-0.5 rounded-full hidden md:inline-block ${SITUACAO_STYLE[c.situacao] ?? ''}`}>
                       {c.situacao}
@@ -565,7 +618,6 @@ export const TurmasAula = () => {
           </div>
         )}
       </div>
-
     </div>
   );
 };
