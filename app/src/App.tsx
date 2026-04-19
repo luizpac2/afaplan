@@ -52,6 +52,7 @@ const DisciplinePanel  = lazy(() => import("./pages/DisciplinePanel").then(m => 
 const Locais           = lazy(() => import("./pages/Locais"));
 const LocaisGrid       = lazy(() => import("./pages/LocaisGrid"));
 const SalasPadrao      = lazy(() => import("./pages/SalasPadrao").then(m => ({ default: m.SalasPadrao })));
+const TurmasAula       = lazy(() => import("./pages/TurmasAula").then(m => ({ default: m.TurmasAula })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center h-64">
@@ -195,6 +196,16 @@ function App() {
                         allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
                       >
                         <CadetDashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="turmas-aula"
+                    element={
+                      <ProtectedRoute
+                        allowedRoles={["SUPER_ADMIN", "ADMIN", ]}
+                      >
+                        <TurmasAula />
                       </ProtectedRoute>
                     }
                   />

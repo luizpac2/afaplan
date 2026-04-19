@@ -133,6 +133,7 @@ const MENU_ITEMS: MenuItem[] = [
         title: "Turmas",
         icon: Users,
         submenu: [
+          { title: "Turmas de Aula", path: "/turmas-aula" },
           { title: "Esquadrões", path: "/turmas" },
           { title: "Cadetes", path: "/cadetes" },
           { title: "Dashboard Cadetes", path: "/cadet-dashboard" },
