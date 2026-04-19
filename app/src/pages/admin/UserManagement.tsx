@@ -121,6 +121,12 @@ export const UserManagement = () => {
 
   useEffect(() => { void fetchUsers(); }, []);
 
+  // Mapa de cohort_id → cohort para resolver nome do esquadrão
+  const cohortMap = useMemo(
+    () => new Map(cohorts.map((c) => [String(c.id), c])),
+    [cohorts],
+  );
+
   const stats = useMemo(() => {
     return {
       total: users.length,
@@ -468,7 +474,7 @@ export const UserManagement = () => {
               {cohorts
                 .sort((a, b) => b.entryYear - a.entryYear)
                 .map((c) => (
-                  <option key={c.id} value={c.name}>
+                  <option key={c.id} value={String(c.id)}>
                     {c.name}
                   </option>
                 ))}
@@ -590,7 +596,7 @@ export const UserManagement = () => {
                       {user.role === "CADETE" && (
                         <span className="flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400">
                           <GraduationCap size={14} className="text-slate-400" />
-                          {user.squadron || "-"}
+                          {(user.squadron && cohortMap.get(String(user.squadron))?.name) || user.squadron || "-"}
                         </span>
                       )}
                       {user.role === "DOCENTE" && (
@@ -897,22 +903,13 @@ export const UserManagement = () => {
                     className={`w-full p-2.5 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none ${theme === "dark" ? "border-slate-600 bg-slate-700 text-slate-100" : "border-slate-300 bg-white text-slate-900"}`}
                   >
                     <option value="">Selecione...</option>
-                    {cohorts && cohorts.length > 0 ? (
-                      cohorts
-                        .sort((a, b) => b.entryYear - a.entryYear)
-                        .map((c) => (
-                          <option key={c.id} value={c.name}>
-                            {c.name}
-                          </option>
-                        ))
-                    ) : (
-                      <>
-                        <option value="1º Esquadrão">1º Esquadrão</option>
-                        <option value="2º Esquadrão">2º Esquadrão</option>
-                        <option value="3º Esquadrão">3º Esquadrão</option>
-                        <option value="4º Esquadrão">4º Esquadrão</option>
-                      </>
-                    )}
+                    {cohorts
+                      .sort((a, b) => b.entryYear - a.entryYear)
+                      .map((c) => (
+                        <option key={c.id} value={String(c.id)}>
+                          {c.name}
+                        </option>
+                      ))}
                   </select>
                 </div>
               )}
