@@ -5,13 +5,8 @@ import {
   Plane,
 
   Users,
-  BarChart as PieChart,
   History,
-  BarChart3,
   BarChart2,
-  Zap,
-  AlertTriangle,
-  Settings,
   LogOut,
   GraduationCap,
   Menu,
@@ -24,7 +19,6 @@ import {
   Home,
   Megaphone,
   Search,
-  Palette,
   FileEdit,
   ClipboardList,
   MapPin,
@@ -111,27 +105,20 @@ const MENU_ITEMS: MenuItem[] = [
     ],
   },
   {
-    title: "PLANEJAMENTO",
+    title: "GESTÃO",
     icon: Layers,
     roles: ["SUPER_ADMIN", "ADMIN"],
     submenu: [
-      { title: "Visão Geral", path: "/general-overview", icon: PieChart },
-      {
-        title: "Calendário",
-        icon: CalendarIcon,
-        submenu: [
-          { title: "Panoramic", path: "/panoramic" },
-          { title: "Bloqueios", path: "/academic-calendar" },
-        ],
-      },
       { title: "Alterações (SAP)", path: "/change-requests", icon: FileEdit },
       {
         title: "Disciplinas",
         icon: BookOpen,
         submenu: [
+          { title: "Dashboard", path: "/discipline-dashboard" },
           { title: "Gerenciar", path: "/disciplinas" },
           { title: "PPC", path: "/cursos" },
           { title: "Critérios", path: "/ficha-informativa" },
+          { title: "Conflitos", path: "/conflict-report" },
         ],
       },
       {
@@ -150,41 +137,12 @@ const MENU_ITEMS: MenuItem[] = [
           { title: "Cadetes", path: "/cadetes" },
           { title: "Dashboard Cadetes", path: "/cadet-dashboard" },
           { title: "Chefes de Turma", path: "/chefe-turma-admin" },
+          { title: "Faltas", path: "/faltas" },
         ],
       },
-      {
-        title: "Inteligência",
-        icon: Zap,
-        submenu: [
-          { title: "Automação", path: "/automation" },
-          { title: "Otimização", path: "/monthly-optimization" },
-        ],
-      },
-    ],
-  },
-  {
-    title: "RELATÓRIOS",
-    icon: BarChart3,
-    roles: ["SUPER_ADMIN", "ADMIN"],
-    submenu: [
-      { title: "Gerais", path: "/reports", icon: FileText },
-      { title: "Disciplinas", path: "/discipline-dashboard", icon: BarChart2 },
-      { title: "PPC", path: "/controle-ppc", icon: BarChart3 },
-      { title: "Dados PPC", path: "/statistics", icon: PieChart },
-      { title: "Conflitos", path: "/conflict-report", icon: AlertTriangle },
-      { title: "Faltas", path: "/faltas", icon: ClipboardList },
-    ],
-  },
-  {
-    title: "SISTEMA",
-    icon: Settings,
-    roles: ["SUPER_ADMIN", "ADMIN"],
-    submenu: [
       { title: "Usuários", path: "/users", icon: Users },
       { title: "Avisos", path: "/notice-manager", icon: Megaphone },
       { title: "Histórico", path: "/audit-log", icon: History },
-      { title: "Interface", path: "/visual-editor", icon: Palette },
-      { title: "Ajustes", path: "/settings", icon: Settings },
     ],
   },
 ];

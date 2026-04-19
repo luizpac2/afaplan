@@ -496,13 +496,13 @@ Deno.serve(async (req) => {
     return ok({ success: true });
   }
 
-  // ── visual_configs CRUD ──────────────────────────────────────────────────────
-  if (action === "save_visual_config") {
-    const { config } = body;
-    if (!config || !config.id) return err("config with id required");
-    const { error } = await adminClient.from("visual_configs")
-      .upsert(config, { onConflict: "id", ignoreDuplicates: false });
-    if (error) { console.error("save_visual_config error:", error.message); return err(error.message, 500); }
+  // ── app_configs CRUD ─────────────────────────────────────────────────────────
+  if (action === "save_app_config") {
+    const { key, value } = body;
+    if (!key) return err("key required");
+    const { error } = await adminClient.from("app_configs")
+      .upsert({ key, value }, { onConflict: "key" });
+    if (error) { console.error("save_app_config error:", error.message); return err(error.message, 500); }
     return ok({ success: true });
   }
 
