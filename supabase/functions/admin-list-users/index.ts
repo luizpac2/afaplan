@@ -22,7 +22,6 @@ Deno.serve(async (req: Request) => {
     const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey     = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Verifica se o chamador é admin
     const callerClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -35,10 +34,7 @@ Deno.serve(async (req: Request) => {
 
     const adminClient = createClient(supabaseUrl, serviceKey);
     const { data: callerRole } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", caller.id)
-      .single();
+      .from("user_roles").select("role").eq("user_id", caller.id).single();
 
     const isSuperAdmin = caller.email === "pelicano307@gmail.com";
     if (!isSuperAdmin && !["super_admin", "gestor"].includes(callerRole?.role ?? "")) {
@@ -47,26 +43,50 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Busca todos os usuários do Auth (paginado, até 1000)
+    // Busca usuários do Auth (até 1000)
     const { data: { users }, error: usersErr } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
     if (usersErr) throw usersErr;
 
-    // Busca todos os roles
-    const { data: roles } = await adminClient.from("user_roles").select("*");
-    const rolesMap = new Map((roles ?? []).map((r: { user_id: string; role: string; turma_id?: string }) => [r.user_id, r]));
+    // Busca todos os roles com cadet_id
+    const { data: roles } = await adminClient
+      .from("user_roles")
+      .select("user_id, role, turma_id, cadet_id");
+    const rolesMap = new Map((roles ?? []).map((r: { user_id: string; role: string; turma_id?: string; cadet_id?: string }) => [r.user_id, r]));
+
+    // Busca cadetes para pegar cohort_id via cadet_id
+    const cadetIds = (roles ?? [])
+      .filter((r: { cadet_id?: string }) => r.cadet_id)
+      .map((r: { cadet_id: string }) => r.cadet_id);
+
+    const cadetCohortMap = new Map<string, string>();
+    if (cadetIds.length > 0) {
+      const { data: cadetes } = await adminClient
+        .from("cadetes")
+        .select("id, cohort_id")
+        .in("id", cadetIds);
+      (cadetes ?? []).forEach((c: { id: string; cohort_id: string }) => {
+        cadetCohortMap.set(c.id, c.cohort_id);
+      });
+    }
 
     const SUPER_ADMIN_EMAILS = new Set(["pelicano307@gmail.com"]);
 
     const result = users.map((u) => {
-      const roleRow = rolesMap.get(u.id) as { role?: string; turma_id?: string } | undefined;
+      const roleRow = rolesMap.get(u.id) as { role?: string; turma_id?: string; cadet_id?: string } | undefined;
       const meta = (u.user_metadata ?? {}) as Record<string, string>;
       const email = (u.email ?? "").trim().toLowerCase();
+
+      // Esquadrão: usa cohort_id do cadete (fonte da verdade), fallback em turma_id legado
+      const cadetId = roleRow?.cadet_id;
+      const squadron = (cadetId && cadetCohortMap.get(cadetId)) ?? roleRow?.turma_id ?? null;
+
       return {
         uid: u.id,
         email: u.email ?? "",
         displayName: meta.nome ?? u.email ?? "",
         role: SUPER_ADMIN_EMAILS.has(email) ? "SUPER_ADMIN" : mapRole(roleRow?.role ?? ""),
-        squadron: roleRow?.turma_id ?? null,
+        squadron,
+        cadetId,
         createdAt: u.created_at,
         status: roleRow ? "APPROVED" : "NO_ROLE",
       };
