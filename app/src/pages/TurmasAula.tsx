@@ -106,7 +106,8 @@ export const TurmasAula = () => {
       ]);
       setCadets((c as Cadet[]) ?? []);
       setAlocacoes((a as CadetAlocacao[]) ?? []);
-      setCohorts((co as Cohort[]) ?? []);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setCohorts(((co ?? []) as any[]).map((x) => ({ ...x, name: x.nome || x.name, entryYear: x.ano_ingresso ?? x.entryYear })) as Cohort[]);
       setFaltas((f as FaltaRow[]) ?? []);
       setLoading(false);
     };
