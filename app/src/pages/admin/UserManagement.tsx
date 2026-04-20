@@ -121,12 +121,6 @@ export const UserManagement = () => {
 
   useEffect(() => { void fetchUsers(); }, []);
 
-  // Mapa de cohort_id → cohort para resolver nome do esquadrão
-  const cohortMap = useMemo(
-    () => new Map(cohorts.map((c) => [String(c.id), c])),
-    [cohorts],
-  );
-
   const stats = useMemo(() => {
     return {
       total: users.length,
