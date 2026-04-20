@@ -206,7 +206,7 @@ export const UserManagement = () => {
 
     let matchesCohort = true;
     if (selectedCohort) {
-      matchesCohort = u.role === "CADETE" && u.squadron === selectedCohort;
+      matchesCohort = u.role !== "CADETE" || u.squadron === selectedCohort;
     }
 
     let matchesDiscipline = true;
@@ -474,7 +474,7 @@ export const UserManagement = () => {
               {cohorts
                 .sort((a, b) => b.entryYear - a.entryYear)
                 .map((c) => (
-                  <option key={c.id} value={String(c.id)}>
+                  <option key={c.id} value={c.name}>
                     {c.name}
                   </option>
                 ))}
@@ -596,7 +596,7 @@ export const UserManagement = () => {
                       {user.role === "CADETE" && (
                         <span className="flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400">
                           <GraduationCap size={14} className="text-slate-400" />
-                          {(user.squadron && cohortMap.get(String(user.squadron))?.name) || user.squadron || "-"}
+                          {user.squadron || "-"}
                         </span>
                       )}
                       {user.role === "DOCENTE" && (
@@ -906,7 +906,7 @@ export const UserManagement = () => {
                     {cohorts
                       .sort((a, b) => b.entryYear - a.entryYear)
                       .map((c) => (
-                        <option key={c.id} value={String(c.id)}>
+                        <option key={c.id} value={c.name}>
                           {c.name}
                         </option>
                       ))}

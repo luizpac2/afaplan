@@ -1,5 +1,6 @@
 export type AuditAction = "ADD" | "UPDATE" | "DELETE" | "IMPORT";
 export type AuditEntity =
+  | "USER"
   | "DISCIPLINE"
   | "EVENT"
   | "CLASS"

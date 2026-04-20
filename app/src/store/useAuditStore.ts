@@ -7,14 +7,14 @@ const PAGE_SIZE = 50;
 // Mapeia linha do banco para AuditLogEntry
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mapRow = (r: any): AuditLogEntry => ({
-  id:         r.id,
-  timestamp:  r.timestamp,
+  id:         String(r.id),
+  timestamp:  r.created_at,
   action:     r.action,
   entity:     r.entity,
-  entityId:   r.entityId ?? r.registro_id ?? "",
-  entityName: r.entityName ?? r.tabela ?? "",
-  changes:    r.changes ?? (r.dados_antes || r.dados_depois ? { before: r.dados_antes, after: r.dados_depois } : undefined),
-  user:       r.user ?? r.user_id ?? "Sistema",
+  entityId:   r.entity_id ?? "",
+  entityName: r.entity_name ?? "",
+  changes:    r.changes ?? undefined,
+  user:       r.actor_name ?? "Sistema",
 });
 
 interface ExtendedAuditLogState extends AuditLogState {
@@ -48,7 +48,7 @@ export const useAuditStore = create<ExtendedAuditLogState>((set, get) => ({
       const { data, error } = await supabase
         .from("action_logs")
         .select("*")
-        .order("timestamp", { ascending: false })
+        .order("created_at", { ascending: false })
         .range(0, PAGE_SIZE - 1);
 
       if (error) throw error;
@@ -70,7 +70,7 @@ export const useAuditStore = create<ExtendedAuditLogState>((set, get) => ({
       const { data, error } = await supabase
         .from("action_logs")
         .select("*")
-        .order("timestamp", { ascending: false })
+        .order("created_at", { ascending: false })
         .range(from, from + PAGE_SIZE - 1);
 
       if (error) throw error;

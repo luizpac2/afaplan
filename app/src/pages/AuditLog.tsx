@@ -50,6 +50,7 @@ export const AuditLog = () => {
 
   const getEntityLabel = (entity: AuditEntity) => {
     const labels: Record<AuditEntity, string> = {
+      USER: "Usuário",
       DISCIPLINE: "Disciplina",
       EVENT: "Evento",
       CLASS: "Turma",
@@ -150,6 +151,7 @@ export const AuditLog = () => {
             className={`px-3 py-2 border rounded-lg text-sm  outline-none focus:ring-2 focus:ring-blue-500/20 ${theme === "dark" ? "bg-slate-700 border-slate-600 text-slate-300" : "bg-white border-slate-200 text-slate-700"}`}
           >
             <option value="ALL">Todas as Entidades</option>
+            <option value="USER">Usuários</option>
             <option value="DISCIPLINE">Disciplinas</option>
             <option value="EVENT">Eventos</option>
             <option value="CLASS">Turmas</option>

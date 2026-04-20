@@ -15,9 +15,7 @@ function generatePassword(): string {
   const rand = (chars: string) => chars[Math.floor(Math.random() * chars.length)];
   const extra = Array.from({ length: 5 }, () => rand(all)).join("");
 
-  // Garante ao menos um de cada categoria
   const pwd = rand(upper) + rand(lower) + rand(digits) + rand(special) + extra;
-  // Embaralha
   return pwd.split("").sort(() => Math.random() - 0.5).join("");
 }
 
@@ -27,7 +25,6 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Valida token do chamador
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Sem autorização" }), {
@@ -39,7 +36,6 @@ Deno.serve(async (req: Request) => {
     const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey     = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Cliente com token do chamador (para verificar se é admin)
     const callerClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -51,7 +47,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Verifica se o chamador é admin
     const adminClient = createClient(supabaseUrl, serviceKey);
     const { data: callerRole } = await adminClient
       .from("user_roles")
@@ -59,17 +54,18 @@ Deno.serve(async (req: Request) => {
       .eq("user_id", caller.id)
       .single();
 
-    const adminRoles = ["super_admin", "gestor"];
     const callerEmail = caller.email ?? "";
     const isSuperAdmin = callerEmail === "pelicano307@gmail.com";
 
-    if (!isSuperAdmin && !adminRoles.includes(callerRole?.role ?? "")) {
+    if (!isSuperAdmin && !["super_admin", "gestor"].includes(callerRole?.role ?? "")) {
       return new Response(JSON.stringify({ error: "Permissão insuficiente" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Lê o body
+    const callerMeta = caller.user_metadata as Record<string, string> | undefined;
+    const callerName = callerMeta?.nome ?? callerEmail ?? caller.id;
+
     const { email, name, role, cadetId } = await req.json() as {
       email: string;
       name: string;
@@ -85,7 +81,6 @@ Deno.serve(async (req: Request) => {
 
     const password = generatePassword();
 
-    // Cria o usuário no Auth
     const { data: created, error: createErr } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -100,21 +95,28 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Insere na tabela user_roles (com cadet_id opcional)
     const roleRow: Record<string, unknown> = { user_id: created.user.id, role: role.toLowerCase() };
     if (cadetId) roleRow.cadet_id = cadetId;
 
-    const { error: roleErr } = await adminClient
-      .from("user_roles")
-      .insert(roleRow);
+    const { error: roleErr } = await adminClient.from("user_roles").insert(roleRow);
 
     if (roleErr) {
-      // Tenta reverter criação do usuário
       await adminClient.auth.admin.deleteUser(created.user.id);
       return new Response(JSON.stringify({ error: "Erro ao definir permissão: " + roleErr.message }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Grava log
+    await adminClient.from("action_logs").insert({
+      action:      "ADD",
+      entity:      "USER",
+      entity_id:   created.user.id,
+      entity_name: name,
+      changes:     { after: { email, role: role.toLowerCase() } },
+      actor_name:  callerName,
+      actor_id:    caller.id,
+    });
 
     return new Response(
       JSON.stringify({ userId: created.user.id, email, name, password }),

@@ -387,11 +387,11 @@ Deno.serve(async (req) => {
     const { error: insErr } = await adminClient.from("action_logs").insert({
       action:      entry.action,
       entity:      entry.entity,
-      entityId:    entry.entityId,
-      entityName:  entry.entityName ?? null,
+      entity_id:   entry.entityId,
+      entity_name: entry.entityName ?? null,
       changes:     entry.changes ?? null,
-      user:        entry.user ?? null,
-      userId:      user.id,
+      actor_name:  entry.user ?? null,
+      actor_id:    user.id,
     });
     if (insErr) {
       console.error("log_action insert error:", insErr.message);
