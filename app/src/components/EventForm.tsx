@@ -21,6 +21,7 @@ interface EventFormProps {
   onCancel: () => void;
   isBatchMode?: boolean;
   lockClass?: boolean; // quando true, oculta seletores de esquadrão/turma (já definidos pelo slot)
+  extraHeader?: React.ReactNode;
 }
 
 export const EventForm = ({
@@ -30,6 +31,7 @@ export const EventForm = ({
   onCancel,
   isBatchMode = false,
   lockClass = false,
+  extraHeader,
 }: EventFormProps) => {
   const { disciplines, swapEvents, instructors, classes, locations } = useCourseStore();
   const { theme } = useTheme();
@@ -274,6 +276,11 @@ export const EventForm = ({
           </button>
         </div>
 
+        {extraHeader && (
+          <div className={`px-6 py-3 border-b ${theme === "dark" ? "border-slate-700" : "border-gray-100"}`}>
+            {extraHeader}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* 1. Squadron / Class — oculto quando lockClass (já definido pelo slot) */}
           {lockClass ? (

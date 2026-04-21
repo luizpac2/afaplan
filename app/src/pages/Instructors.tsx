@@ -88,7 +88,7 @@ export const Instructors = () => {
          const edits = { ...(current[id] || {}) };
          const origVal = original[field];
          if (String(origVal ?? '') === String(value)) { delete edits[field as keyof typeof edits]; }
-         else { (edits as any)[field] = value; }
+         else { (edits as Partial<Pick<Instructor, 'venture' | 'maxTitle' | 'weeklyLoadLimit' | 'specialty' | 'rank'>>)[field] = value as never; }
          if (Object.keys(edits).length === 0) delete current[id];
          else current[id] = edits;
          return current;
@@ -125,7 +125,7 @@ export const Instructors = () => {
    };
 
    const handleSelectAll = (checked: boolean) => setSelectedIds(checked ? new Set(filteredInstructors.map(i => i.trigram)) : new Set());
-   const handleSelectOne = (id: string, checked: boolean) => { const s = new Set(selectedIds); checked ? s.add(id) : s.delete(id); setSelectedIds(s); };
+   const handleSelectOne = (id: string, checked: boolean) => { const s = new Set(selectedIds); if (checked) { s.add(id); } else { s.delete(id); } setSelectedIds(s); };
 
    const handleSaveInstructor = (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
@@ -242,7 +242,7 @@ export const Instructors = () => {
                               <select id={id} className={`w-full px-2 py-1.5 text-xs border rounded-lg outline-none ${isDark ? 'bg-slate-700 text-slate-100 border-slate-600' : 'bg-white border-slate-200'}`}>
                                  {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                               </select>
-                              <button onClick={() => { const val = (document.getElementById(id) as HTMLSelectElement).value; const targets = selectedIds.size > 0 ? Array.from(selectedIds) : filteredInstructors.map(i => i.trigram); targets.forEach(t => setBulkField(t, field as any, val)); }}
+                              <button onClick={() => { const val = (document.getElementById(id) as HTMLSelectElement).value; const targets = selectedIds.size > 0 ? Array.from(selectedIds) : filteredInstructors.map(i => i.trigram); targets.forEach(t => setBulkField(t, field as keyof Pick<Instructor, 'venture' | 'maxTitle' | 'weeklyLoadLimit' | 'specialty' | 'rank'>, val)); }}
                                  className="shrink-0 px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-xs font-bold shadow-sm">Aplicar</button>
                            </div>
                         </div>
@@ -315,10 +315,10 @@ export const Instructors = () => {
                            value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                            className={`w-full pl-9 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none shadow-sm ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-200 placeholder-slate-400'}`} />
                      </div>
-                     <select value={ventureFilter} onChange={e => setVentureFilter(e.target.value as any)} className={`px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200'}`}>
+                     <select value={ventureFilter} onChange={e => setVentureFilter(e.target.value as InstructorVenture | 'ALL')} className={`px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200'}`}>
                         <option value="ALL">Vínculo: Todos</option><option value="EFETIVO">Efetivo</option><option value="PRESTADOR_TAREFA">PTTC</option><option value="CIVIL">Civil</option><option value="QOCON">QOCon</option>
                      </select>
-                     <select value={titleFilter} onChange={e => setTitleFilter(e.target.value as any)} className={`px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200'}`}>
+                     <select value={titleFilter} onChange={e => setTitleFilter(e.target.value as AcademicTitle | 'ALL')} className={`px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200'}`}>
                         <option value="ALL">Titulação: Todas</option><option value="GRADUADO">Graduado</option><option value="ESPECIALISTA">Especialista</option><option value="MESTRE">Mestre</option><option value="DOUTOR">Doutor</option>
                      </select>
                   </div>

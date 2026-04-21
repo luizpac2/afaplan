@@ -14,7 +14,8 @@ type EditableDisciplineFields = Pick<Discipline, 'name' | 'code' | 'instructor' 
 type BulkEdits = Record<string, Partial<EditableDisciplineFields>>;
 
 export const Disciplinas = () => {
-    const { disciplines, instructors, addDiscipline, updateDiscipline, updateBatchDisciplines, deleteBatchDisciplines, deleteDiscipline } = useCourseStore();
+    const { disciplines, instructors, locations, addDiscipline, updateDiscipline, updateBatchDisciplines, deleteBatchDisciplines, deleteDiscipline } = useCourseStore();
+    const activeLocations = locations.filter((l) => l.status === 'ATIVO').sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
     const { userProfile } = useAuth();
     const { theme } = useTheme();
 
@@ -156,7 +157,7 @@ export const Disciplinas = () => {
 
 
     const filteredDisciplines = useMemo(() => {
-        let filtered = disciplines.filter(d => {
+        const filtered = disciplines.filter(d => {
             // 1. SMART SEARCH (Missing Data)
             if (debouncedSearch.startsWith('!')) {
                 const target = debouncedSearch.substring(1).toLowerCase();
@@ -309,8 +310,8 @@ export const Disciplinas = () => {
             Object.entries(newLoads).forEach(([k, v]) => {
                 if (v > 0) {
                     const [c, y] = k.split('_');
-                    newCourses.add(c as any);
-                    newYears.add(parseInt(y) as any);
+                    newCourses.add(c as "AVIATION" | "INTENDANCY" | "INFANTRY");
+                    newYears.add(parseInt(y) as CourseYear);
                     totalLoad += v;
                 }
             });
@@ -325,13 +326,13 @@ export const Disciplinas = () => {
         });
     }, [disciplines]);
 
-    const getEditedValue = (id: string, field: keyof EditableDisciplineFields): any => {
+    const getEditedValue = (id: string, field: keyof EditableDisciplineFields): string | number | boolean | Record<string, number> | string[] | undefined => {
         return bulkEdits[id]?.[field] as string | number | undefined;
     };
 
     const getCurrentValue = (discipline: Discipline, field: keyof EditableDisciplineFields): string | number => {
         const edited = getEditedValue(discipline.id, field);
-        if (edited !== undefined) return edited;
+        if (edited !== undefined) return edited as string | number;
         return (discipline[field] ?? '') as string | number;
     };
 
@@ -592,19 +593,22 @@ export const Disciplinas = () => {
                                 <div className="flex-none w-[220px]">
                                     <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold mb-2 uppercase tracking-wider">Definir Local:</label>
                                     <div className="flex gap-1">
-                                        <input
+                                        <select
                                             id="smart-location"
-                                            type="text"
-                                            placeholder="Ex: Sala 204"
                                             className={`w-full min-w-0 px-2 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all shrink ${theme === 'dark' ? 'bg-slate-700 text-slate-100 border-slate-600' : 'border-slate-200'}`}
-                                        />
+                                        >
+                                            <option value="">— Selecionar local —</option>
+                                            {activeLocations.map((l) => (
+                                                <option key={l.id} value={l.name}>{l.name}</option>
+                                            ))}
+                                        </select>
                                         <button
                                             onClick={() => {
-                                                const val = (document.getElementById('smart-location') as HTMLInputElement).value;
+                                                const val = (document.getElementById('smart-location') as HTMLSelectElement).value;
                                                 if (!val) return;
                                                 const targets = selectedIds.size > 0 ? Array.from(selectedIds) : filteredDisciplines.map(d => d.id);
                                                 targets.forEach(id => setBulkField(id, 'location', val));
-                                                (document.getElementById('smart-location') as HTMLInputElement).value = '';
+                                                (document.getElementById('smart-location') as HTMLSelectElement).value = '';
                                             }}
                                             className="shrink-0 px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors text-xs font-bold shadow-sm"
                                         >
@@ -802,16 +806,19 @@ export const Disciplinas = () => {
                                                 </td>
                                                 {/* Location (editable) */}
                                                 <td className="px-1 py-1">
-                                                    <input
-                                                        type="text"
+                                                    <select
                                                         value={(getCurrentValue(disc, 'location') as string) || ''}
                                                         onChange={(e) => setBulkField(disc.id, 'location', e.target.value)}
                                                         className={`w-full px-1.5 py-1 text-xs border rounded transition-colors ${isFieldChanged(disc.id, 'location')
                                                             ? 'border-amber-400 bg-amber-50 ring-1 ring-amber-200 dark:bg-amber-900/40 dark:border-amber-500 dark:text-slate-100'
                                                             : (theme === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-200' : 'border-slate-200 bg-white hover:border-slate-300')
                                                             }`}
-                                                        placeholder="Local"
-                                                    />
+                                                    >
+                                                        <option value="">— Local —</option>
+                                                        {activeLocations.map((l) => (
+                                                            <option key={l.id} value={l.name}>{l.name}</option>
+                                                        ))}
+                                                    </select>
                                                 </td>
                                                 {/* Load hours Matrix Button (editable) */}
                                                 <td className="px-2 py-1.5 text-center">
@@ -917,7 +924,7 @@ export const Disciplinas = () => {
                                     <label className="text-sm  text-gray-700 dark:text-slate-300 whitespace-nowrap">Campo:</label>
                                     <select
                                         value={trainingFieldFilter}
-                                        onChange={(e) => setTrainingFieldFilter(e.target.value as any)}
+                                        onChange={(e) => setTrainingFieldFilter(e.target.value as 'ALL' | 'GERAL' | 'MILITAR' | 'PROFISSIONAL' | 'ATIVIDADES_COMPLEMENTARES')}
                                         className={`px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm max-w-[150px] ${theme === 'dark' ? 'bg-slate-800 text-slate-100 border-slate-700' : 'bg-white border-gray-200'}`}
                                     >
                                         <option value="ALL">Todos</option>

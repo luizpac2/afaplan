@@ -428,10 +428,11 @@ export const Layout = () => {
 
           <div
             title="Usuários online agora"
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            {onlineCount} online
+            <span className="hidden sm:inline">{onlineCount} online</span>
+            <span className="sm:hidden">{onlineCount}</span>
           </div>
 
           <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1" />

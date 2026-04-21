@@ -13,7 +13,8 @@ interface DisciplineFormProps {
 
 export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFormProps) => {
     const { theme } = useTheme();
-    const { instructors, classes } = useCourseStore();
+    const { instructors, classes, locations } = useCourseStore();
+    const activeLocations = locations.filter((l) => l.status === 'ATIVO').sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
     const [formData, setFormData] = useState<Omit<Discipline, 'id'>>({
         code: '',
         name: '',
@@ -291,13 +292,16 @@ export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFo
 
                     <div>
                         <label className={`block text-sm  mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'}`}>Local da Aula (Opcional)</label>
-                        <input
-                            type="text"
+                        <select
                             value={formData.location || ''}
                             onChange={e => setFormData({ ...formData, location: e.target.value })}
                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-slate-100' : 'border-gray-300'}`}
-                            placeholder="Ex: Sala de Aula, Cinema, Ginásio"
-                        />
+                        >
+                            <option value="">— Sem local definido —</option>
+                            {activeLocations.map((l) => (
+                                <option key={l.id} value={l.name}>{l.name}</option>
+                            ))}
+                        </select>
                     </div>
 
                     <div>

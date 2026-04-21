@@ -78,6 +78,22 @@ export const GanttProgramming = () => {
   const [isLinkModalOpen, setIsLinkModalOpen]   = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
+  // ── Date picker popup ─────────────────────────────────────────────────────
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [pickerMonth, setPickerMonth] = useState(() => {
+    const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+
+  // ── All-squadrons replication ─────────────────────────────────────────────
+  const [allSquadronsMode, setAllSquadronsMode] = useState(false);
+  const [batchAllSquadronsMode, setBatchAllSquadronsMode] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState<Omit<ScheduleEvent, "id"> | null>(null);
+  const [conflictEvents, setConflictEvents] = useState<ScheduleEvent[]>([]);
+  const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
+  const [pendingBatchEvents, setPendingBatchEvents] = useState<ScheduleEvent[]>([]);
+  const [batchConflictEvents, setBatchConflictEvents] = useState<ScheduleEvent[]>([]);
+  const [isBatchConflictDialogOpen, setIsBatchConflictDialogOpen] = useState(false);
+
   // ── Batch allocation mode ─────────────────────────────────────────────────
   const [isBatchMode, setIsBatchMode] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<{ classId: string; slotIndex: number; date: string }[]>([]);
@@ -165,7 +181,7 @@ export const GanttProgramming = () => {
 
   const squadronClasses = useMemo(() => {
     const prefix = String(currentSquadron);
-    const fromEvents = [...new Set(weekEvents.filter((e) => e.classId?.startsWith(prefix)).map((e) => e.classId))].sort();
+    const fromEvents = [...new Set(weekEvents.filter((e) => e.classId?.startsWith(prefix) && !e.classId.endsWith("ESQ")).map((e) => e.classId))].sort();
     if (fromEvents.length) return fromEvents;
     return ["A","B","C","D","E","F"].map((l) => `${currentSquadron}${l}`);
   }, [weekEvents, currentSquadron]);
@@ -219,23 +235,81 @@ export const GanttProgramming = () => {
     });
   };
 
-  const handleBatchAllocate = (data: Omit<ScheduleEvent, "id">) => {
-    const newEvents: ScheduleEvent[] = selectedSlots.map(({ classId, slotIndex, date }) => {
-      const slot = TIME_SLOTS[slotIndex];
-      return {
-        ...data,
-        id: crypto.randomUUID(),
-        classId,
-        date,
-        startTime: slot?.start || data.startTime,
-        endTime: slot?.end || data.endTime,
-      };
-    });
-    newEvents.forEach((ev) => addEvent(ev));
-    setWeekEvents((prev) => [...prev, ...newEvents]);
+  const doSaveBatchEvents = (events: ScheduleEvent[], overwriteConflicts: boolean) => {
+    if (overwriteConflicts) {
+      batchConflictEvents.forEach((c) => {
+        useCourseStore.getState().deleteEvent(c.id);
+        setWeekEvents((prev) => prev.filter((e) => e.id !== c.id));
+      });
+    }
+    const toSave = overwriteConflicts
+      ? events
+      : events.filter((ev) => !batchConflictEvents.some(
+          (c) => c.classId === ev.classId && c.date === ev.date && c.startTime === ev.startTime
+        ));
+    toSave.forEach((ev) => addEvent(ev));
+    setWeekEvents((prev) => [...prev, ...toSave]);
     setIsBatchFormOpen(false);
     setIsBatchMode(false);
     setSelectedSlots([]);
+    setBatchAllSquadronsMode(false);
+    setPendingBatchEvents([]);
+    setBatchConflictEvents([]);
+  };
+
+  const handleBatchAllocate = (data: Omit<ScheduleEvent, "id">) => {
+    // Eventos do esquadrão atual
+    const baseEvents: ScheduleEvent[] = selectedSlots.map(({ classId, slotIndex, date }) => {
+      const slot = TIME_SLOTS[slotIndex];
+      return { ...data, id: crypto.randomUUID(), classId, date, startTime: slot?.start || data.startTime, endTime: slot?.end || data.endTime };
+    });
+
+    if (!batchAllSquadronsMode) {
+      baseEvents.forEach((ev) => addEvent(ev));
+      setWeekEvents((prev) => [...prev, ...baseEvents]);
+      setIsBatchFormOpen(false);
+      setIsBatchMode(false);
+      setSelectedSlots([]);
+      return;
+    }
+
+    // Replica para os outros esquadrões
+    const otherSquadrons = ([1, 2, 3, 4] as CourseYear[]).filter((s) => s !== currentSquadron);
+    const replicaEvents: ScheduleEvent[] = [];
+    otherSquadrons.forEach((sq) => {
+      selectedSlots.forEach(({ classId, slotIndex, date }) => {
+        const slot = TIME_SLOTS[slotIndex];
+        const suffix = classId.replace(String(currentSquadron), "");
+        const targetClassId = `${sq}${suffix}`;
+        replicaEvents.push({
+          ...data,
+          id: crypto.randomUUID(),
+          classId: targetClassId,
+          targetSquadron: sq,
+          date,
+          startTime: slot?.start || data.startTime,
+          endTime: slot?.end || data.endTime,
+        });
+      });
+    });
+
+    const allEvents = [...baseEvents, ...replicaEvents];
+    const conflicts = allEvents.filter((ev) =>
+      weekEvents.some((e) => e.classId === ev.classId && e.date === ev.date && e.startTime === ev.startTime
+        && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC")
+    );
+
+    if (conflicts.length > 0) {
+      setPendingBatchEvents(allEvents);
+      setBatchConflictEvents(
+        weekEvents.filter((e) => conflicts.some(
+          (c) => c.classId === e.classId && c.date === e.date && c.startTime === e.startTime
+        ))
+      );
+      setIsBatchConflictDialogOpen(true);
+    } else {
+      doSaveBatchEvents(allEvents, false);
+    }
   };
 
   const handleBatchDelete = () => {
@@ -381,6 +455,98 @@ export const GanttProgramming = () => {
       return true;
     });
 
+  // Salva o evento no esquadrão atual + replica para os outros 3 se allSquadronsMode
+  const doSaveEvent = (data: Omit<ScheduleEvent, "id">, overwriteConflicts: boolean) => {
+    const otherSquadrons = ([1, 2, 3, 4] as CourseYear[]).filter((s) => s !== currentSquadron);
+
+    const saveOne = (eventData: Omit<ScheduleEvent, "id">, existingId?: string) => {
+      if (existingId) {
+        updateEvent(existingId, eventData);
+        setWeekEvents((prev) => prev.map((e) => e.id === existingId ? { ...e, ...eventData } : e));
+      } else {
+        const newEvent: ScheduleEvent = { ...eventData, id: crypto.randomUUID() };
+        addEvent(newEvent);
+        setWeekEvents((prev) => [...prev, newEvent]);
+      }
+    };
+
+    // Salva o evento principal (esquadrão atual)
+    if (editingEvent?.id) {
+      saveOne(data, editingEvent.id);
+    } else {
+      saveOne(data);
+    }
+
+    // Replica para os outros esquadrões
+    if (allSquadronsMode) {
+      otherSquadrons.forEach((sq) => {
+        // Mapeia classId: substitui o número do esquadrão atual pelo destino
+        const origClass = data.classId || "";
+        const suffix = origClass.replace(String(currentSquadron), "");
+        const targetClassId = `${sq}${suffix}`;
+
+        const replicaData: Omit<ScheduleEvent, "id"> = {
+          ...data,
+          classId: targetClassId,
+          targetSquadron: sq,
+        };
+
+        if (overwriteConflicts) {
+          // Apaga conflito existente antes de inserir
+          const conflict = conflictEvents.find(
+            (e) => e.classId === targetClassId && e.date === data.date && e.startTime === data.startTime
+          );
+          if (conflict?.id) {
+            useCourseStore.getState().deleteEvent(conflict.id);
+            setWeekEvents((prev) => prev.filter((e) => e.id !== conflict.id));
+          }
+        }
+
+        const existingInSlot = weekEvents.find(
+          (e) => e.classId === targetClassId && e.date === data.date && e.startTime === data.startTime && e.id
+        );
+        if (existingInSlot && !overwriteConflicts) return; // pula se não deve sobrescrever
+
+        saveOne(replicaData, overwriteConflicts && existingInSlot ? existingInSlot.id : undefined);
+      });
+    }
+
+    setIsModalOpen(false);
+    setEditingEvent(undefined);
+    setAllSquadronsMode(false);
+    setPendingSubmitData(null);
+    setConflictEvents([]);
+  };
+
+  const handleEventSubmit = (data: Omit<ScheduleEvent, "id">) => {
+    if (!allSquadronsMode) {
+      doSaveEvent(data, false);
+      return;
+    }
+
+    // Verifica conflitos nos outros esquadrões
+    const otherSquadrons = ([1, 2, 3, 4] as CourseYear[]).filter((s) => s !== currentSquadron);
+    const conflicts: ScheduleEvent[] = [];
+    otherSquadrons.forEach((sq) => {
+      const origClass = data.classId || "";
+      const suffix = origClass.replace(String(currentSquadron), "");
+      const targetClassId = `${sq}${suffix}`;
+      const conflict = weekEvents.find(
+        (e) => e.classId === targetClassId && e.date === data.date && e.startTime === data.startTime
+          && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC"
+      );
+      if (conflict) conflicts.push(conflict);
+    });
+
+    if (conflicts.length > 0) {
+      setPendingSubmitData(data);
+      setConflictEvents(conflicts);
+      setIsConflictDialogOpen(true);
+    } else {
+      doSaveEvent(data, false);
+    }
+  };
+
   const today  = formatDate(new Date());
   const card   = isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200 shadow-sm";
   const text   = isDark ? "text-slate-100" : "text-slate-800";
@@ -396,7 +562,7 @@ export const GanttProgramming = () => {
         <div className="flex items-center gap-3">
           <div className="w-1 h-8 rounded-full" style={{ backgroundColor: cohortColorTokens.primary }} />
           <div>
-            <h1 className={`text-base font-bold ${text}`}>{currentSquadron}º Esquadrão — Gantt Semanal</h1>
+            <h1 className={`text-base font-bold ${text}`}>{currentSquadron}º Esquadrão — Programação Semanal</h1>
             <p className={`text-xs ${muted}`}>
               {formatDateForDisplay(formatDate(startOfWeek))} – {formatDateForDisplay(formatDate(addDays(startOfWeek, 4)))}
             </p>
@@ -457,10 +623,77 @@ export const GanttProgramming = () => {
             className={`p-2 rounded-lg border transition-colors ${card} hover:border-blue-400`}>
             <ChevronLeft size={16} className={muted} />
           </button>
-          <button onClick={() => setCurrentDate(new Date())}
-            className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-blue-400 ${text}`}>
-            Hoje
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => {
+                setPickerMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+                setIsDatePickerOpen((v) => !v);
+              }}
+              className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-blue-400 ${text}`}>
+              Hoje
+            </button>
+            {isDatePickerOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsDatePickerOpen(false)} />
+                <div className={`absolute right-0 mt-1 z-50 rounded-xl border shadow-xl p-3 w-64 ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
+                  {/* Month nav */}
+                  <div className="flex items-center justify-between mb-2">
+                    <button onClick={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() - 1, 1))}
+                      className={`p-1 rounded hover:bg-slate-500/20 ${muted}`}>
+                      <ChevronLeft size={14} />
+                    </button>
+                    <span className={`text-xs font-semibold ${text}`}>
+                      {pickerMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+                    </span>
+                    <button onClick={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() + 1, 1))}
+                      className={`p-1 rounded hover:bg-slate-500/20 ${muted}`}>
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                  {/* Weekday headers */}
+                  <div className="grid grid-cols-7 mb-1">
+                    {["D","S","T","Q","Q","S","S"].map((d, i) => (
+                      <div key={i} className={`text-center text-[10px] font-bold ${muted}`}>{d}</div>
+                    ))}
+                  </div>
+                  {/* Days grid */}
+                  <div className="grid grid-cols-7 gap-y-0.5">
+                    {(() => {
+                      const year = pickerMonth.getFullYear();
+                      const month = pickerMonth.getMonth();
+                      const firstDay = new Date(year, month, 1).getDay();
+                      const daysInMonth = new Date(year, month + 1, 0).getDate();
+                      const todayStr = formatDate(new Date());
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      const cells: any[] = [];
+                      for (let i = 0; i < firstDay; i++) cells.push(<div key={`e${i}`} />);
+                      for (let d = 1; d <= daysInMonth; d++) {
+                        const date = new Date(year, month, d);
+                        const dateStr = formatDate(date);
+                        const isT = dateStr === todayStr;
+                        const isSel = formatDate(getStartOfWeek(currentDate)) === formatDate(getStartOfWeek(date));
+                        cells.push(
+                          <button key={d}
+                            onClick={() => { setCurrentDate(date); setIsDatePickerOpen(false); }}
+                            className={`text-[11px] h-7 w-full rounded transition-colors font-medium
+                              ${isT ? "bg-blue-500 text-white" : isSel ? (isDark ? "bg-slate-600 text-slate-100" : "bg-slate-200 text-slate-800") : `hover:bg-blue-500/15 ${text}`}`}>
+                            {d}
+                          </button>
+                        );
+                      }
+                      return cells;
+                    })()}
+                  </div>
+                  {/* Go to today shortcut */}
+                  <button
+                    onClick={() => { setCurrentDate(new Date()); setIsDatePickerOpen(false); }}
+                    className="mt-2 w-full text-[11px] py-1 rounded-lg border border-blue-400/50 text-blue-500 hover:bg-blue-500/10 transition-colors font-medium">
+                    Ir para hoje
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
           <button onClick={() => setCurrentDate(addDays(currentDate, 7))}
             className={`p-2 rounded-lg border transition-colors ${card} hover:border-blue-400`}>
             <ChevronRight size={16} className={muted} />
@@ -469,7 +702,7 @@ export const GanttProgramming = () => {
       </div>
 
       {/* ── One card per work day ──────────────────────────────────────────── */}
-      {weekDays.slice(0, 5).map((day, i) => {
+      {weekDays.slice(0, 6).map((day, i) => {
         if (!day) return null;
         const dateStr  = formatDate(day);
         const isToday  = dateStr === today;
@@ -577,11 +810,16 @@ export const GanttProgramming = () => {
                                   {n.description}
                                 </p>
                               )}
-                              {n.startDate !== n.endDate && (
-                                <p className={`text-[8px] mt-0.5 ${muted} opacity-70`}>
-                                  até {n.endDate}
-                                </p>
-                              )}
+                              {n.startDate !== n.endDate && (() => {
+                                const totalDays = Math.round((new Date(n.endDate).getTime() - new Date(n.startDate).getTime()) / 86400000) + 1;
+                                const dayIdx = Math.round((new Date(dateStr).getTime() - new Date(n.startDate).getTime()) / 86400000) + 1;
+                                return (
+                                  <div className="flex items-end justify-between mt-0.5">
+                                    <p className={`text-[8px] ${muted} opacity-70`}>até {n.endDate}</p>
+                                    <span className={`text-[9px] font-bold px-1 rounded ${isDark ? "bg-slate-600 text-slate-200" : "bg-slate-200 text-slate-600"}`}>{dayIdx}/{totalDays}</span>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           );
                         })}
@@ -686,6 +924,15 @@ export const GanttProgramming = () => {
                                     {canEdit && (
                                       <p className={`text-[8px] mt-0.5 opacity-50 ${col.title}`}>toque para editar</p>
                                     )}
+                                    {(ev as any).endDate && (ev as any).endDate !== ev.date && (() => {
+                                      const totalDays = Math.round((new Date((ev as any).endDate).getTime() - new Date(ev.date).getTime()) / 86400000) + 1;
+                                      const dayIdx = Math.round((new Date(dateStr).getTime() - new Date(ev.date).getTime()) / 86400000) + 1;
+                                      return (
+                                        <div className="flex justify-end mt-0.5">
+                                          <span className={`text-[9px] font-bold px-1 rounded ${isDark ? "bg-slate-600 text-slate-200" : "bg-slate-200 text-slate-600"}`}>{dayIdx}/{totalDays}</span>
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
                                 );
                               })}
@@ -703,9 +950,88 @@ export const GanttProgramming = () => {
         );
       })}
 
+      {/* ── Bottom navigation (duplicata do topo) ───────────────────────────── */}
+      <div className={`flex items-center justify-end gap-2 p-3 rounded-xl border ${card}`}>
+        <button onClick={() => setCurrentDate(addDays(currentDate, -7))}
+          className={`p-2 rounded-lg border transition-colors ${card} hover:border-blue-400`}>
+          <ChevronLeft size={16} className={muted} />
+        </button>
+        <div className="relative">
+          <button
+            onClick={() => {
+              setPickerMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+              setIsDatePickerOpen((v) => !v);
+            }}
+            className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-blue-400 ${text}`}>
+            Hoje
+          </button>
+          {isDatePickerOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsDatePickerOpen(false)} />
+              <div className={`absolute right-0 bottom-full mb-1 z-50 rounded-xl border shadow-xl p-3 w-64 ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <button onClick={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() - 1, 1))}
+                    className={`p-1 rounded hover:bg-slate-500/20 ${muted}`}>
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className={`text-xs font-semibold ${text}`}>
+                    {pickerMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+                  </span>
+                  <button onClick={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() + 1, 1))}
+                    className={`p-1 rounded hover:bg-slate-500/20 ${muted}`}>
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+                <div className="grid grid-cols-7 mb-1">
+                  {["D","S","T","Q","Q","S","S"].map((d, i) => (
+                    <div key={i} className={`text-center text-[10px] font-bold ${muted}`}>{d}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-y-0.5">
+                  {(() => {
+                    const year = pickerMonth.getFullYear();
+                    const month = pickerMonth.getMonth();
+                    const firstDay = new Date(year, month, 1).getDay();
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                    const todayStr = formatDate(new Date());
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const cells: any[] = [];
+                    for (let i = 0; i < firstDay; i++) cells.push(<div key={`e${i}`} />);
+                    for (let d = 1; d <= daysInMonth; d++) {
+                      const date = new Date(year, month, d);
+                      const dateStr = formatDate(date);
+                      const isT = dateStr === todayStr;
+                      const isSel = formatDate(getStartOfWeek(currentDate)) === formatDate(getStartOfWeek(date));
+                      cells.push(
+                        <button key={d}
+                          onClick={() => { setCurrentDate(date); setIsDatePickerOpen(false); }}
+                          className={`text-[11px] h-7 w-full rounded transition-colors font-medium
+                            ${isT ? "bg-blue-500 text-white" : isSel ? (isDark ? "bg-slate-600 text-slate-100" : "bg-slate-200 text-slate-800") : `hover:bg-blue-500/15 ${text}`}`}>
+                          {d}
+                        </button>
+                      );
+                    }
+                    return cells;
+                  })()}
+                </div>
+                <button
+                  onClick={() => { setCurrentDate(new Date()); setIsDatePickerOpen(false); }}
+                  className="mt-2 w-full text-[11px] py-1 rounded-lg border border-blue-400/50 text-blue-500 hover:bg-blue-500/10 transition-colors font-medium">
+                  Ir para hoje
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+        <button onClick={() => setCurrentDate(addDays(currentDate, 7))}
+          className={`p-2 rounded-lg border transition-colors ${card} hover:border-blue-400`}>
+          <ChevronRight size={16} className={muted} />
+        </button>
+      </div>
+
       {/* ── Legend ──────────────────────────────────────────────────────────── */}
       {disciplines.length > 0 && (() => {
-        const visibleDates = new Set(weekDays.slice(0, 5).map((d) => d.toISOString().slice(0, 10)));
+        const visibleDates = new Set(weekDays.slice(0, 6).map((d) => d.toISOString().slice(0, 10)));
         const usedIds = new Set(
           weekEvents
             .filter((e) =>
@@ -739,56 +1065,150 @@ export const GanttProgramming = () => {
 
       {/* Alocação em Lote */}
       {isBatchFormOpen && selectedSlots.length > 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => setIsBatchFormOpen(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
-            <EventForm
-              initialData={{
-                classId: selectedSlots[0].classId,
-                date: selectedSlots[0].date,
-                startTime: TIME_SLOTS[selectedSlots[0].slotIndex]?.start || "07:00",
-                endTime: TIME_SLOTS[selectedSlots[0].slotIndex]?.end || "08:00",
-                type: "CLASS",
-              }}
-              lockClass
-              isBatchMode
-              onSubmit={handleBatchAllocate}
-              onCancel={() => setIsBatchFormOpen(false)}
-            />
+        <EventForm
+          initialData={{
+            classId: selectedSlots[0].classId,
+            date: selectedSlots[0].date,
+            startTime: TIME_SLOTS[selectedSlots[0].slotIndex]?.start || "07:00",
+            endTime: TIME_SLOTS[selectedSlots[0].slotIndex]?.end || "08:00",
+            type: "CLASS",
+          }}
+          lockClass
+          isBatchMode
+          onSubmit={handleBatchAllocate}
+          onCancel={() => { setIsBatchFormOpen(false); setBatchAllSquadronsMode(false); }}
+          extraHeader={
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={batchAllSquadronsMode}
+                onChange={(e) => setBatchAllSquadronsMode(e.target.checked)}
+                className="w-4 h-4 accent-blue-500 cursor-pointer"
+              />
+              <span className={`text-xs font-medium ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                Replicar para todos os esquadrões (1º ao 4º)
+              </span>
+            </label>
+          }
+        />
+      )}
+
+      {/* Dialog de conflito — alocação em lote */}
+      {isBatchConflictDialogOpen && pendingBatchEvents.length > 0 && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60">
+          <div className={`rounded-xl border shadow-2xl p-5 w-full max-w-md mx-4 ${card}`}>
+            <div className="flex items-start gap-3 mb-4">
+              <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className={`text-sm font-semibold ${text}`}>Conflito de aulas</p>
+                <p className={`text-xs mt-1 ${muted}`}>
+                  Os seguintes slots já têm aula alocada:
+                </p>
+                <ul className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                  {batchConflictEvents.map((e) => {
+                    const disc = useCourseStore.getState().disciplines.find((d) => d.id === e.disciplineId);
+                    return (
+                      <li key={e.id} className={`text-xs px-2 py-1 rounded-lg border ${isDark ? "bg-slate-700 border-slate-600" : "bg-slate-100 border-slate-200"} ${text}`}>
+                        <span className="font-semibold">{e.classId}</span> — {disc?.code ?? e.disciplineId} · {e.date} {e.startTime}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className={`text-xs mt-3 ${muted}`}>Deseja sobrescrever as aulas em conflito?</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => { setIsBatchConflictDialogOpen(false); doSaveBatchEvents(pendingBatchEvents, false); }}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-slate-400 ${muted}`}>
+                Ignorar conflitos
+              </button>
+              <button
+                onClick={() => { setIsBatchConflictDialogOpen(false); doSaveBatchEvents(pendingBatchEvents, true); }}
+                className="px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors bg-amber-500 border-amber-500 text-white hover:bg-amber-600">
+                Sobrescrever
+              </button>
+              <button
+                onClick={() => { setIsBatchConflictDialogOpen(false); setPendingBatchEvents([]); setBatchConflictEvents([]); }}
+                className="px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors bg-red-500/10 border-red-400/50 text-red-500 hover:bg-red-500/20">
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Edição de aula */}
       {isModalOpen && editingEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => { setIsModalOpen(false); setEditingEvent(undefined); }}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg mx-4">
-            <EventForm
-              initialData={editingEvent}
-              lockClass={!editingEvent.id}
-              onSubmit={(data) => {
-                if (editingEvent.id) {
-                  // Edição
-                  updateEvent(editingEvent.id, data);
-                  setWeekEvents((prev) => prev.map((e) => e.id === editingEvent.id ? { ...e, ...data } : e));
-                } else {
-                  // Criação
-                  const newEvent: ScheduleEvent = { ...data, id: crypto.randomUUID() };
-                  addEvent(newEvent);
-                  setWeekEvents((prev) => [...prev, newEvent]);
-                }
-                setIsModalOpen(false);
-                setEditingEvent(undefined);
-              }}
-              onDelete={(id) => {
-                useCourseStore.getState().deleteEvent(id);
-                setWeekEvents((prev) => prev.filter((e) => e.id !== id));
-                setIsModalOpen(false);
-                setEditingEvent(undefined);
-              }}
-              onCancel={() => { setIsModalOpen(false); setEditingEvent(undefined); }}
-            />
+        <EventForm
+          initialData={editingEvent}
+          lockClass={!editingEvent.id}
+          onSubmit={handleEventSubmit}
+          onDelete={(id) => {
+            useCourseStore.getState().deleteEvent(id);
+            setWeekEvents((prev) => prev.filter((e) => e.id !== id));
+            setIsModalOpen(false);
+            setEditingEvent(undefined);
+            setAllSquadronsMode(false);
+          }}
+          onCancel={() => { setIsModalOpen(false); setEditingEvent(undefined); setAllSquadronsMode(false); }}
+          extraHeader={
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={allSquadronsMode}
+                onChange={(e) => setAllSquadronsMode(e.target.checked)}
+                className="w-4 h-4 accent-blue-500 cursor-pointer"
+              />
+              <span className={`text-xs font-medium ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                Replicar para todos os esquadrões (1º ao 4º)
+              </span>
+            </label>
+          }
+        />
+      )}
+
+      {/* Dialog de conflito ao replicar para todos os esquadrões */}
+      {isConflictDialogOpen && pendingSubmitData && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60">
+          <div className={`rounded-xl border shadow-2xl p-5 w-full max-w-md mx-4 ${card}`}>
+            <div className="flex items-start gap-3 mb-4">
+              <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className={`text-sm font-semibold ${text}`}>Conflito de aulas</p>
+                <p className={`text-xs mt-1 ${muted}`}>
+                  Os seguintes esquadrões já têm uma aula alocada neste horário:
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {conflictEvents.map((e) => {
+                    const disc = useCourseStore.getState().disciplines.find((d) => d.id === e.disciplineId);
+                    return (
+                      <li key={e.id} className={`text-xs px-2 py-1 rounded-lg border ${isDark ? "bg-slate-700 border-slate-600" : "bg-slate-100 border-slate-200"} ${text}`}>
+                        <span className="font-semibold">{e.classId}</span> — {disc?.code ?? e.disciplineId} ({e.startTime})
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className={`text-xs mt-3 ${muted}`}>Deseja sobrescrever as aulas em conflito?</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => { setIsConflictDialogOpen(false); doSaveEvent(pendingSubmitData, false); }}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-slate-400 ${muted}`}>
+                Ignorar conflitos
+              </button>
+              <button
+                onClick={() => { setIsConflictDialogOpen(false); doSaveEvent(pendingSubmitData, true); }}
+                className="px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors bg-amber-500 border-amber-500 text-white hover:bg-amber-600">
+                Sobrescrever
+              </button>
+              <button
+                onClick={() => { setIsConflictDialogOpen(false); setPendingSubmitData(null); setConflictEvents([]); }}
+                className="px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors bg-red-500/10 border-red-400/50 text-red-500 hover:bg-red-500/20">
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}

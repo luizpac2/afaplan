@@ -44,7 +44,6 @@ const clean = (data: any): any =>
  * Normaliza uma linha de programacao_aulas para o formato ScheduleEvent.
  * O banco armazena instructorId; o frontend espera instructorTrigram.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 /** Garante formato HH:mm (com zero à esquerda) */
 export const normalizeTime = (t: string | null | undefined): string => {
   if (!t) return t as string;
@@ -55,14 +54,15 @@ export const normalizeTime = (t: string | null | undefined): string => {
   return `${h.padStart(2, "0")}:${(m ?? "00").padStart(2, "0")}`;
 };
 
-export const normalizeEvent = (row: any): any => ({
+export const normalizeEvent = (row: Record<string, unknown>): Record<string, unknown> => ({
   ...row,
   instructorTrigram: row.instructorTrigram ?? row.instructorId ?? null,
-  startTime:      row.startTime      ? normalizeTime(row.startTime) : row.startTime,
-  endTime:        row.endTime        ? normalizeTime(row.endTime)   : row.endTime,
+  startTime:      row.startTime      ? normalizeTime(row.startTime as string) : row.startTime,
+  endTime:        row.endTime        ? normalizeTime(row.endTime as string)   : row.endTime,
   evaluationType: row.evaluationType ?? row.evaluation_type ?? null,
   classId:        row.classId        ?? row.class_id        ?? null,
   disciplineId:   row.disciplineId   ?? row.discipline_id   ?? null,
+  endDate:        row.endDate        ?? row.end_date        ?? null,
 });
 
 // ---------------------------------------------------------------------------
@@ -133,7 +133,7 @@ export const subscribeToEventsByDateRange = (
     supabase
       .from("programacao_aulas")
       .select("*")
-      .eq("type", "ACADEMIC")
+      .not("endDate", "is", null)
       .lte("date", endDate)
       .gte("endDate", startDate)
       .lt("date", startDate), // evita duplicatas (já buscados acima)

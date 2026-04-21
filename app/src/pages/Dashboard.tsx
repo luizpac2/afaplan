@@ -116,7 +116,7 @@ export const Dashboard = () => {
   const squadronAcademic = (sq: number) =>
     todayEvents.filter((e) => {
       if (e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC") return false;
-      const end = (e as any).endDate ?? e.date;
+      const end = e.endDate ?? e.date;
       if (DISPLAY_DATE < e.date || DISPLAY_DATE > end) return false;
       const ts = e.targetSquadron;
       return ts === "ALL" || ts == null || Number(ts) === sq;
@@ -148,10 +148,10 @@ export const Dashboard = () => {
     const newEvent = { ...data, id };
     addEvent(newEvent);
     setTodayEvents((prev) => [...prev, newEvent]);
-    const dbPayload: Record<string, any> = {
+    const dbPayload: Record<string, unknown> = {
       id, date: data.date, startTime: data.startTime ?? null, endTime: data.endTime ?? null,
-      description: data.description ?? null, notes: (data as any).notes ?? null,
-      endDate: (data as any).endDate ?? null, location: data.location ?? null,
+      description: data.description ?? null, notes: data.notes ?? null,
+      endDate: data.endDate ?? null, location: data.location ?? null,
       targetSquadron: data.targetSquadron != null ? String(data.targetSquadron) : null,
       targetCourse: data.targetCourse ?? null, targetClass: data.targetClass ?? null,
       type: data.type ?? null, disciplineId: data.disciplineId, classId: data.classId, color: data.color ?? null,
@@ -162,10 +162,10 @@ export const Dashboard = () => {
 
   const handleAcademicUpdate = (data: Omit<ScheduleEvent, "id">) => {
     if (!editingAcademic) return;
-    const dbPayload: Record<string, any> = {
+    const dbPayload: Record<string, unknown> = {
       date: data.date, startTime: data.startTime ?? null, endTime: data.endTime ?? null,
-      description: data.description ?? null, notes: (data as any).notes ?? null,
-      endDate: (data as any).endDate ?? null, location: data.location ?? null,
+      description: data.description ?? null, notes: data.notes ?? null,
+      endDate: data.endDate ?? null, location: data.location ?? null,
       targetSquadron: data.targetSquadron != null ? String(data.targetSquadron) : null,
       targetCourse: data.targetCourse ?? null, targetClass: data.targetClass ?? null,
       type: data.type ?? null, color: data.color ?? null,
@@ -339,8 +339,8 @@ export const Dashboard = () => {
                                 <p className={`text-[10px] font-semibold leading-tight ${col.title}`}>
                                   {ev.description || ev.location || "Evento acadêmico"}
                                 </p>
-                                {(ev as any).notes && (
-                                  <p className={`text-[9px] mt-0.5 leading-snug ${col.sub}`}>{(ev as any).notes}</p>
+                                {ev.notes && (
+                                  <p className={`text-[9px] mt-0.5 leading-snug ${col.sub}`}>{ev.notes}</p>
                                 )}
                                 {ev.startTime && (
                                   <p className={`text-[9px] mt-0.5 ${col.sub}`}>

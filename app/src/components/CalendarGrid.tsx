@@ -6,7 +6,7 @@ import {
   formatDateForDisplay,
 } from "../utils/dateUtils";
 import { TIME_SLOTS } from "../utils/constants";
-import type { ScheduleEvent, Discipline, SystemNotice } from "../types";
+import type { ScheduleEvent, Discipline, SystemNotice, NoticeType } from "../types";
 import { CheckSquare, Square, AlertCircle } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
@@ -126,7 +126,7 @@ export const CalendarGrid = ({
               );
 
               // 2. Group them by consecutive days if they have same location and color
-              const groupedAcademicEvents: any[] = [];
+              const groupedAcademicEvents: (ScheduleEvent & { startDate: string; endDate: string })[] = [];
 
               if (academicEvents.length > 0) {
                 // Sort by date first to easily find consecutive items
@@ -183,12 +183,12 @@ export const CalendarGrid = ({
                       : "Evento Acadêmico"),
                   startDate: e.startDate,
                   endDate: e.endDate,
-                  type: (e.isBlocking !== false ? "WARNING" : "EVENT") as any,
+                  type: (e.isBlocking !== false ? "WARNING" : "EVENT") as NoticeType,
                   targetCourse: e.targetCourse,
                   targetClass: e.targetClass,
                   createdAt: "",
                   authorId: "",
-                  targetAudience: { type: "GLOBAL" as any },
+                  targetAudience: { type: "GLOBAL" as const },
                 })),
               ];
 
@@ -263,8 +263,8 @@ export const CalendarGrid = ({
 
                         const getEventBadgeInfo = () => {
                           const course = notice.targetCourse || "ALL";
-                          let primaryInfo: any = null;
-                          let secondaryInfo: any = null;
+                          let primaryInfo: { label: string; color: string; hex: string; bgColor?: string; textColor?: string } | null = null;
+                          let secondaryInfo: { label: string; color: string; hex: string; bgColor?: string; textColor?: string } | null = null;
 
                           if (course === "ALL") {
                             const squad = notice.targetSquadron;
@@ -1149,23 +1149,23 @@ export const CalendarGrid = ({
                             </div>
                             {/* Avaliações Badges */}
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {(event as any).isGraded && (
+                              {!!(event as ScheduleEvent & { isGraded?: boolean }).isGraded && (
                                 <span
                                   className={`text-[9px] px-1.5 py-0.5 rounded font-medium uppercase border inline-flex items-center leading-none bg-red-50 text-red-600 border-red-100`}
                                 >
                                   Avaliação
                                 </span>
                               )}
-                              {(event as any).isLessonOrder && (
+                              {!!(event as ScheduleEvent & { isLessonOrder?: boolean }).isLessonOrder && (
                                 <>
-                                  {(event as any).isFirstLesson && (
+                                  {!!(event as ScheduleEvent & { isFirstLesson?: boolean }).isFirstLesson && (
                                     <span
                                       className={`text-[9px] px-1.5 py-0.5 rounded font-medium uppercase border inline-flex items-center leading-none bg-blue-50 text-blue-600 border-blue-100`}
                                     >
                                       1ª Aula
                                     </span>
                                   )}
-                                  {(event as any).isLastLesson && (
+                                  {!!(event as ScheduleEvent & { isLastLesson?: boolean }).isLastLesson && (
                                     <span
                                       className={`text-[9px] px-1.5 py-0.5 rounded font-medium uppercase border inline-flex items-center leading-none bg-purple-50 text-purple-600 border-purple-100`}
                                     >
