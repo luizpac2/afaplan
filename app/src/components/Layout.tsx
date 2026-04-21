@@ -145,7 +145,6 @@ export const Layout = () => {
   const { theme } = useTheme();
   const { unreadCount } = useUnreadCount();
   const onlineCount = useOnlineUsers();
-  const isAdmin = ["SUPER_ADMIN", "ADMIN"].includes(userProfile?.role ?? "");
   const navigate = useNavigate();
 
   const location = useLocation();
