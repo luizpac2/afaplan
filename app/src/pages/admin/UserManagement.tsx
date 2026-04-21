@@ -550,7 +550,6 @@ export const UserManagement = () => {
               >
                 <th className="px-4 py-2">Usuário</th>
                 <th className="px-4 py-2">Email</th>
-                <th className="px-4 py-2">Perfil Atual</th>
                 <th className="px-4 py-2">Detalhes</th>
                 <th className="px-4 py-2">Ações</th>
               </tr>
@@ -580,11 +579,6 @@ export const UserManagement = () => {
                     </td>
                     <td className={`px-4 py-2 text-sm ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
                       {user.email}
-                    </td>
-                    <td className="px-4 py-2">
-                      <Badge variant={getRoleVariant(user.role)}>
-                        {ROLES.find((r) => r.value === user.role)?.label || user.role}
-                      </Badge>
                     </td>
                     <td
                       className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400"
@@ -629,73 +623,53 @@ export const UserManagement = () => {
                           <span className="text-slate-400">-</span>
                         )}
                     </td>
-                    <td className="px-4 py-2 text-right">
-                      <select
-                        value={user.role}
-                        onChange={(e) =>
-                          handleRoleChange(user.uid, e.target.value as UserRole)
-                        }
-                        disabled={
-                          updating === user.uid ||
-                          user.uid === currentUser?.uid ||
-                          !canEditAuth
-                        }
-                        className={`text-sm border rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:opacity-50 ${theme === "dark" ? "border-slate-600 bg-slate-700 text-slate-100" : "border-slate-300 bg-white text-slate-900"}`}
-                      >
-                        {ROLES.map((role) => (
-                          <option key={role.value} value={role.value}>
-                            {role.label}
-                          </option>
-                        ))}
-                      </select>
-                      {updating === user.uid && (
-                        <span className="ml-2 text-xs text-blue-600">
-                          Salvando...
-                        </span>
-                      )}
-
-                      {currentUser?.role === "SUPER_ADMIN" &&
-                        user.uid !== currentUser.uid && (
-                          <button
-                            onClick={() =>
-                              handleDeleteUser(user.uid, user.displayName)
-                            }
-                            className={`ml-4 p-1 rounded-full transition-colors ${theme === "dark" ? "text-red-400 hover:text-red-400 hover:bg-red-900/20" : "text-red-400 hover:text-red-700 hover:bg-red-50"}`}
-                            title="Excluir Usuário/Acesso"
-                            disabled={updating === user.uid}
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-1 justify-end flex-nowrap">
+                        <Badge variant={getRoleVariant(user.role)}>
+                          {ROLES.find((r) => r.value === user.role)?.label || user.role}
+                        </Badge>
+                        {canEditAuth && (
+                          <select
+                            value={user.role}
+                            onChange={(e) => handleRoleChange(user.uid, e.target.value as UserRole)}
+                            disabled={updating === user.uid || user.uid === currentUser?.uid}
+                            className={`text-xs border rounded px-1 py-0.5 ml-1 disabled:opacity-50 outline-none ${theme === "dark" ? "border-slate-600 bg-slate-700 text-slate-100" : "border-slate-300 bg-white text-slate-700"}`}
                           >
-                            <Trash2 size={18} />
+                            {ROLES.map((role) => (
+                              <option key={role.value} value={role.value}>{role.label}</option>
+                            ))}
+                          </select>
+                        )}
+                        {updating === user.uid && <span className="text-xs text-blue-500">...</span>}
+                        {user.role !== "SUPER_ADMIN" && canEditAuth && (
+                          <button onClick={() => handleEditClick(user)} disabled={updating === user.uid}
+                            className={`p-1 rounded transition-colors ${theme === "dark" ? "text-slate-400 hover:text-blue-400 hover:bg-blue-900/20" : "text-slate-400 hover:text-blue-600 hover:bg-blue-50"}`}
+                            title="Editar Detalhes">
+                            <Edit size={15} />
                           </button>
                         )}
-
-                      {user.role !== "SUPER_ADMIN" && canEditAuth && (
-                        <button
-                          onClick={() => handleEditClick(user)}
-                          className={`ml-2 p-1 rounded-full transition-colors ${theme === "dark" ? "text-slate-400 hover:text-blue-400 hover:bg-blue-900/20" : "text-slate-400 hover:text-blue-600 hover:bg-blue-50"}`}
-                          title="Editar Detalhes"
-                          disabled={updating === user.uid}
-                        >
-                          <Edit size={18} />
-                        </button>
-                      )}
-
-                      {canEditAuth && user.uid !== currentUser?.uid && (
-                        <button
-                          onClick={() => handleResetPassword(user)}
-                          className={`ml-2 p-1 rounded-full transition-colors ${theme === "dark" ? "text-slate-400 hover:text-amber-400 hover:bg-amber-900/20" : "text-slate-400 hover:text-amber-600 hover:bg-amber-50"}`}
-                          title="Redefinir Senha"
-                          disabled={updating === user.uid}
-                        >
-                          <KeyRound size={18} />
-                        </button>
-                      )}
+                        {canEditAuth && user.uid !== currentUser?.uid && (
+                          <button onClick={() => handleResetPassword(user)} disabled={updating === user.uid}
+                            className={`p-1 rounded transition-colors ${theme === "dark" ? "text-slate-400 hover:text-amber-400 hover:bg-amber-900/20" : "text-slate-400 hover:text-amber-600 hover:bg-amber-50"}`}
+                            title="Redefinir Senha">
+                            <KeyRound size={15} />
+                          </button>
+                        )}
+                        {currentUser?.role === "SUPER_ADMIN" && user.uid !== currentUser.uid && (
+                          <button onClick={() => handleDeleteUser(user.uid, user.displayName)} disabled={updating === user.uid}
+                            className={`p-1 rounded transition-colors ${theme === "dark" ? "text-red-400 hover:bg-red-900/20" : "text-red-400 hover:bg-red-50"}`}
+                            title="Excluir">
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr className={theme === "dark" ? "bg-slate-800" : ""}>
                   <td
-                    colSpan={5}
+                    colSpan={4}
                     className={`p-8 text-center ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}
                   >
                     Nenhum usuário ativo encontrado.
