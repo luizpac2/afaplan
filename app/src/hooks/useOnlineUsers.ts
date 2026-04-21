@@ -14,36 +14,23 @@ export const useOnlineUsers = () => {
       void supabase.removeChannel(channelRef.current);
     }
 
-    const channel = supabase.channel("presence:online", {
-      config: { presence: { key: user.id } },
-    });
-
+    const channel = supabase.channel("presence:online");
     channelRef.current = channel;
 
-    channel.on("presence", { event: "sync" }, () => {
+    const updateCount = () => {
       const state = channel.presenceState();
       const count = Object.keys(state).length;
-      console.log("[presence] sync — online:", count, state);
       setOnlineCount(count);
-    });
+    };
 
-    channel.on("presence", { event: "join" }, ({ key, newPresences }) => {
-      console.log("[presence] join —", key, newPresences);
-    });
+    channel.on("presence", { event: "sync" }, updateCount);
+    channel.on("presence", { event: "join" }, updateCount);
+    channel.on("presence", { event: "leave" }, updateCount);
 
-    channel.on("presence", { event: "leave" }, ({ key, leftPresences }) => {
-      console.log("[presence] leave —", key, leftPresences);
-    });
-
-    channel.subscribe((status, err) => {
-      console.log("[presence] subscribe status:", status, err ?? "");
+    channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
-        void channel.track({ user_id: user.id, ts: Date.now() }).then((r) => {
-          console.log("[presence] track result:", r);
-        });
-      }
-      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-        console.warn("[presence] channel failed:", status);
+        await channel.track({ user_id: user.id, ts: Date.now() });
+        updateCount();
       }
     });
 
