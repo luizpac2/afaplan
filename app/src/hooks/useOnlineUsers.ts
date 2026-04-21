@@ -10,7 +10,6 @@ export const useOnlineUsers = () => {
   useEffect(() => {
     if (!user?.id) return;
 
-    // Remove canal anterior se existir
     if (channelRef.current) {
       void supabase.removeChannel(channelRef.current);
     }
@@ -23,12 +22,28 @@ export const useOnlineUsers = () => {
 
     channel.on("presence", { event: "sync" }, () => {
       const state = channel.presenceState();
-      setOnlineCount(Object.keys(state).length);
+      const count = Object.keys(state).length;
+      console.log("[presence] sync — online:", count, state);
+      setOnlineCount(count);
     });
 
-    channel.subscribe((status) => {
+    channel.on("presence", { event: "join" }, ({ key, newPresences }) => {
+      console.log("[presence] join —", key, newPresences);
+    });
+
+    channel.on("presence", { event: "leave" }, ({ key, leftPresences }) => {
+      console.log("[presence] leave —", key, leftPresences);
+    });
+
+    channel.subscribe((status, err) => {
+      console.log("[presence] subscribe status:", status, err ?? "");
       if (status === "SUBSCRIBED") {
-        void channel.track({ user_id: user.id, ts: Date.now() });
+        void channel.track({ user_id: user.id, ts: Date.now() }).then((r) => {
+          console.log("[presence] track result:", r);
+        });
+      }
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        console.warn("[presence] channel failed:", status);
       }
     });
 

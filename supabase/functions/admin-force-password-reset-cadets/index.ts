@@ -42,41 +42,39 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Busca todos os user_ids com role cadete
-    const { data: cadeteRoles } = await adminClient
-      .from("user_roles")
-      .select("user_id")
-      .eq("role", "cadete");
+    // Busca todos os usuários de uma vez (evita N+1 requests)
+    const { data: listData } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+    const allUsers = listData?.users ?? [];
 
-    const userIds = (cadeteRoles ?? []).map((r: { user_id: string }) => r.user_id);
+    // Aplica flag apenas em quem ainda não trocou a senha
+    // (must_change_password !== false significa: nunca trocou ou não tem o flag)
+    const toUpdate = allUsers.filter((u) =>
+      u.user_metadata?.must_change_password !== false
+    );
 
+    // Processa em paralelo em lotes de 20 para não sobrecarregar
+    const BATCH = 20;
     let updated = 0;
-    let skipped = 0;
+    let skipped = allUsers.length - toUpdate.length;
     const errors: string[] = [];
 
-    for (const userId of userIds) {
-      try {
-        // Verifica se já tem must_change_password = false (já trocou a senha)
-        const { data: userData } = await adminClient.auth.admin.getUserById(userId);
-        const meta = userData?.user?.user_metadata ?? {};
-
-        // Se já trocou (must_change_password === false explicitamente), não reseta
-        if (meta.must_change_password === false) {
-          skipped++;
-          continue;
+    for (let i = 0; i < toUpdate.length; i += BATCH) {
+      const batch = toUpdate.slice(i, i + BATCH);
+      await Promise.all(batch.map(async (u) => {
+        try {
+          const meta = u.user_metadata ?? {};
+          await adminClient.auth.admin.updateUserById(u.id, {
+            user_metadata: { ...meta, must_change_password: true },
+          });
+          updated++;
+        } catch (e) {
+          errors.push(`${u.email ?? u.id}: ${e instanceof Error ? e.message : String(e)}`);
         }
-
-        await adminClient.auth.admin.updateUserById(userId, {
-          user_metadata: { ...meta, must_change_password: true },
-        });
-        updated++;
-      } catch (e) {
-        errors.push(`${userId}: ${e instanceof Error ? e.message : String(e)}`);
-      }
+      }));
     }
 
     return new Response(
-      JSON.stringify({ updated, skipped, errors: errors.slice(0, 20) }),
+      JSON.stringify({ total: allUsers.length, updated, skipped, errors: errors.slice(0, 20) }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
