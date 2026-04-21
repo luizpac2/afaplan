@@ -91,6 +91,7 @@ export const CadetManager = () => {
 
   const [bulkCreating, setBulkCreating]   = useState(false);
   const [bulkResult, setBulkResult]       = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
+  const [forcingReset, setForcingReset]   = useState(false);
 
   // Password result modal
   const [passwordResult, setPasswordResult] = useState<{ name: string; email: string; password: string } | null>(null);
@@ -424,6 +425,27 @@ export const CadetManager = () => {
               >
                 <UserPlus size={15} />
                 {bulkCreating ? 'Criando...' : 'Criar acessos'}
+              </button>
+              <button
+                onClick={async () => {
+                  if (!window.confirm('Forçar troca de senha no próximo login para todos os cadetes que ainda não trocaram?\n\nCadetes que já definiram sua própria senha não serão afetados.')) return;
+                  setForcingReset(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke('admin-force-password-reset-cadets');
+                    if (error) throw error;
+                    alert(`Concluído: ${(data as any).updated} atualizados, ${(data as any).skipped} já tinham trocado.`);
+                  } catch (e) {
+                    alert('Erro: ' + (e instanceof Error ? e.message : String(e)));
+                  } finally {
+                    setForcingReset(false);
+                  }
+                }}
+                disabled={forcingReset}
+                title="Forçar troca de senha no próximo login para cadetes que ainda não trocaram"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+              >
+                <UserPlus size={15} />
+                {forcingReset ? 'Aplicando...' : 'Forçar troca de senha'}
               </button>
               <button
                 onClick={() => { setShowAddForm(true); setEditingId(null); }}

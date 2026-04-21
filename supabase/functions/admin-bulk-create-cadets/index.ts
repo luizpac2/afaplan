@@ -109,6 +109,13 @@ Deno.serve(async (req: Request) => {
                 { user_id: existing.id, role: "cadete", cadet_id: cadet.id },
                 { onConflict: "user_id" },
               );
+              // Garante flag de troca obrigatória mesmo em usuário já existente
+              const existingMeta = (existing.user_metadata ?? {}) as Record<string, unknown>;
+              if (existingMeta.must_change_password !== false) {
+                await adminClient.auth.admin.updateUserById(existing.id, {
+                  user_metadata: { ...existingMeta, must_change_password: true },
+                });
+              }
               created++;
               continue;
             }

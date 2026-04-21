@@ -8,13 +8,14 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-    const { user, userProfile, loading, mustChangePassword } = useAuth();
+    const { user, userProfile, loading, profileLoading, mustChangePassword } = useAuth();
     const location = useLocation();
 
-    if (loading) {
+    // Sessão ainda carregando
+    if (loading || profileLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="min-h-screen flex items-center justify-center bg-slate-900">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
             </div>
         );
     }
@@ -27,18 +28,18 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
         return <Navigate to="/change-password" replace />;
     }
 
-    // Usuário autenticado mas sem role no sistema — mostra mensagem de acesso negado
+    // Perfil não encontrado após carregamento completo — sem role no sistema
     if (!userProfile) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <div className="max-w-sm text-center p-8 bg-white rounded-2xl shadow-lg">
-                    <p className="text-slate-700 font-medium mb-2">Acesso não autorizado</p>
-                    <p className="text-slate-500 text-sm mb-6">
+            <div className="min-h-screen flex items-center justify-center bg-slate-900">
+                <div className="max-w-sm text-center p-8 bg-slate-800 rounded-2xl shadow-lg border border-slate-700">
+                    <p className="text-slate-200 font-medium mb-2">Acesso não autorizado</p>
+                    <p className="text-slate-400 text-sm mb-6">
                         Seu usuário ainda não possui permissão de acesso. Contate o administrador do sistema.
                     </p>
                     <button
                         onClick={async () => { const { supabase } = await import('../config/supabase'); await supabase.auth.signOut(); }}
-                        className="text-sm text-red-500 hover:text-red-700"
+                        className="text-sm text-red-400 hover:text-red-300"
                     >
                         Sair
                     </button>

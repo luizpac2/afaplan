@@ -9,6 +9,7 @@ interface AuthContextType {
   user: SupabaseUser;
   userProfile: UserProfile | null;
   loading: boolean;
+  profileLoading: boolean;
   mustChangePassword: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   userProfile: null,
   loading: true,
+  profileLoading: true,
   mustChangePassword: false,
   signInWithEmail: async () => {},
   logout: async () => {},
@@ -48,20 +50,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser]                         = useState<SupabaseUser>(null);
   const [userProfile, setUserProfile]           = useState<UserProfile | null>(null);
   const [loading, setLoading]                   = useState(true);
+  const [profileLoading, setProfileLoading]     = useState(true);
   const [mustChangePassword, setMustChange]     = useState(false);
 
   const handleSession = async (session: SupabaseSession) => {
     if (session?.user) {
       setUser(session.user);
+      setMustChange(session.user.user_metadata?.must_change_password === true);
+      setLoading(false);
+      setProfileLoading(true);
       const profile = await buildProfile(session.user);
       setUserProfile(profile);
-      setMustChange(session.user.user_metadata?.must_change_password === true);
+      setProfileLoading(false);
     } else {
       setUser(null);
       setUserProfile(null);
       setMustChange(false);
+      setLoading(false);
+      setProfileLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -87,7 +94,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, mustChangePassword, signInWithEmail, logout }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, profileLoading, mustChangePassword, signInWithEmail, logout }}>
       {children}
     </AuthContext.Provider>
   );
