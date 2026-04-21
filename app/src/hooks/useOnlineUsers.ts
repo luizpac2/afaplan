@@ -14,22 +14,36 @@ export const useOnlineUsers = () => {
       void supabase.removeChannel(channelRef.current);
     }
 
-    const channel = supabase.channel("presence:online");
+    const channel = supabase.channel("presence:online", {
+      config: { presence: { key: user.id } },
+    });
     channelRef.current = channel;
 
     const updateCount = () => {
       const state = channel.presenceState();
       const count = Object.keys(state).length;
+      console.log("[presence] updateCount:", count, JSON.stringify(state));
       setOnlineCount(count);
     };
 
-    channel.on("presence", { event: "sync" }, updateCount);
-    channel.on("presence", { event: "join" }, updateCount);
-    channel.on("presence", { event: "leave" }, updateCount);
+    channel.on("presence", { event: "sync" }, () => {
+      console.log("[presence] event: sync");
+      updateCount();
+    });
+    channel.on("presence", { event: "join" }, () => {
+      console.log("[presence] event: join");
+      updateCount();
+    });
+    channel.on("presence", { event: "leave" }, () => {
+      console.log("[presence] event: leave");
+      updateCount();
+    });
 
-    channel.subscribe(async (status) => {
+    channel.subscribe(async (status, err) => {
+      console.log("[presence] subscribe status:", status, err ?? "");
       if (status === "SUBSCRIBED") {
-        await channel.track({ user_id: user.id, ts: Date.now() });
+        const trackResult = await channel.track({ user_id: user.id, ts: Date.now() });
+        console.log("[presence] track result:", trackResult);
         updateCount();
       }
     });
