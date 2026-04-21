@@ -84,19 +84,20 @@ Deno.serve(async (req: Request) => {
       const meta = (u.user_metadata ?? {}) as Record<string, string>;
       const email = (u.email ?? "").trim().toLowerCase();
 
-      // Esquadrão: usa cohort_id do cadete (fonte da verdade), fallback em turma_id legado
+      // Esquadrão: retorna cohort_id (chave estável para filtro no frontend)
       const cadetId = roleRow?.cadet_id;
-      const cohortId = (cadetId && cadetCohortMap.get(cadetId)) ?? null;
-      const squadron = cohortId
-        ? (cohortNameMap.get(cohortId) ?? cohortId)
-        : (roleRow?.turma_id ?? null);
+      const cohortId = (cadetId && cadetCohortMap.get(cadetId)) ?? roleRow?.turma_id ?? null;
+      // squadronName para exibição, squadron (cohortId) para filtro
+      const squadronName = cohortId ? (cohortNameMap.get(String(cohortId)) ?? cohortId) : null;
+      const squadron = cohortId;
 
       return {
         uid: u.id,
         email: u.email ?? "",
         displayName: meta.nome ?? u.email ?? "",
         role: SUPER_ADMIN_EMAILS.has(email) ? "SUPER_ADMIN" : mapRole(roleRow?.role ?? ""),
-        squadron,
+        squadron,        // cohort_id — usado para filtro
+        squadronName,    // nome legível — usado para exibição
         cadetId,
         createdAt: u.created_at,
         status: roleRow ? "APPROVED" : "NO_ROLE",

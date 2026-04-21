@@ -493,7 +493,7 @@ export const UserManagement = () => {
               {cohorts
                 .sort((a, b) => b.entryYear - a.entryYear)
                 .map((c) => (
-                  <option key={c.id} value={c.name}>
+                  <option key={c.id} value={String(c.id)}>
                     {c.name}
                   </option>
                 ))}
@@ -593,7 +593,7 @@ export const UserManagement = () => {
                       {user.role === "CADETE" && (
                         <span className="flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400">
                           <GraduationCap size={14} className="text-slate-400" />
-                          {user.squadron || "-"}
+                          {(user as any).squadronName || user.squadron || "-"}
                         </span>
                       )}
                       {user.role === "DOCENTE" && (
