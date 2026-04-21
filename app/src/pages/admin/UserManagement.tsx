@@ -86,6 +86,7 @@ export const UserManagement = () => {
 
   // Edit Modal State
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [editName, setEditName] = useState("");
   const [editSquadron, setEditSquadron] = useState("");
   const [editDisciplines, setEditDisciplines] = useState<string[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -227,6 +228,7 @@ export const UserManagement = () => {
 
   const handleEditClick = (user: UserProfile) => {
     setEditingUser(user);
+    setEditName(user.displayName || "");
     setEditSquadron(user.squadron || "");
     setEditDisciplines(user.teachingDisciplines || []);
   };
@@ -242,6 +244,7 @@ export const UserManagement = () => {
         body: {
           action: "update_details",
           userId: editingUser.uid,
+          displayName: editName.trim() || undefined,
           turmaId: newSquadron,
           disciplines: newDisciplines,
         },
@@ -254,6 +257,7 @@ export const UserManagement = () => {
           u.uid === editingUser.uid
             ? {
                 ...u,
+                displayName: editName.trim() || u.displayName,
                 squadron: newSquadron ?? undefined,
                 teachingDisciplines: newDisciplines ?? undefined,
               }
@@ -841,30 +845,32 @@ export const UserManagement = () => {
             </div>
 
             <div className="p-6 space-y-4">
-              <div className="flex items-center gap-3 mb-6">
+              <div className="flex items-center gap-3 mb-4">
                 <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center  text-lg ${theme === "dark" ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-500"}`}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center text-lg flex-shrink-0 ${theme === "dark" ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-500"}`}
                 >
-                  {editingUser.displayName.charAt(0)}
+                  {editName.charAt(0) || editingUser.displayName.charAt(0)}
                 </div>
                 <div>
-                  <p
-                    className={` ${theme === "dark" ? "text-slate-100" : "text-slate-900"}`}
-                  >
-                    {editingUser.displayName}
-                  </p>
-                  <p
-                    className={`text-sm ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}
-                  >
+                  <p className={`text-sm ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
                     {editingUser.email}
                   </p>
-                  <Badge
-                    variant={getRoleVariant(editingUser.role)}
-                    className="mt-1"
-                  >
+                  <Badge variant={getRoleVariant(editingUser.role)} className="mt-1">
                     {ROLES.find((r) => r.value === editingUser.role)?.label}
                   </Badge>
                 </div>
+              </div>
+
+              <div>
+                <label className={`block text-sm mb-2 ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
+                  Nome
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className={`w-full p-2.5 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none ${theme === "dark" ? "border-slate-600 bg-slate-700 text-slate-100" : "border-slate-300 bg-white text-slate-900"}`}
+                />
               </div>
 
               {editingUser.role === "CADETE" && (
