@@ -102,6 +102,12 @@ export const UserManagement = () => {
   const [passwordResult, setPasswordResult] = useState<{ name: string; email: string; password: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Reset Password Modal
+  const [resetTarget, setResetTarget] = useState<UserProfile | null>(null);
+  const [resetCustomPwd, setResetCustomPwd] = useState("");
+  const [resetMode, setResetMode] = useState<"auto" | "custom">("auto");
+  const [isResetting, setIsResetting] = useState(false);
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
@@ -288,20 +294,33 @@ export const UserManagement = () => {
     }
   };
 
-  const handleResetPassword = async (user: UserProfile) => {
-    if (!window.confirm(`Redefinir a senha de ${user.displayName}?\nUma nova senha aleatória será gerada.`)) return;
-    setUpdating(user.uid);
+  const handleResetPassword = (user: UserProfile) => {
+    setResetTarget(user);
+    setResetCustomPwd("");
+    setResetMode("auto");
+  };
+
+  const confirmResetPassword = async () => {
+    if (!resetTarget) return;
+    setIsResetting(true);
     try {
-      const { data, error } = await supabase.functions.invoke("admin-reset-password", {
-        body: { userId: user.uid },
-      });
+      const body: Record<string, string> = { userId: resetTarget.uid };
+      if (resetMode === "custom") {
+        if (resetCustomPwd.trim().length < 6) {
+          alert("A senha deve ter ao menos 6 caracteres.");
+          return;
+        }
+        body.password = resetCustomPwd.trim();
+      }
+      const { data, error } = await supabase.functions.invoke("admin-reset-password", { body });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
-      setPasswordResult({ name: user.displayName, email: user.email, password: data.password });
+      setResetTarget(null);
+      setPasswordResult({ name: resetTarget.displayName, email: resetTarget.email, password: data.password });
     } catch (err) {
       alert("Erro ao redefinir senha: " + (err instanceof Error ? err.message : "Erro desconhecido"));
     } finally {
-      setUpdating(null);
+      setIsResetting(false);
     }
   };
 
@@ -529,11 +548,11 @@ export const UserManagement = () => {
               <tr
                 className={`border-b text-xs uppercase  ${theme === "dark" ? "border-slate-700 text-slate-400" : "border-slate-200 text-slate-500"}`}
               >
-                <th className="px-6 py-4">Usuário</th>
-                <th className="px-6 py-4">Email</th>
-                <th className="px-6 py-4">Perfil Atual</th>
-                <th className="px-6 py-4">Detalhes</th>
-                <th className="px-6 py-4">Ações</th>
+                <th className="px-4 py-2">Usuário</th>
+                <th className="px-4 py-2">Email</th>
+                <th className="px-4 py-2">Perfil Atual</th>
+                <th className="px-4 py-2">Detalhes</th>
+                <th className="px-4 py-2">Ações</th>
               </tr>
             </thead>
             <tbody
@@ -545,46 +564,30 @@ export const UserManagement = () => {
                     key={user.uid}
                     className={`transition-colors ${theme === "dark" ? "hover:bg-slate-700/50" : "hover:bg-slate-50"}`}
                   >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-2">
                         {user.photoURL ? (
-                          <img
-                            src={user.photoURL}
-                            alt=""
-                            className="w-8 h-8 rounded-full"
-                          />
+                          <img src={user.photoURL} alt="" className="w-7 h-7 rounded-full" />
                         ) : (
-                          <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center  text-xs ${theme === "dark" ? "bg-slate-700 text-slate-300" : "bg-slate-200 text-slate-600"}`}
-                          >
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs ${theme === "dark" ? "bg-slate-700 text-slate-300" : "bg-slate-200 text-slate-600"}`}>
                             {user.displayName.charAt(0)}
                           </div>
                         )}
-                        <div className="flex flex-col">
-                          <span
-                            className={` ${theme === "dark" ? "text-slate-100" : "text-slate-900"}`}
-                          >
-                            {user.displayName}
-                          </span>
-                          <span className="text-xs text-slate-400">
-                            {user.status === "PENDING" ? "(Pendente)" : ""}
-                          </span>
-                        </div>
+                        <span className={`text-sm ${theme === "dark" ? "text-slate-100" : "text-slate-900"}`}>
+                          {user.displayName}
+                        </span>
                       </div>
                     </td>
-                    <td
-                      className={`px-6 py-4 text-sm ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}
-                    >
+                    <td className={`px-4 py-2 text-sm ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
                       {user.email}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-2">
                       <Badge variant={getRoleVariant(user.role)}>
-                        {ROLES.find((r) => r.value === user.role)?.label ||
-                          user.role}
+                        {ROLES.find((r) => r.value === user.role)?.label || user.role}
                       </Badge>
                     </td>
                     <td
-                      className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400"
+                      className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400"
                       onClick={() => handleEditClick(user)}
                     >
                       {user.role === "CADETE" && (
@@ -626,7 +629,7 @@ export const UserManagement = () => {
                           <span className="text-slate-400">-</span>
                         )}
                     </td>
-                    <td className="px-4 py-4 text-right">
+                    <td className="px-4 py-2 text-right">
                       <select
                         value={user.role}
                         onChange={(e) =>
@@ -678,7 +681,7 @@ export const UserManagement = () => {
 
                       {canEditAuth && user.uid !== currentUser?.uid && (
                         <button
-                          onClick={() => void handleResetPassword(user)}
+                          onClick={() => handleResetPassword(user)}
                           className={`ml-2 p-1 rounded-full transition-colors ${theme === "dark" ? "text-slate-400 hover:text-amber-400 hover:bg-amber-900/20" : "text-slate-400 hover:text-amber-600 hover:bg-amber-50"}`}
                           title="Redefinir Senha"
                           disabled={updating === user.uid}
@@ -988,6 +991,73 @@ export const UserManagement = () => {
                 className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-sm  transition-colors shadow-sm disabled:opacity-50"
               >
                 {isSavingEdit ? "Salvando..." : "Salvar Alterações"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Reset de Senha */}
+      {resetTarget && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className={`rounded-2xl shadow-2xl w-full max-w-md ${theme === "dark" ? "bg-slate-800" : "bg-white"}`}>
+            <div className={`px-6 py-4 border-b flex justify-between items-center ${theme === "dark" ? "border-slate-700" : "border-slate-100"}`}>
+              <div className="flex items-center gap-2">
+                <KeyRound size={18} className="text-amber-500" />
+                <h3 className={`text-base font-semibold ${theme === "dark" ? "text-slate-100" : "text-slate-900"}`}>
+                  Redefinir Senha
+                </h3>
+              </div>
+              <button onClick={() => setResetTarget(null)} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className={`text-sm ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}>
+                Usuário: <span className="font-semibold">{resetTarget.displayName}</span>
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setResetMode("auto")}
+                  className={`flex-1 py-2 rounded-lg text-sm border transition-colors ${resetMode === "auto" ? "bg-blue-600 text-white border-blue-600" : theme === "dark" ? "border-slate-600 text-slate-300 hover:bg-slate-700" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}
+                >
+                  Gerar automaticamente
+                </button>
+                <button
+                  onClick={() => setResetMode("custom")}
+                  className={`flex-1 py-2 rounded-lg text-sm border transition-colors ${resetMode === "custom" ? "bg-blue-600 text-white border-blue-600" : theme === "dark" ? "border-slate-600 text-slate-300 hover:bg-slate-700" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}
+                >
+                  Definir manualmente
+                </button>
+              </div>
+              {resetMode === "custom" && (
+                <div>
+                  <label className={`block text-xs font-medium mb-1 ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                    Nova senha (mín. 6 caracteres)
+                  </label>
+                  <input
+                    type="text"
+                    value={resetCustomPwd}
+                    onChange={(e) => setResetCustomPwd(e.target.value)}
+                    placeholder="Digite a nova senha..."
+                    className={`w-full px-3 py-2 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-blue-500 ${theme === "dark" ? "bg-slate-700 border-slate-600 text-slate-100" : "bg-white border-slate-300 text-slate-900"}`}
+                  />
+                </div>
+              )}
+            </div>
+            <div className={`px-6 py-4 border-t flex justify-end gap-3 ${theme === "dark" ? "border-slate-700" : "border-slate-100"}`}>
+              <button
+                onClick={() => setResetTarget(null)}
+                className={`px-4 py-2 rounded-lg text-sm ${theme === "dark" ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-slate-100"}`}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => void confirmResetPassword()}
+                disabled={isResetting || (resetMode === "custom" && resetCustomPwd.trim().length < 6)}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {isResetting ? "Redefinindo..." : "Confirmar"}
               </button>
             </div>
           </div>
