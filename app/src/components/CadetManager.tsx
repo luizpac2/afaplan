@@ -335,7 +335,7 @@ export const CadetManager = () => {
 
   // ── Bulk create cadets ──────────────────────────────────────
   const bulkCreateCadets = async () => {
-    if (!window.confirm('Criar acesso para todos os cadetes com email cadastrado?\n\nSenha padrão: fab1941\nO cadete será obrigado a trocar no primeiro login.')) return;
+    if (!window.confirm('Criar acesso para todos os cadetes com email cadastrado?\n\nUma senha inicial será gerada automaticamente.\nO cadete será obrigado a trocar no primeiro login.')) return;
     setBulkCreating(true);
     setBulkResult(null);
     try {
@@ -864,7 +864,7 @@ export const CadetManager = () => {
                 <strong>{bulkResult.created}</strong> usuários criados &nbsp;·&nbsp; <strong>{bulkResult.skipped}</strong> já existiam
               </p>
               <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                Senha padrão: <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">fab1941</code> — os cadetes serão obrigados a trocar no primeiro login.
+                Os cadetes serão obrigados a trocar a senha no primeiro login.
               </p>
               {bulkResult.errors.length > 0 && (
                 <details className="text-xs text-red-500">

@@ -71,7 +71,7 @@ export const ChangePassword = () => {
         <form onSubmit={(e) => { void handleSubmit(e); }} className="p-6 space-y-4">
           <p className="text-slate-500 text-sm">
             Logado como <strong className="text-slate-800">{user?.email}</strong>.<br />
-            A senha padrão <code className="bg-slate-100 px-1 rounded">fab1941</code> deve ser trocada agora.
+            Defina uma nova senha para continuar acessando o sistema.
           </p>
 
           {error && (
@@ -87,6 +87,7 @@ export const ChangePassword = () => {
                 value={newPwd}
                 onChange={e => setNewPwd(e.target.value)}
                 required
+                autoComplete="new-password"
                 placeholder="Mínimo 8 caracteres"
                 className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -106,6 +107,7 @@ export const ChangePassword = () => {
                 value={confirmPwd}
                 onChange={e => setConfirm(e.target.value)}
                 required
+                autoComplete="new-password"
                 placeholder="Repita a senha"
                 className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />

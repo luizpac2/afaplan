@@ -5,7 +5,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const DEFAULT_PASSWORD = "fab1941";
+function generatePassword(): string {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghjkmnpqrstuvwxyz";
+  const digits = "23456789";
+  const special = "@#!";
+  const all = upper + lower + digits + special;
+  const rand = (chars: string) => chars[Math.floor(Math.random() * chars.length)];
+  const extra = Array.from({ length: 5 }, () => rand(all)).join("");
+  const pwd = rand(upper) + rand(lower) + rand(digits) + rand(special) + extra;
+  return pwd.split("").sort(() => Math.random() - 0.5).join("");
+}
 
 // Remove acentos e normaliza email para ASCII puro
 function normalizeEmail(email: string): string {
@@ -91,7 +101,7 @@ Deno.serve(async (req: Request) => {
         // Cria usuário no Auth com senha padrão e flag de troca obrigatória
         const { data: authData, error: createErr } = await adminClient.auth.admin.createUser({
           email: cadetEmail,
-          password: DEFAULT_PASSWORD,
+          password: generatePassword(),
           email_confirm: true,
           user_metadata: {
             nome: cadet.nome_guerra,
