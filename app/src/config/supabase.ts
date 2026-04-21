@@ -5,8 +5,6 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   realtime: {
-    params: { eventsPerSecond: 0 },
-    // Realtime não está habilitado neste projeto Supabase
-    timeout: 1,
+    params: { eventsPerSecond: 2 },
   },
 });

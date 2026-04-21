@@ -28,6 +28,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { useUnreadCount } from "../hooks/useUnreadCount";
+import { useOnlineUsers } from "../hooks/useOnlineUsers";
 import { UserMenu } from "./header/UserMenu";
 import { NotificationsPopover } from "./header/NotificationsPopover";
 import { useTheme } from "../contexts/ThemeContext";
@@ -143,6 +144,8 @@ export const Layout = () => {
   const { logout, userProfile } = useAuth();
   const { theme } = useTheme();
   const { unreadCount } = useUnreadCount();
+  const onlineCount = useOnlineUsers();
+  const isAdmin = ["SUPER_ADMIN", "ADMIN"].includes(userProfile?.role ?? "");
   const navigate = useNavigate();
 
   const location = useLocation();
@@ -424,7 +427,17 @@ export const Layout = () => {
             <HelpCircle size={20} />
           </button>
 
-          <div className="h-8 w-px bg-slate-200 mx-1"></div>
+          {isAdmin && (
+            <div
+              title="Usuários online agora"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {onlineCount} online
+            </div>
+          )}
+
+          <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1" />
 
           <UserMenu />
         </div>
