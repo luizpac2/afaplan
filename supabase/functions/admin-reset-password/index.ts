@@ -73,8 +73,13 @@ Deno.serve(async (req: Request) => {
 
     const password = customPassword?.trim() || generatePassword();
 
+    // Marca troca obrigatória no próximo login
+    const { data: targetData } = await adminClient.auth.admin.getUserById(userId);
+    const existingMeta = (targetData?.user?.user_metadata ?? {}) as Record<string, unknown>;
+
     const { error: updateErr } = await adminClient.auth.admin.updateUserById(userId, {
       password,
+      user_metadata: { ...existingMeta, must_change_password: true },
     });
 
     if (updateErr) {
