@@ -56,9 +56,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const handleSession = async (session: SupabaseSession) => {
     if (session?.user) {
       setUser(session.user);
-      setMustChange(session.user.user_metadata?.must_change_password === true);
       setLoading(false);
       setProfileLoading(true);
+
+      // Busca metadados frescos do servidor (não do JWT que pode estar desatualizado)
+      const { data: { user: freshUser } } = await supabase.auth.getUser();
+      const mustChange = freshUser?.user_metadata?.must_change_password === true;
+      setMustChange(mustChange);
+
       const profile = await buildProfile(session.user);
       setUserProfile(profile);
       setProfileLoading(false);
