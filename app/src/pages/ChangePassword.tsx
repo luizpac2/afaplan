@@ -28,15 +28,22 @@ export const ChangePassword = () => {
     setError(null);
     try {
       const { error: pwdErr } = await supabase.auth.updateUser({ password: newPwd });
-      if (pwdErr) throw pwdErr;
+      if (pwdErr) {
+        const msg = pwdErr.message.toLowerCase();
+        if (msg.includes("same password") || msg.includes("different from the old")) {
+          throw new Error("A nova senha não pode ser igual à senha atual.");
+        }
+        if (msg.includes("weak") || msg.includes("short")) {
+          throw new Error("Senha muito fraca. Use ao menos 8 caracteres com letras e números.");
+        }
+        throw new Error("Erro ao alterar senha. Tente novamente.");
+      }
 
-      // Remove flag de troca obrigatória
       await supabase.auth.updateUser({
         data: { must_change_password: false },
       });
 
       setDone(true);
-      // Aguarda 1.5s e redireciona
       setTimeout(() => { window.location.href = "/"; }, 1500);
     } catch (e: unknown) {
       setError((e as Error).message ?? "Erro ao alterar senha.");
@@ -89,7 +96,7 @@ export const ChangePassword = () => {
                 required
                 autoComplete="new-password"
                 placeholder="Mínimo 8 caracteres"
-                className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-10 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button type="button" onClick={() => setShowNew(v => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -109,7 +116,7 @@ export const ChangePassword = () => {
                 required
                 autoComplete="new-password"
                 placeholder="Repita a senha"
-                className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-10 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button type="button" onClick={() => setShowConf(v => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
