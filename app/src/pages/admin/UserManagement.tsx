@@ -198,25 +198,31 @@ export const UserManagement = () => {
   const activeUsers = users;
 
   const filteredActiveUsers = activeUsers.filter((u) => {
-    const matchesSearch =
-      u.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase());
+    // Busca por nome ou email
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      if (
+        !u.displayName.toLowerCase().includes(term) &&
+        !u.email.toLowerCase().includes(term)
+      ) return false;
+    }
 
-    const matchesRole = selectedRole === "ALL" || u.role === selectedRole;
+    // Filtro de perfil explícito
+    if (selectedRole !== "ALL" && u.role !== selectedRole) return false;
 
-    let matchesCohort = true;
+    // Filtro de turma: só aplica a cadetes — exclui quem não é cadete ou não está na turma
     if (selectedCohort) {
-      matchesCohort = u.role !== "CADETE" || u.squadron === selectedCohort;
+      if (u.role !== "CADETE") return false;
+      if (u.squadron !== selectedCohort) return false;
     }
 
-    let matchesDiscipline = true;
+    // Filtro de disciplina: só aplica a docentes — exclui quem não é docente ou não tem a disciplina
     if (selectedDiscipline) {
-      matchesDiscipline =
-        u.role === "DOCENTE" &&
-        (u.teachingDisciplines?.includes(selectedDiscipline) ?? false);
+      if (u.role !== "DOCENTE") return false;
+      if (!(u.teachingDisciplines?.includes(selectedDiscipline) ?? false)) return false;
     }
 
-    return matchesSearch && matchesRole && matchesCohort && matchesDiscipline;
+    return true;
   });
 
   const handleEditClick = (user: UserProfile) => {
