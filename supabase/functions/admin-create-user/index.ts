@@ -63,7 +63,9 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const callerMeta = caller.user_metadata as Record<string, string> | undefined;
+    // Busca metadados completos via service role
+    const { data: callerFull } = await adminClient.auth.admin.getUserById(caller.id);
+    const callerMeta = (callerFull?.user?.user_metadata ?? caller.user_metadata ?? {}) as Record<string, string>;
     const callerName = callerMeta?.nome ?? callerEmail ?? caller.id;
 
     const { email, name, role, cadetId } = await req.json() as {

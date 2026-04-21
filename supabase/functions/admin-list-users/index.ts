@@ -58,7 +58,7 @@ Deno.serve(async (req: Request) => {
       .filter((r: { cadet_id?: string }) => r.cadet_id)
       .map((r: { cadet_id: string }) => r.cadet_id);
 
-    const cadetCohortMap = new Map<string, string>();
+    const cadetCohortMap = new Map<string, string>(); // cadet_id → cohort_id
     if (cadetIds.length > 0) {
       const { data: cadetes } = await adminClient
         .from("cadetes")
@@ -69,6 +69,14 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // Busca nomes dos cohorts para retornar nome legível em vez do id bruto
+    const { data: cohortsData } = await adminClient.from("cohorts").select("id, nome, name");
+    const cohortNameMap = new Map<string, string>();
+    (cohortsData ?? []).forEach((c: { id: unknown; nome?: string; name?: string }) => {
+      const nome = c.nome ?? c.name ?? String(c.id);
+      cohortNameMap.set(String(c.id), nome);
+    });
+
     const SUPER_ADMIN_EMAILS = new Set(["pelicano307@gmail.com"]);
 
     const result = users.map((u) => {
@@ -78,7 +86,10 @@ Deno.serve(async (req: Request) => {
 
       // Esquadrão: usa cohort_id do cadete (fonte da verdade), fallback em turma_id legado
       const cadetId = roleRow?.cadet_id;
-      const squadron = (cadetId && cadetCohortMap.get(cadetId)) ?? roleRow?.turma_id ?? null;
+      const cohortId = (cadetId && cadetCohortMap.get(cadetId)) ?? null;
+      const squadron = cohortId
+        ? (cohortNameMap.get(cohortId) ?? cohortId)
+        : (roleRow?.turma_id ?? null);
 
       return {
         uid: u.id,

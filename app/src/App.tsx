@@ -34,7 +34,6 @@ const Statistics = lazy(() => import("./pages/Statistics").then(m => ({ default:
 const InstructorOccurrences = lazy(() => import("./pages/InstructorOccurrences").then(m => ({ default: m.InstructorOccurrences })));
 const GeneralOverview = lazy(() => import("./pages/GeneralOverview").then(m => ({ default: m.GeneralOverview })));
 const PanoramicMirror = lazy(() => import("./pages/PanoramicMirror").then(m => ({ default: m.PanoramicMirror })));
-const InstructorReport = lazy(() => import("./pages/InstructorReport").then(m => ({ default: m.InstructorReport })));
 const PanoramicCalendar = lazy(() => import("./pages/PanoramicCalendar").then(m => ({ default: m.PanoramicCalendar })));
 const DisciplineReport = lazy(() => import("./pages/DisciplineReport").then(m => ({ default: m.DisciplineReport })));
 const UserManagement = lazy(() => import("./pages/admin/UserManagement").then(m => ({ default: m.UserManagement })));
@@ -304,21 +303,6 @@ function App() {
                     }
                   />
 
-                  {/* DOCENTE */}
-                  <Route
-                    path="instructor-report"
-                    element={
-                      <ProtectedRoute
-                        allowedRoles={[
-                          "SUPER_ADMIN",
-                          "ADMIN",
-                          "DOCENTE",
-                        ]}
-                      >
-                        <InstructorReport />
-                      </ProtectedRoute>
-                    }
-                  />
                   <Route
                     path="discipline-report/:disciplineId"
                     element={

@@ -1,7 +1,6 @@
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   BookOpen,
-  FileText,
   Plane,
 
   Users,
@@ -94,14 +93,6 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "Gestão de Locais", path: "/locais", icon: MapPin },
       { title: "Grade de Ocupação", path: "/locais-grid", icon: Grid },
       { title: "Salas Padrão", path: "/salas-padrao", icon: DoorOpen },
-    ],
-  },
-  {
-    title: "DOCENTE",
-    icon: UserCheck,
-    roles: ["SUPER_ADMIN", "ADMIN", "DOCENTE"],
-    submenu: [
-      { title: "Relatórios", path: "/instructor-report", icon: FileText },
     ],
   },
   {
