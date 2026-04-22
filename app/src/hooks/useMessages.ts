@@ -77,7 +77,8 @@ export const useMessages = () => {
 
         // Realtime não está habilitado neste projeto — sem subscription WebSocket
         return () => {};
-    }, [user, userProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id, userProfile?.uid]); // IDs primitivos evitam re-fetch em TOKEN_REFRESHED
 
     const sendMessage = async (subject: string, content: string, recipientGroups: MessageGroup[], recipientId?: string) => {
         if (!user || !userProfile) return;

@@ -54,16 +54,21 @@ export const normalizeTime = (t: string | null | undefined): string => {
   return `${h.padStart(2, "0")}:${(m ?? "00").padStart(2, "0")}`;
 };
 
-export const normalizeEvent = (row: Record<string, unknown>): Record<string, unknown> => ({
-  ...row,
-  instructorTrigram: row.instructorTrigram ?? row.instructorId ?? null,
-  startTime:      row.startTime      ? normalizeTime(row.startTime as string) : row.startTime,
-  endTime:        row.endTime        ? normalizeTime(row.endTime as string)   : row.endTime,
-  evaluationType: row.evaluationType ?? row.evaluation_type ?? null,
-  classId:        row.classId        ?? row.class_id        ?? null,
-  disciplineId:   row.disciplineId   ?? row.discipline_id   ?? null,
-  endDate:        row.endDate        ?? row.end_date        ?? null,
-});
+export const normalizeEvent = (row: Record<string, unknown>): Record<string, unknown> => {
+  // Mapeamento de snake_case português (banco) → camelCase (frontend)
+  return {
+    ...row,
+    date:           row.date ?? row.data ?? null,
+    startTime:      row.startTime ?? (row.horario_inicio ? normalizeTime(row.horario_inicio as string) : null),
+    endTime:        row.endTime ?? (row.horario_fim ? normalizeTime(row.horario_fim as string) : null),
+    classId:        row.classId ?? row.turma_id ?? row.class_id ?? null,
+    disciplineId:   row.disciplineId ?? row.disciplina_id ?? row.discipline_id ?? null,
+    instructorTrigram: row.instructorTrigram ?? row.instructorId ?? null,
+    location:       row.location ?? row.local_id ?? null,
+    evaluationType: row.evaluationType ?? row.evaluation_type ?? null,
+    endDate:        row.endDate ?? row.end_date ?? null,
+  };
+};
 
 // ---------------------------------------------------------------------------
 // Fetch

@@ -52,9 +52,8 @@ export const SupabaseSync = () => {
     const loadStaticCollections = async () => {
       try {
         const results = await Promise.allSettled([
-          fetchCollectionCached("disciplines"),   // tabela real com 209 linhas
-          fetchCollectionCached("cohorts"),        // tabela real com 4 turmas
-          fetchCollectionCached("cohorts"),        // reutilizado para classes abaixo
+          fetchCollectionCached("disciplines"),
+          fetchCollectionCached("cohorts"),
           fetchCollectionCached("visual_configs"),
           fetchCollectionCached("instructors"),
           fetchCollectionCached("occurrences"),
@@ -65,7 +64,6 @@ export const SupabaseSync = () => {
         const [
           disciplines,
           cohorts,
-          _cohorts2,
           visualConfigs,
           instructors,
           occurrences,
@@ -203,9 +201,9 @@ export const SupabaseSync = () => {
         // Locais de instrução — lidos via fetchCollectionCached (anon key + RLS authenticated)
         try {
           const [locs, issues, reservations] = await Promise.all([
-            fetchCollectionCached("instruction_locations", 0.1), // TTL 6min — dados pequenos
-            fetchCollectionCached("location_issues", 0.1),
-            fetchCollectionCached("location_reservations", 0.1),
+            fetchCollectionCached("instruction_locations", 1),
+            fetchCollectionCached("location_issues", 1),
+            fetchCollectionCached("location_reservations", 1),
           ]);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           setLocations((locs as any[]).map((l) => ({
@@ -255,7 +253,10 @@ export const SupabaseSync = () => {
 
     return () => { unsubNotices(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user?.id]); // IMPORTANTE: usar user?.id, não o objeto user inteiro.
+                  // O Supabase emite TOKEN_REFRESHED a cada ~1h, o que cria um novo
+                  // objeto user sem mudar o ID — dependência no objeto inteiro causava
+                  // re-fetch de todas as coleções a cada renovação de token.
 
   return null;
 };

@@ -59,8 +59,12 @@ export const CalendarGrid = ({
     useCourseStore();
   const visualYear = weekStart.getFullYear();
   const getDiscipline = (id: string) => disciplines.find((d) => d.id === id);
-  const getChangeRequest = (id?: string) =>
-    id ? changeRequests.find((r) => r.id === id) : null;
+  const getChangeRequest = (id?: string, eventId?: string) =>
+    id
+      ? changeRequests.find((r) => r.id === id)
+      : eventId
+        ? changeRequests.find((r) => r.eventIds?.includes(eventId))
+        : null;
 
   const weekDays = getWeekDays(weekStart);
 
@@ -795,7 +799,7 @@ export const CalendarGrid = ({
 
                           {/* SAP Badge */}
                           {(() => {
-                            const sap = getChangeRequest(event.changeRequestId);
+                            const sap = getChangeRequest(event.changeRequestId, event.id);
                             if (!sap) return null;
                             return (
                               <div

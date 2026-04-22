@@ -125,10 +125,11 @@ export async function clearSAPChanges(sapId: string): Promise<void> {
 export async function applySAPToProduction(
   sapId: string,
   changes: SAPSimulationChange[],
-): Promise<{ applied: number; errors: string[] }> {
+): Promise<{ applied: number; errors: string[]; appliedEventIds: string[] }> {
   const active = changes.filter((c) => !c.reverted);
   const errors: string[] = [];
   let applied = 0;
+  const appliedEventIds: string[] = [];
 
   for (const change of active) {
     try {
@@ -147,6 +148,7 @@ export async function applySAPToProduction(
             changeRequestId: sapId,
           },
         });
+        appliedEventIds.push(change.eventId);
         applied++;
 
       } else if (change.action === "MODIFY" && change.eventId && change.newData) {
@@ -158,13 +160,15 @@ export async function applySAPToProduction(
         if (nd.location)       updates.location = nd.location;
         if (nd.instructorTrigram !== undefined) updates.instructorId = nd.instructorTrigram;
         await edgeFn("update_event", { id: change.eventId, updates });
+        appliedEventIds.push(change.eventId);
         applied++;
 
       } else if (change.action === "ADD" && change.newData) {
         const nd = change.newData as ScheduleEvent;
+        const newId = nd.id ?? crypto.randomUUID();
         const squadron = nd.classId ? Number(nd.classId[0]) || null : null;
         const event: Record<string, unknown> = {
-          id:              nd.id ?? crypto.randomUUID(),
+          id:              newId,
           date:            nd.date,
           startTime:       nd.startTime,
           endTime:         nd.endTime,
@@ -178,6 +182,7 @@ export async function applySAPToProduction(
         if (nd.location) event.location = nd.location;
         if (nd.color)    event.color    = nd.color;
         await edgeFn("save_event", { event });
+        appliedEventIds.push(newId);
         applied++;
       }
     } catch (err: unknown) {
@@ -188,7 +193,7 @@ export async function applySAPToProduction(
     }
   }
 
-  return { applied, errors };
+  return { applied, errors, appliedEventIds };
 }
 
 // ---------------------------------------------------------------------------

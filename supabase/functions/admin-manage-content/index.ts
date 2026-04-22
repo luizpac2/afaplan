@@ -246,13 +246,44 @@ Deno.serve(async (req) => {
   if (action === "save_event") {
     const { event } = body;
     if (!event || !event.id) return err("event with id required");
-    const { classIds: _ci, isBlocking: _ib, instructorTrigram, evaluationType, changeRequestId, ...rest } = event as any;
-    const safeEvent = {
-      ...rest,
-      instructorId: instructorTrigram || null,
-      ...(evaluationType    !== undefined ? { evaluationType }    : {}),
-      ...(changeRequestId   !== undefined ? { changeRequestId }   : {}),
+    
+    const e = event as any;
+
+    // Resolve turma_id (nome "1A" -> UUID)
+    let turmaId = e.classId;
+    if (e.classId && e.classId.length <= 3) {
+      const { data: tData } = await adminClient.from("turmas").select("id").eq("nome", e.classId).maybeSingle();
+      if (tData) turmaId = tData.id;
+    }
+    
+    // Mapeamento explícito de camelCase (frontend) → snake_case (banco de dados)
+    const safeEvent: Record<string, unknown> = {
+      id: e.id,
+      data: e.date,
+      horario_inicio: e.startTime,
+      horario_fim: e.endTime,
+      turma_id: turmaId,               // UUID resolvido
+      disciplina_id: e.disciplineId,
+      local_id: e.location || null,
+      type: e.type || 'CLASS',
     };
+    
+    // Campos opcionais que existem no banco
+    if (e.changeRequestId !== undefined) safeEvent.changeRequestId = e.changeRequestId;
+    if (e.type !== undefined) safeEvent.type = e.type;
+    if (e.evaluationType !== undefined) safeEvent.evaluationType = e.evaluationType;
+    if (e.color !== undefined) safeEvent.color = e.color;
+    if (e.targetSquadron !== undefined) safeEvent.targetSquadron = e.targetSquadron;
+    if (e.targetCourse !== undefined) safeEvent.targetCourse = e.targetCourse;
+    if (e.targetClass !== undefined) safeEvent.targetClass = e.targetClass;
+    if (e.description !== undefined) safeEvent.description = e.description;
+    if (e.notes !== undefined) safeEvent.notes = e.notes;
+    if (e.endDate !== undefined) safeEvent.endDate = e.endDate;
+    
+    // Mapear instructorId se houver instructorTrigram
+    // TODO: se necessário fazer lookup de docente_id por trigram, adicionar aqui
+    if (e.instructorTrigram) safeEvent.instructorId = e.instructorTrigram;
+    
     console.log("save_event upsert payload:", JSON.stringify(safeEvent));
     // Upsert by id — cria se não existir, atualiza se já existir (evita duplicatas)
     const { error: upsErr } = await adminClient
@@ -270,32 +301,34 @@ Deno.serve(async (req) => {
     const { id, updates } = body;
     if (!id || !updates) return err("id and updates required");
 
-    // Mapeia apenas campos conhecidos da tabela — evita enviar campos inválidos
     const u = updates as any;
-    const safeUpdates: Record<string, unknown> = { id };
-    if (u.date             !== undefined) safeUpdates.date            = u.date;
-    if (u.startTime        !== undefined) safeUpdates.startTime       = u.startTime;
-    if (u.endTime          !== undefined) safeUpdates.endTime         = u.endTime;
-    if (u.classId          !== undefined) safeUpdates.classId         = u.classId;
-    if (u.disciplineId     !== undefined) safeUpdates.disciplineId    = u.disciplineId;
-    if (u.location         !== undefined) safeUpdates.location        = u.location;
-    if (u.type             !== undefined) safeUpdates.type            = u.type;
-    if (u.evaluationType   !== undefined) safeUpdates.evaluationType  = u.evaluationType;
-    if (u.color            !== undefined) safeUpdates.color           = u.color;
-    if (u.description      !== undefined) safeUpdates.description     = u.description;
-    if (u.notes            !== undefined) safeUpdates.notes           = u.notes;
-    if (u.targetSquadron   !== undefined) safeUpdates.targetSquadron  = u.targetSquadron;
-    if (u.targetCourse     !== undefined) safeUpdates.targetCourse    = u.targetCourse;
-    if (u.targetClass      !== undefined) safeUpdates.targetClass     = u.targetClass;
-    if (u.endDate            !== undefined) safeUpdates.endDate          = u.endDate;
-    if (u.instructorTrigram  !== undefined) safeUpdates.instructorId    = u.instructorTrigram || null;
-    if (u.changeRequestId    !== undefined) safeUpdates.changeRequestId = u.changeRequestId;
-    console.log("update_event upsert id:", id, "payload:", JSON.stringify(safeUpdates));
+    // Mapeamento explícito de camelCase (frontend) → snake_case (banco)
+    const safeUpdates: Record<string, unknown> = {};
+    
+    if (u.date             !== undefined) safeUpdates.data             = u.date;
+    if (u.startTime        !== undefined) safeUpdates.horario_inicio   = u.startTime;
+    if (u.endTime          !== undefined) safeUpdates.horario_fim      = u.endTime;
+    if (u.classId          !== undefined) safeUpdates.turma_id         = u.classId;
+    if (u.disciplineId     !== undefined) safeUpdates.disciplina_id    = u.disciplineId;
+    if (u.location         !== undefined) safeUpdates.local_id         = u.location;
+    if (u.instructorTrigram !== undefined) safeUpdates.instructorId   = u.instructorTrigram || null;
+    if (u.changeRequestId   !== undefined) safeUpdates.changeRequestId = u.changeRequestId;
+    if (u.type              !== undefined) safeUpdates.type            = u.type;
+    if (u.evaluationType    !== undefined) safeUpdates.evaluationType  = u.evaluationType;
+    if (u.color             !== undefined) safeUpdates.color           = u.color;
+    if (u.targetSquadron    !== undefined) safeUpdates.targetSquadron  = u.targetSquadron;
+    if (u.targetCourse      !== undefined) safeUpdates.targetCourse    = u.targetCourse;
+    if (u.targetClass       !== undefined) safeUpdates.targetClass     = u.targetClass;
+    if (u.description       !== undefined) safeUpdates.description     = u.description;
+    if (u.notes             !== undefined) safeUpdates.notes           = u.notes;
+    if (u.endDate           !== undefined) safeUpdates.endDate         = u.endDate;
+    
+    console.log("update_event id:", id, "payload:", JSON.stringify(safeUpdates));
 
     // Upsert by id: atualiza se existir, cria se não existir (nunca deixa 0 linhas afetadas)
     const { error: upErr } = await adminClient
       .from("programacao_aulas")
-      .upsert(safeUpdates, { onConflict: "id" });
+      .upsert({ id, ...safeUpdates }, { onConflict: "id" });
     if (upErr) {
       console.error("update_event error:", upErr.code, upErr.message, upErr.details);
       return err(upErr.message, 500);

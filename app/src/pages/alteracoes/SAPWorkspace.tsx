@@ -430,6 +430,9 @@ export const SAPWorkspace = () => {
     setConfirmApply(false);
     try {
       const result = await applySAPToProduction(sapId, changes);
+      if (result.appliedEventIds.length > 0 && userProfile) {
+        await updateChangeRequest(sapId, { eventIds: result.appliedEventIds }, userProfile.uid);
+      }
       if (result.errors.length === 0) {
         await markSAPAsExecuted(sapId);
       }
@@ -439,7 +442,7 @@ export const SAPWorkspace = () => {
     } finally {
       setApplying(false);
     }
-  }, [sapId, changes]);
+  }, [sapId, changes, userProfile, updateChangeRequest]);
 
   // ---------------------------------------------------------------------------
   // Render

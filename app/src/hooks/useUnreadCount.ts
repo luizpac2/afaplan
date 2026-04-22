@@ -29,7 +29,7 @@ export const useUnreadCount = () => {
 
             const { data } = await supabase
                 .from('messages')
-                .select('*')
+                .select('id, senderId, recipientId, recipientGroups, readBy')
                 .order('createdAt', { ascending: false })
                 .limit(100);
 
