@@ -55,25 +55,24 @@ Deno.serve(async (req) => {
 
   // ── helpers ─────────────────────────────────────────────────────────────────
 
-  // Tabela `disciplines`: colunas code, name, load_hours, data (jsonb)
-  // Apenas as colunas que existem na tabela são enviadas para evitar erros de schema.
+  // Escreve na tabela base "disciplinas" (não na VIEW "disciplines")
   async function writeDisciplinesEN(op: "upsert" | "delete", code: string, payload?: Record<string, unknown>) {
     if (op === "upsert" && payload) {
       const row: Record<string, unknown> = {};
-      if (payload.name !== undefined)       row.name = payload.name;
+      if (payload.name       !== undefined) row.name       = payload.name;
       if (payload.load_hours !== undefined) row.load_hours = payload.load_hours;
-      if (payload.data !== undefined)       row.data = payload.data;
-      // Tenta update; se não existe, insere
-      const { data: existing } = await adminClient.from("disciplines").select("id").eq("code", code).maybeSingle();
+      if (payload.color      !== undefined) row.color      = payload.color;
+      if (payload.data       !== undefined) row.data       = payload.data;
+      const { data: existing } = await adminClient.from("disciplinas").select("id").eq("code", code).maybeSingle();
       if (existing) {
-        const { error } = await adminClient.from("disciplines").update(row).eq("code", code);
-        if (error) throw new Error(`disciplines update error: ${error.message}`);
+        const { error } = await adminClient.from("disciplinas").update(row).eq("code", code);
+        if (error) throw new Error(`disciplinas update error: ${error.message}`);
       } else {
-        const { error } = await adminClient.from("disciplines").insert({ ...row, code });
-        if (error) throw new Error(`disciplines insert error: ${error.message}`);
+        const { error } = await adminClient.from("disciplinas").insert({ ...row, code, id: crypto.randomUUID() });
+        if (error) throw new Error(`disciplinas insert error: ${error.message}`);
       }
     } else if (op === "delete") {
-      await adminClient.from("disciplines").delete().eq("code", code);
+      await adminClient.from("disciplinas").delete().eq("code", code);
     }
   }
 
@@ -116,52 +115,37 @@ Deno.serve(async (req) => {
   }
 
   // ── update_discipline ───────────────────────────────────────────────────────
-  // Usa upsert em vez de update para não depender do schema exato de colunas.
-  // O upsert já funciona (é o mesmo caminho de upsert_discipline).
   if (action === "update_discipline") {
     const { code, updates } = body;
     if (!code || !updates) return err("code and updates required");
     const u = updates as Record<string, unknown>;
-    console.log("update_discipline code:", code, "keys:", Object.keys(u));
     try {
-      // Fetch current row to do a safe merge of data JSONB
-      const { data: currentRow } = await adminClient.from("disciplines")
+      // Usa a tabela base "disciplinas" diretamente (não a VIEW "disciplines"
+      // cujas colunas têm nomes diferentes, causando currentRow=null e INSERT sem id)
+      const { data: currentRow } = await adminClient.from("disciplinas")
         .select("*").eq("code", code).maybeSingle();
-      console.log("current row found:", !!currentRow?.id);
 
       const currentData = (currentRow?.data && typeof currentRow.data === "object")
         ? currentRow.data as Record<string, unknown> : {};
       const incomingData = (u.data && typeof u.data === "object")
         ? u.data as Record<string, unknown> : {};
-      const mergedData = { ...currentData, ...incomingData };
 
-      const payload: Record<string, unknown> = {
-        code,
-        name: u.name ?? currentRow?.name,
-        load_hours: u.load_hours ?? currentRow?.load_hours,
-        data: mergedData,
-      };
-
-      console.log("update payload keys:", Object.keys(payload), "data keys:", Object.keys(mergedData));
-
-      const updateRow: Record<string, unknown> = {};
-      if (payload.name !== undefined)       updateRow.name = payload.name;
-      if (payload.load_hours !== undefined) updateRow.load_hours = payload.load_hours;
-      if (payload.data !== undefined)       updateRow.data = payload.data;
+      const updateRow: Record<string, unknown> = { data: { ...currentData, ...incomingData } };
+      if (u.name       !== undefined) updateRow.name       = u.name;
+      if (u.load_hours !== undefined) updateRow.load_hours = u.load_hours;
+      if (u.color      !== undefined) updateRow.color      = u.color;
 
       let updateErr: any = null;
       if (currentRow) {
-        const { error } = await adminClient.from("disciplines")
+        const { error } = await adminClient.from("disciplinas")
           .update(updateRow).eq("code", code);
         updateErr = error;
       } else {
-        const { error } = await adminClient.from("disciplines")
-          .insert({ ...updateRow, code });
+        const { error } = await adminClient.from("disciplinas")
+          .insert({ ...updateRow, code, id: crypto.randomUUID() });
         updateErr = error;
       }
       if (updateErr) throw new Error(`update failed: ${updateErr.message}`);
-
-      // writeDisciplinasPT omitido — tabela legada, não bloqueia o save
     } catch (e: any) {
       console.error("update_discipline error:", e.message);
       return err(e.message, 500);
