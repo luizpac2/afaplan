@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "../config/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
+export type OnlinePresenceEntry = { user_id: string; ts: number };
+
 export const useOnlineUsers = () => {
   const { user } = useAuth();
-  const [onlineCount, setOnlineCount] = useState(0);
+  const [presenceState, setPresenceState] = useState<Record<string, OnlinePresenceEntry[]>>({});
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
@@ -19,19 +21,18 @@ export const useOnlineUsers = () => {
     });
     channelRef.current = channel;
 
-    const updateCount = () => {
-      const state = channel.presenceState();
-      setOnlineCount(Object.keys(state).length);
+    const sync = () => {
+      setPresenceState({ ...channel.presenceState<OnlinePresenceEntry>() });
     };
 
-    channel.on("presence", { event: "sync" }, updateCount);
-    channel.on("presence", { event: "join" }, updateCount);
-    channel.on("presence", { event: "leave" }, updateCount);
+    channel.on("presence", { event: "sync" }, sync);
+    channel.on("presence", { event: "join" }, sync);
+    channel.on("presence", { event: "leave" }, sync);
 
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
         await channel.track({ user_id: user.id, ts: Date.now() });
-        updateCount();
+        sync();
       }
     });
 
@@ -41,5 +42,8 @@ export const useOnlineUsers = () => {
     };
   }, [user?.id]);
 
-  return onlineCount;
+  return {
+    onlineCount: Object.keys(presenceState).length,
+    presenceState,
+  };
 };

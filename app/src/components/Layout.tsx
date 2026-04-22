@@ -144,7 +144,7 @@ export const Layout = () => {
   const { logout, userProfile } = useAuth();
   const { theme } = useTheme();
   const { unreadCount } = useUnreadCount();
-  const onlineCount = useOnlineUsers();
+  const { onlineCount } = useOnlineUsers();
   const navigate = useNavigate();
 
   const location = useLocation();

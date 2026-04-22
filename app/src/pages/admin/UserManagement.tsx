@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../config/supabase";
+import { useOnlineUsers } from "../../hooks/useOnlineUsers";
 import type { UserProfile, UserRole } from "../../types";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -120,10 +121,9 @@ export const UserManagement = () => {
   const [resetMode, setResetMode] = useState<"auto" | "custom">("auto");
   const [isResetting, setIsResetting] = useState(false);
 
-  // Tab + Presence
+  // Tab + Presence (via hook compartilhado — evita segundo canal no mesmo topic)
   const [activeTab, setActiveTab] = useState<"users" | "online">("users");
-  const [onlinePresence, setOnlinePresence] = useState<Record<string, { user_id: string; ts: number }[]>>({});
-  const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const { presenceState: onlinePresence } = useOnlineUsers();
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -143,35 +143,6 @@ export const UserManagement = () => {
   };
 
   useEffect(() => { void fetchUsers(); }, []);
-
-  // Subscribe to presence channel only when the "online" tab is active
-  useEffect(() => {
-    if (activeTab !== "online") {
-      if (presenceChannelRef.current) {
-        void supabase.removeChannel(presenceChannelRef.current);
-        presenceChannelRef.current = null;
-        setOnlinePresence({});
-      }
-      return;
-    }
-
-    const channel = supabase.channel("presence:online");
-    presenceChannelRef.current = channel;
-
-    const sync = () => {
-      setOnlinePresence({ ...channel.presenceState<{ user_id: string; ts: number }>() });
-    };
-
-    channel.on("presence", { event: "sync" }, sync);
-    channel.on("presence", { event: "join" }, sync);
-    channel.on("presence", { event: "leave" }, sync);
-    channel.subscribe(() => sync());
-
-    return () => {
-      void supabase.removeChannel(channel);
-      presenceChannelRef.current = null;
-    };
-  }, [activeTab]);
 
   const stats = useMemo(() => {
     return {
@@ -495,7 +466,7 @@ export const UserManagement = () => {
             </span>
           </div>
           <p className={`text-2xl ${theme === "dark" ? "text-slate-100" : "text-slate-800"}`}>
-            {activeTab === "online" ? onlineUsers.length : "—"}
+            {onlineUsers.length}
           </p>
         </div>
       </div>
