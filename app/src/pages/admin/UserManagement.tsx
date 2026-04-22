@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../config/supabase";
-import { useOnlineUsers } from "../../hooks/useOnlineUsers";
+import { usePresence } from "../../contexts/PresenceContext";
 import type { UserProfile, UserRole } from "../../types";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -123,7 +123,7 @@ export const UserManagement = () => {
 
   // Tab + Presence (via hook compartilhado — evita segundo canal no mesmo topic)
   const [activeTab, setActiveTab] = useState<"users" | "online">("users");
-  const { presenceState: onlinePresence } = useOnlineUsers();
+  const { presenceState: onlinePresence } = usePresence();
 
   const fetchUsers = async () => {
     setLoading(true);

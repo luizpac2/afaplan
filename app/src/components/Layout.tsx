@@ -29,6 +29,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { useUnreadCount } from "../hooks/useUnreadCount";
 import { useOnlineUsers } from "../hooks/useOnlineUsers";
+import { PresenceContext } from "../contexts/PresenceContext";
 import { UserMenu } from "./header/UserMenu";
 import { NotificationsPopover } from "./header/NotificationsPopover";
 import { useTheme } from "../contexts/ThemeContext";
@@ -144,7 +145,7 @@ export const Layout = () => {
   const { logout, userProfile } = useAuth();
   const { theme } = useTheme();
   const { unreadCount } = useUnreadCount();
-  const { onlineCount } = useOnlineUsers();
+  const onlinePresence = useOnlineUsers();
   const navigate = useNavigate();
 
   const location = useLocation();
@@ -306,6 +307,7 @@ export const Layout = () => {
   };
 
   return (
+    <PresenceContext.Provider value={onlinePresence}>
     <div
       className={`flex flex-col h-[100dvh] font-sans overflow-hidden transition-colors duration-300 ${theme === "dark" ? "bg-slate-950 text-white" : "bg-gray-50 text-gray-900"}`}
     >
@@ -431,8 +433,8 @@ export const Layout = () => {
             className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="hidden sm:inline">{onlineCount} online</span>
-            <span className="sm:hidden">{onlineCount}</span>
+            <span className="hidden sm:inline">{onlinePresence.onlineCount} online</span>
+            <span className="sm:hidden">{onlinePresence.onlineCount}</span>
           </div>
 
           <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1" />
@@ -704,5 +706,6 @@ export const Layout = () => {
         </main>
       </div>
     </div>
+    </PresenceContext.Provider>
   );
 };
