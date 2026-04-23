@@ -77,6 +77,7 @@ interface CourseState {
   ) => void;
   deleteDiscipline: (id: string) => void;
   deleteBatchDisciplines: (ids: string[]) => Promise<void>;
+  unifyAllDisciplines: () => Promise<{ merged: number; errors: number }> ;
   clearDisciplines: () => void;
   addEvent: (event: ScheduleEvent) => void;
   addBatchEvents: (events: ScheduleEvent[]) => void;
@@ -1289,7 +1290,20 @@ export const useCourseStore = create<CourseState>((set) => ({
     }
   },
 
-  // ... (rest of the file)
+  unifyAllDisciplines: async () => {
+    try {
+      const result = await contentFn("unify_all_disciplines", {});
+      invalidateStaticCache("disciplines");
+      const report = (result.report as any[]) ?? [];
+      const merged = report.filter((r) => r.merged > 1 || r.eventsMigrated > 0).length;
+      const errors = report.filter((r) => r.error).length;
+      return { merged, errors };
+    } catch (err: any) {
+      console.error("❌ Falha ao unificar disciplinas:", err?.message ?? err);
+      throw err;
+    }
+  },
+
   deleteInstructor: async (trigram) => {
     const state = useCourseStore.getState();
     const instructor = state.instructors.find((i) => i.trigram === trigram);

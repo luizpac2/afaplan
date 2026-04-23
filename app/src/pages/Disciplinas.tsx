@@ -14,7 +14,7 @@ type EditableDisciplineFields = Pick<Discipline, 'name' | 'code' | 'instructor' 
 type BulkEdits = Record<string, Partial<EditableDisciplineFields>>;
 
 export const Disciplinas = () => {
-    const { disciplines, instructors, locations, addDiscipline, updateDiscipline, updateBatchDisciplines, deleteBatchDisciplines, deleteDiscipline } = useCourseStore();
+    const { disciplines, instructors, locations, addDiscipline, updateDiscipline, updateBatchDisciplines, deleteBatchDisciplines, deleteDiscipline, unifyAllDisciplines } = useCourseStore();
     const activeLocations = locations.filter((l) => l.status === 'ATIVO').sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
     const { userProfile } = useAuth();
     const { theme } = useTheme();
@@ -112,7 +112,7 @@ export const Disciplinas = () => {
         if (editingId) {
             updateDiscipline(editingId, data);
         } else {
-            addDiscipline({ ...data, id: crypto.randomUUID() });
+            addDiscipline({ ...data, id: (data.code || '').toUpperCase() });
         }
         closeModal();
     };
@@ -431,6 +431,25 @@ export const Disciplinas = () => {
                                 <Plus size={16} />
                                 Novo
                             </button>
+                            {userProfile?.role === 'SUPER_ADMIN' && (
+                                <button
+                                    onClick={async () => {
+                                        if (!confirm('Unificar todas as disciplinas? Isso normaliza os IDs no banco (id = code) e migra eventos órfãos. Não pode ser desfeito.')) return;
+                                        try {
+                                            const { merged, errors } = await unifyAllDisciplines();
+                                            alert(`Unificação concluída. ${merged} disciplinas unificadas, ${errors} erros.`);
+                                            window.location.reload();
+                                        } catch (e: any) {
+                                            alert(`Erro: ${e?.message ?? e}`);
+                                        }
+                                    }}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-sm whitespace-nowrap border ${theme === 'dark' ? 'bg-slate-800 text-orange-300 border-orange-700' : 'bg-orange-50 text-orange-700 border-orange-200 shadow-sm'}`}
+                                    title="Normaliza id=code para todas as disciplinas e migra eventos"
+                                >
+                                    <Zap size={14} />
+                                    Unificar
+                                </button>
+                            )}
                         </>
                     )}
                 </div>

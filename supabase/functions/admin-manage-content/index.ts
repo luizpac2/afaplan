@@ -72,7 +72,8 @@ Deno.serve(async (req) => {
         const { error } = await adminClient.from("disciplinas").update(row).eq("id", existing.id);
         if (error) throw new Error(`disciplinas update error: ${error.message}`);
       } else {
-        const { error } = await adminClient.from("disciplinas").insert({ ...row, code, id: crypto.randomUUID() });
+        // id = code — padrão do sistema; nunca gerar UUID para disciplinas
+        const { error } = await adminClient.from("disciplinas").insert({ ...row, code, id: code });
         if (error) throw new Error(`disciplinas insert error: ${error.message}`);
       }
     } else if (op === "delete") {
@@ -147,16 +148,14 @@ Deno.serve(async (req) => {
         .upsert(upsertRow, { onConflict: "id" });
       if (upsErr) throw new Error(`update failed: ${upsErr.message}`);
 
-      // Remove entradas duplicadas com mesmo code OU sigla mas id diferente
-      const { data: allDups } = await adminClient.from("disciplinas").select("id, code, sigla");
-      const dupIds = (allDups ?? [])
-        .filter((r: any) => r.id !== code && (r.code === code || r.sigla === code))
-        .map((r: any) => r.id);
-      if (dupIds.length > 0) {
-        // Migra eventos das duplicatas para o id canônico antes de deletar
+      // Remove entradas duplicadas com mesmo code (case-insensitive) mas id diferente
+      const { data: allDups } = await adminClient.from("disciplinas")
+        .select("id, code").ilike("code", code).neq("id", code);
+      if (allDups && allDups.length > 0) {
+        const dupIds = allDups.map((r: any) => r.id);
         for (const dupId of dupIds) {
           await adminClient.from("programacao_aulas")
-            .update({ disciplina_id: code }).eq("disciplina_id", dupId);
+            .update({ disciplineId: code }).eq("disciplineId", dupId);
         }
         await adminClient.from("disciplinas").delete().in("id", dupIds);
         console.log("update_discipline: removidas duplicatas:", dupIds);
@@ -248,22 +247,15 @@ Deno.serve(async (req) => {
     
     const e = event as any;
 
-    // Resolve turma_id (nome "1A" -> UUID)
-    let turmaId = e.classId;
-    if (e.classId && e.classId.length <= 3) {
-      const { data: tData } = await adminClient.from("turmas").select("id").eq("nome", e.classId).maybeSingle();
-      if (tData) turmaId = tData.id;
-    }
-    
-    // Mapeamento explícito de camelCase (frontend) → snake_case (banco de dados)
+    // Mapeamento explícito de camelCase (frontend) → banco de dados
     const safeEvent: Record<string, unknown> = {
       id: e.id,
-      data: e.date,
-      horario_inicio: e.startTime,
-      horario_fim: e.endTime,
-      turma_id: turmaId,               // UUID resolvido
-      disciplina_id: e.disciplineId,
-      local_id: e.location || null,
+      date: e.date,
+      startTime: e.startTime,
+      endTime: e.endTime,
+      classId: e.classId,
+      disciplineId: e.disciplineId,
+      location: e.location || null,
       type: e.type || 'CLASS',
     };
     
@@ -304,12 +296,12 @@ Deno.serve(async (req) => {
     // Mapeamento explícito de camelCase (frontend) → snake_case (banco)
     const safeUpdates: Record<string, unknown> = {};
     
-    if (u.date             !== undefined) safeUpdates.data             = u.date;
-    if (u.startTime        !== undefined) safeUpdates.horario_inicio   = u.startTime;
-    if (u.endTime          !== undefined) safeUpdates.horario_fim      = u.endTime;
-    if (u.classId          !== undefined) safeUpdates.turma_id         = u.classId;
-    if (u.disciplineId     !== undefined) safeUpdates.disciplina_id    = u.disciplineId;
-    if (u.location         !== undefined) safeUpdates.local_id         = u.location;
+    if (u.date             !== undefined) safeUpdates.date             = u.date;
+    if (u.startTime        !== undefined) safeUpdates.startTime        = u.startTime;
+    if (u.endTime          !== undefined) safeUpdates.endTime          = u.endTime;
+    if (u.classId          !== undefined) safeUpdates.classId          = u.classId;
+    if (u.disciplineId     !== undefined) safeUpdates.disciplineId     = u.disciplineId;
+    if (u.location         !== undefined) safeUpdates.location         = u.location;
     if (u.instructorTrigram !== undefined) safeUpdates.instructorId   = u.instructorTrigram || null;
     if (u.changeRequestId   !== undefined) safeUpdates.changeRequestId = u.changeRequestId;
     if (u.type              !== undefined) safeUpdates.type            = u.type;
@@ -539,28 +531,56 @@ Deno.serve(async (req) => {
   }
 
   // ── find_orphan_discipline_ids ───────────────────────────────────────────────
-  // Retorna todos os disciplina_id em programacao_aulas que não existem em disciplinas
+  // Retorna todos os disciplineId em programacao_aulas que não existem em disciplinas
   if (action === "find_orphan_discipline_ids") {
-    const { data: events } = await adminClient.from("programacao_aulas").select("disciplina_id");
+    const { data: events } = await adminClient.from("programacao_aulas").select("disciplineId");
     const { data: disciplines } = await adminClient.from("disciplinas").select("id");
     const validIds = new Set((disciplines ?? []).map((d: any) => d.id));
-    const orphanIds = [...new Set((events ?? []).map((e: any) => e.disciplina_id).filter((id: any) => id && !validIds.has(id)))];
+    const orphanIds = [...new Set((events ?? []).map((e: any) => e.disciplineId).filter((id: any) => id && !validIds.has(id)))];
     const counts: Record<string, number> = {};
     for (const id of orphanIds) {
-      counts[id] = (events ?? []).filter((e: any) => e.disciplina_id === id).length;
+      counts[id] = (events ?? []).filter((e: any) => e.disciplineId === id).length;
     }
     return ok({ orphanIds, counts, validDisciplines: disciplines });
   }
 
+  // ── fix_all_orphan_events ────────────────────────────────────────────────────
+  // Para cada disciplineId órfão em programacao_aulas, tenta encontrar a disciplina
+  // correspondente em disciplinas (por id ou code, case-insensitive) e reassigna.
+  if (action === "fix_all_orphan_events") {
+    const { data: events } = await adminClient.from("programacao_aulas").select("disciplineId");
+    const { data: disciplines } = await adminClient.from("disciplinas").select("id, code, name");
+    const validIds = new Set((disciplines ?? []).map((d: any) => d.id));
+    const orphanIds = [...new Set((events ?? []).map((e: any) => e.disciplineId).filter((id: any) => id && !validIds.has(id)))];
+
+    const results: any[] = [];
+    for (const orphanId of orphanIds) {
+      // Tenta achar disciplina com id ou code parecido (case-insensitive)
+      const match = (disciplines ?? []).find((d: any) =>
+        d.id?.toLowerCase() === orphanId?.toLowerCase() ||
+        d.code?.toLowerCase() === orphanId?.toLowerCase()
+      );
+      if (match) {
+        const { data: updated } = await adminClient.from("programacao_aulas")
+          .update({ disciplineId: match.id })
+          .eq("disciplineId", orphanId)
+          .select("id");
+        results.push({ orphanId, fixedTo: match.id, count: updated?.length ?? 0 });
+      } else {
+        results.push({ orphanId, fixedTo: null, count: 0, warning: "sem correspondência" });
+      }
+    }
+    return ok({ success: true, orphansFixed: results });
+  }
+
   // ── reassign_discipline_id ───────────────────────────────────────────────────
-  // Atualiza todos os eventos que referenciam old_id para apontar para new_id
   if (action === "reassign_discipline_id") {
     const { old_id, new_id } = body;
     if (!old_id || !new_id) return err("old_id and new_id required");
     const { data, error } = await adminClient
       .from("programacao_aulas")
-      .update({ disciplina_id: new_id })
-      .eq("disciplina_id", old_id)
+      .update({ disciplineId: new_id })
+      .eq("disciplineId", old_id)
       .select("id");
     if (error) return err(error.message, 500);
     return ok({ success: true, updatedCount: data?.length ?? 0 });
@@ -573,13 +593,14 @@ Deno.serve(async (req) => {
     const { code } = body;
     if (!code) return err("code required");
 
-    // 1. Busca todas as linhas que representam essa disciplina (inclui coluna sigla)
-    const { data: allRows } = await adminClient.from("disciplinas").select("*");
-    const matches = (allRows ?? []).filter((r: any) =>
-      r.code === code || r.id === code || r.sigla === code ||
-      (r.name && r.name.toUpperCase().includes(code.toUpperCase())) ||
-      (r.nome && r.nome.toUpperCase().includes(code.toUpperCase()))
-    );
+    // 1. Busca todas as linhas que representam essa disciplina (case-insensitive)
+    const { data: byCode } = await adminClient.from("disciplinas").select("*").ilike("code", code);
+    const { data: byId } = await adminClient.from("disciplinas").select("*").eq("id", code).maybeSingle();
+    const seen = new Set<string>();
+    const matches: any[] = [];
+    for (const r of [...(byCode ?? []), ...(byId ? [byId] : [])]) {
+      if (!seen.has(r.id)) { seen.add(r.id); matches.push(r); }
+    }
 
     // 2. Verifica se já existe uma entrada com id = code
     const canonical = matches.find((r: any) => r.id === code);
@@ -607,8 +628,8 @@ Deno.serve(async (req) => {
     for (const dup of duplicates) {
       const { data: migrated, error: migErr } = await adminClient
         .from("programacao_aulas")
-        .update({ disciplina_id: code })
-        .eq("disciplina_id", dup.id)
+        .update({ disciplineId: code })
+        .eq("disciplineId", dup.id)
         .select("id");
       if (migErr) console.warn("migrate error:", migErr.message);
       totalMigrated += migrated?.length ?? 0;
@@ -627,17 +648,92 @@ Deno.serve(async (req) => {
     });
   }
 
+  // ── unify_all_disciplines ────────────────────────────────────────────────────
+  // Para cada disciplina, garante id = code (case normalizado) e migra eventos.
+  if (action === "unify_all_disciplines") {
+    const { data: allDisciplines } = await adminClient.from("disciplinas").select("*");
+    if (!allDisciplines) return err("Falha ao carregar disciplinas", 500);
+
+    // Agrupa por code normalizado (uppercase)
+    const groups: Record<string, any[]> = {};
+    for (const d of allDisciplines) {
+      const key = (d.code || d.id || "").toUpperCase();
+      if (!key) continue;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(d);
+    }
+
+    const report: any[] = [];
+
+    for (const [canonicalCode, entries] of Object.entries(groups)) {
+      // Canônico: o que já tem id = canonicalCode, senão o primeiro
+      const canonical = entries.find((e: any) => e.id === canonicalCode) ?? entries[0];
+      const others = entries.filter((e: any) => e.id !== canonicalCode);
+
+      // Mescla dados de todos os entries no canônico
+      const mergedData: Record<string, unknown> = {};
+      for (const e of [...others, canonical]) {
+        if (e.data && typeof e.data === "object") Object.assign(mergedData, e.data);
+      }
+      const mergedRow: Record<string, unknown> = {
+        id:         canonicalCode,
+        code:       canonicalCode,
+        name:       canonical.name || entries.find((e: any) => e.name)?.name || canonicalCode,
+        color:      canonical.color || entries.find((e: any) => e.color)?.color || null,
+        load_hours: canonical.load_hours || entries.find((e: any) => e.load_hours)?.load_hours || 0,
+        data:       Object.keys(mergedData).length > 0 ? mergedData : null,
+      };
+
+      // Upsert entrada canônica
+      const { error: upsErr } = await adminClient.from("disciplinas")
+        .upsert(mergedRow, { onConflict: "id" });
+      if (upsErr) {
+        report.push({ code: canonicalCode, error: upsErr.message });
+        continue;
+      }
+
+      // Migra eventos de todos os ids antigos para canonicalCode
+      let eventsMigrated = 0;
+      for (const old of others) {
+        const { data: moved } = await adminClient.from("programacao_aulas")
+          .update({ disciplineId: canonicalCode })
+          .eq("disciplineId", old.id)
+          .select("id");
+        eventsMigrated += moved?.length ?? 0;
+      }
+      // Migra também do próprio canonical se o id era diferente
+      if (canonical.id !== canonicalCode) {
+        const { data: moved } = await adminClient.from("programacao_aulas")
+          .update({ disciplineId: canonicalCode })
+          .eq("disciplineId", canonical.id)
+          .select("id");
+        eventsMigrated += moved?.length ?? 0;
+      }
+
+      // Remove entradas antigas (id != canonicalCode)
+      const toDelete = entries.filter((e: any) => e.id !== canonicalCode).map((e: any) => e.id);
+      if (toDelete.length > 0) {
+        await adminClient.from("disciplinas").delete().in("id", toDelete);
+      }
+
+      report.push({ code: canonicalCode, merged: entries.length, eventsMigrated, deletedIds: toDelete });
+    }
+
+    return ok({ success: true, report });
+  }
+
   // ── find_discipline_duplicates ──────────────────────────────────────────────
   if (action === "find_discipline_duplicates") {
     const { code } = body;
     if (!code) return err("code required");
-    // Busca por qualquer coluna que possa conter o código
-    const { data: allRows } = await adminClient.from("disciplinas").select("*");
-    const matches = (allRows ?? []).filter((r: any) =>
-      r.code === code || r.sigla === code ||
-      (r.name && r.name.toUpperCase().includes(code.toUpperCase())) ||
-      (r.nome && r.nome.toUpperCase().includes(code.toUpperCase()))
-    );
+    // Busca case-insensitive por code ou id
+    const { data: byCodeR } = await adminClient.from("disciplinas").select("*").ilike("code", code);
+    const { data: byIdR } = await adminClient.from("disciplinas").select("*").eq("id", code).maybeSingle();
+    const seenD = new Set<string>();
+    const matches: any[] = [];
+    for (const r of [...(byCodeR ?? []), ...(byIdR ? [byIdR] : [])]) {
+      if (!seenD.has(r.id)) { seenD.add(r.id); matches.push(r); }
+    }
     // Para cada match, conta eventos vinculados
     const results = await Promise.all(matches.map(async (d: any) => {
       const { count } = await adminClient.from("programacao_aulas")
