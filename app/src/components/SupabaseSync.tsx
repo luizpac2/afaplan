@@ -52,7 +52,7 @@ export const SupabaseSync = () => {
     const loadStaticCollections = async () => {
       try {
         const results = await Promise.allSettled([
-          fetchCollectionCached("disciplines"),
+          fetchCollectionCached("disciplinas"),
           fetchCollectionCached("cohorts"),
           fetchCollectionCached("visual_configs"),
           fetchCollectionCached("instructors"),
@@ -79,6 +79,7 @@ export const SupabaseSync = () => {
             id: d.id,
             code: (d.sigla || d.code || d.id || "").toUpperCase(),
             name: d.nome || d.name || "Sem Nome",
+            color: d.color || d.data?.color || null,
             trainingField: d.campo || d.trainingField || d.data?.trainingField || "GERAL",
             load_hours: d.carga_horaria || d.load_hours,
             location: d.location || d.data?.location || null,
@@ -86,7 +87,7 @@ export const SupabaseSync = () => {
             instructor: d.instructor || d.data?.instructor || null,
           }));
           setDisciplines(expanded as Discipline[]);
-        } else console.warn("⚠️ Falha ao carregar disciplines:", disciplines.reason);
+        } else console.warn("⚠️ Falha ao carregar disciplinas:", disciplines.reason);
 
         // Deriva classes (CourseClass) a partir das turmas/cohorts
         if (cohorts.status === "fulfilled") {

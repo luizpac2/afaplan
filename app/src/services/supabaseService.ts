@@ -5,8 +5,8 @@ import { supabase } from "../config/supabase";
 // Usar sempre este mapa para invalidação — evita mismatches.
 // ---------------------------------------------------------------------------
 export const TABLE_READ: Record<string, string> = {
-  disciplines:             "disciplines",
-  disciplinas:             "disciplines",   // legado → cache da tabela de leitura
+  disciplines:             "disciplinas",   // leitura direto na tabela base (VIEW não tem color/data)
+  disciplinas:             "disciplinas",
   instructors:             "instructors",
   cohorts:                 "cohorts",
   classes:                 "cohorts",       // classes são derivadas dos cohorts
