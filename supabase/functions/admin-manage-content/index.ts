@@ -63,9 +63,13 @@ Deno.serve(async (req) => {
       if (payload.load_hours !== undefined) row.load_hours = payload.load_hours;
       if (payload.color      !== undefined) row.color      = payload.color;
       if (payload.data       !== undefined) row.data       = payload.data;
-      const { data: existing } = await adminClient.from("disciplinas").select("id").eq("code", code).maybeSingle();
+      let { data: existing } = await adminClient.from("disciplinas").select("id").eq("code", code).maybeSingle();
+      if (!existing) {
+        const { data: byId } = await adminClient.from("disciplinas").select("id").eq("id", code).maybeSingle();
+        existing = byId;
+      }
       if (existing) {
-        const { error } = await adminClient.from("disciplinas").update(row).eq("code", code);
+        const { error } = await adminClient.from("disciplinas").update(row).eq("id", existing.id);
         if (error) throw new Error(`disciplinas update error: ${error.message}`);
       } else {
         const { error } = await adminClient.from("disciplinas").insert({ ...row, code, id: crypto.randomUUID() });
@@ -120,32 +124,43 @@ Deno.serve(async (req) => {
     if (!code || !updates) return err("code and updates required");
     const u = updates as Record<string, unknown>;
     try {
-      // Usa a tabela base "disciplinas" diretamente (não a VIEW "disciplines"
-      // cujas colunas têm nomes diferentes, causando currentRow=null e INSERT sem id)
-      const { data: currentRow } = await adminClient.from("disciplinas")
-        .select("*").eq("code", code).maybeSingle();
+      // Busca a entrada canônica pelo id=code (padrão legado: id é o próprio código)
+      const { data: byId } = await adminClient.from("disciplinas")
+        .select("*").eq("id", code).maybeSingle();
 
-      const currentData = (currentRow?.data && typeof currentRow.data === "object")
-        ? currentRow.data as Record<string, unknown> : {};
+      const currentData = (byId?.data && typeof byId.data === "object")
+        ? byId.data as Record<string, unknown> : {};
       const incomingData = (u.data && typeof u.data === "object")
         ? u.data as Record<string, unknown> : {};
 
-      const updateRow: Record<string, unknown> = { data: { ...currentData, ...incomingData } };
-      if (u.name       !== undefined) updateRow.name       = u.name;
-      if (u.load_hours !== undefined) updateRow.load_hours = u.load_hours;
-      if (u.color      !== undefined) updateRow.color      = u.color;
+      const upsertRow: Record<string, unknown> = {
+        id:   code,
+        code: code,
+        data: { ...currentData, ...incomingData },
+      };
+      if (u.name       !== undefined) upsertRow.name       = u.name;
+      if (u.load_hours !== undefined) upsertRow.load_hours = u.load_hours;
+      if (u.color      !== undefined) upsertRow.color      = u.color;
 
-      let updateErr: any = null;
-      if (currentRow) {
-        const { error } = await adminClient.from("disciplinas")
-          .update(updateRow).eq("code", code);
-        updateErr = error;
-      } else {
-        const { error } = await adminClient.from("disciplinas")
-          .insert({ ...updateRow, code, id: crypto.randomUUID() });
-        updateErr = error;
+      // Upsert por id — nunca cria duplicata
+      const { error: upsErr } = await adminClient.from("disciplinas")
+        .upsert(upsertRow, { onConflict: "id" });
+      if (upsErr) throw new Error(`update failed: ${upsErr.message}`);
+
+      // Remove entradas duplicadas com mesmo code OU sigla mas id diferente
+      const { data: allDups } = await adminClient.from("disciplinas").select("id, code, sigla");
+      const dupIds = (allDups ?? [])
+        .filter((r: any) => r.id !== code && (r.code === code || r.sigla === code))
+        .map((r: any) => r.id);
+      if (dupIds.length > 0) {
+        // Migra eventos das duplicatas para o id canônico antes de deletar
+        for (const dupId of dupIds) {
+          await adminClient.from("programacao_aulas")
+            .update({ disciplina_id: code }).eq("disciplina_id", dupId);
+        }
+        await adminClient.from("disciplinas").delete().in("id", dupIds);
+        console.log("update_discipline: removidas duplicatas:", dupIds);
       }
-      if (updateErr) throw new Error(`update failed: ${updateErr.message}`);
     } catch (e: any) {
       console.error("update_discipline error:", e.message);
       return err(e.message, 500);
@@ -157,7 +172,7 @@ Deno.serve(async (req) => {
   if (action === "sync_discipline_instructor") {
     const { code, warName } = body;
     if (!code || !warName) return err("code and warName required");
-    const { data: row } = await adminClient.from("disciplines").select("*").eq("code", code).maybeSingle();
+    const { data: row } = await adminClient.from("disciplinas").select("*").eq("code", code).maybeSingle();
     const newData = { ...(row?.data || {}), instructor: warName };
     await writeDisciplinesEN("upsert", code as string, {
       name: row?.name,
@@ -521,6 +536,126 @@ Deno.serve(async (req) => {
       .upsert({ key, value }, { onConflict: "key" });
     if (error) { console.error("save_app_config error:", error.message); return err(error.message, 500); }
     return ok({ success: true });
+  }
+
+  // ── find_orphan_discipline_ids ───────────────────────────────────────────────
+  // Retorna todos os disciplina_id em programacao_aulas que não existem em disciplinas
+  if (action === "find_orphan_discipline_ids") {
+    const { data: events } = await adminClient.from("programacao_aulas").select("disciplina_id");
+    const { data: disciplines } = await adminClient.from("disciplinas").select("id");
+    const validIds = new Set((disciplines ?? []).map((d: any) => d.id));
+    const orphanIds = [...new Set((events ?? []).map((e: any) => e.disciplina_id).filter((id: any) => id && !validIds.has(id)))];
+    const counts: Record<string, number> = {};
+    for (const id of orphanIds) {
+      counts[id] = (events ?? []).filter((e: any) => e.disciplina_id === id).length;
+    }
+    return ok({ orphanIds, counts, validDisciplines: disciplines });
+  }
+
+  // ── reassign_discipline_id ───────────────────────────────────────────────────
+  // Atualiza todos os eventos que referenciam old_id para apontar para new_id
+  if (action === "reassign_discipline_id") {
+    const { old_id, new_id } = body;
+    if (!old_id || !new_id) return err("old_id and new_id required");
+    const { data, error } = await adminClient
+      .from("programacao_aulas")
+      .update({ disciplina_id: new_id })
+      .eq("disciplina_id", old_id)
+      .select("id");
+    if (error) return err(error.message, 500);
+    return ok({ success: true, updatedCount: data?.length ?? 0 });
+  }
+
+  // ── consolidate_discipline ──────────────────────────────────────────────────
+  // Garante que a disciplina existe com id=code, migra todos os eventos para esse id
+  // e apaga entradas duplicadas com id UUID.
+  if (action === "consolidate_discipline") {
+    const { code } = body;
+    if (!code) return err("code required");
+
+    // 1. Busca todas as linhas que representam essa disciplina (inclui coluna sigla)
+    const { data: allRows } = await adminClient.from("disciplinas").select("*");
+    const matches = (allRows ?? []).filter((r: any) =>
+      r.code === code || r.id === code || r.sigla === code ||
+      (r.name && r.name.toUpperCase().includes(code.toUpperCase())) ||
+      (r.nome && r.nome.toUpperCase().includes(code.toUpperCase()))
+    );
+
+    // 2. Verifica se já existe uma entrada com id = code
+    const canonical = matches.find((r: any) => r.id === code);
+    const duplicates = matches.filter((r: any) => r.id !== code);
+
+    let canonicalRow: any = canonical;
+
+    if (!canonicalRow) {
+      // Cria a entrada canônica com id = code
+      const source = matches[0] ?? {};
+      const { error: insErr } = await adminClient.from("disciplinas").insert({
+        id:         code,
+        code:       source.code ?? code,
+        name:       source.name ?? source.nome ?? code,
+        color:      source.color ?? null,
+        data:       source.data ?? null,
+        load_hours: source.load_hours ?? source.carga_horaria ?? 0,
+      });
+      if (insErr) return err(`Erro ao criar entrada canônica: ${insErr.message}`, 500);
+      canonicalRow = { id: code };
+    }
+
+    // 3. Migra eventos de todas as variantes (ids UUID) para id=code
+    let totalMigrated = 0;
+    for (const dup of duplicates) {
+      const { data: migrated, error: migErr } = await adminClient
+        .from("programacao_aulas")
+        .update({ disciplina_id: code })
+        .eq("disciplina_id", dup.id)
+        .select("id");
+      if (migErr) console.warn("migrate error:", migErr.message);
+      totalMigrated += migrated?.length ?? 0;
+    }
+
+    // 4. Apaga as entradas com id UUID (duplicatas)
+    for (const dup of duplicates) {
+      await adminClient.from("disciplinas").delete().eq("id", dup.id);
+    }
+
+    return ok({
+      success: true,
+      canonicalId: code,
+      duplicatesRemoved: duplicates.map((d: any) => d.id),
+      eventsMigrated: totalMigrated,
+    });
+  }
+
+  // ── find_discipline_duplicates ──────────────────────────────────────────────
+  if (action === "find_discipline_duplicates") {
+    const { code } = body;
+    if (!code) return err("code required");
+    // Busca por qualquer coluna que possa conter o código
+    const { data: allRows } = await adminClient.from("disciplinas").select("*");
+    const matches = (allRows ?? []).filter((r: any) =>
+      r.code === code || r.sigla === code ||
+      (r.name && r.name.toUpperCase().includes(code.toUpperCase())) ||
+      (r.nome && r.nome.toUpperCase().includes(code.toUpperCase()))
+    );
+    // Para cada match, conta eventos vinculados
+    const results = await Promise.all(matches.map(async (d: any) => {
+      const { count } = await adminClient.from("programacao_aulas")
+        .select("id", { count: "exact", head: true })
+        .eq("disciplina_id", d.id);
+      return { ...d, eventCount: count ?? 0 };
+    }));
+    return ok({ matches: results });
+  }
+
+  // ── probe_schema (diagnóstico) ───────────────────────────────────────────────
+  if (action === "probe_schema") {
+    const { table } = body;
+    if (!table) return err("table required");
+    const { data, error } = await adminClient.from(table as string).select("*").limit(1);
+    if (error) return err(`probe error: ${error.message}`, 500);
+    const columns = data && data.length > 0 ? Object.keys(data[0]) : [];
+    return ok({ table, columns, sampleRow: data?.[0] ?? null });
   }
 
   return err("Unknown action");

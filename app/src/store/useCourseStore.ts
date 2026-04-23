@@ -490,6 +490,17 @@ export const useCourseStore = create<CourseState>((set) => ({
         };
         await contentFn("update_discipline", { code: after.code, updates: dbUpdates });
         invalidateStaticCache("disciplines");
+        // Remove duplicatas da store em memória (mesmo code, id diferente)
+        set((state) => {
+          const seen = new Set<string>();
+          const deduped = state.disciplines.filter((d) => {
+            const key = d.code || d.id;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          return { disciplines: deduped };
+        });
         console.log(`✅ Disciplina ${after.code} atualizada no DB`);
       } catch (err: any) {
         console.error("❌ Falha ao atualizar disciplina:", err?.message ?? err);
