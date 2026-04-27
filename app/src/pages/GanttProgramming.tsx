@@ -575,7 +575,7 @@ export const GanttProgramming = () => {
     <div className="flex flex-col max-w-[1600px] mx-auto">
 
       {/* ── Sticky Toolbar ────────────────────────────────────────────────── */}
-      <div className={`sticky top-0 z-30 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 md:px-6 py-3 border-b shadow-sm ${isDark ? "bg-slate-900/95 border-slate-800" : "bg-white/95 border-slate-200"} backdrop-blur-md`}>
+      <div className={`sticky top-0 z-30 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 md:px-6 py-3 border-b shadow-sm ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"}`}>
         <div className="flex items-center gap-3">
           <div className="w-1 h-8 rounded-full" style={{ backgroundColor: cohortColorTokens.primary }} />
           <div>
