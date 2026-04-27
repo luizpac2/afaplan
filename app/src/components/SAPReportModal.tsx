@@ -32,7 +32,7 @@ export const SAPReportModal = ({ sap, onClose }: Props) => {
       .select("*")
       .in("id", sap.eventIds)
       .then(({ data }) => {
-        setEvents((data ?? []).map(normalizeEvent) as ScheduleEvent[]);
+        setEvents((data ?? []).map(normalizeEvent) as unknown as ScheduleEvent[]);
         setLoading(false);
       });
   }, [sap.id]);
