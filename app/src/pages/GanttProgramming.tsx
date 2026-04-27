@@ -723,7 +723,6 @@ export const GanttProgramming = () => {
                     Ir para hoje
                   </button>
                 </div>
-            </div>
             )}
           </div>
           <button onClick={() => setCurrentDate(addDays(currentDate, 7))}
