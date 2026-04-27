@@ -276,13 +276,20 @@ export const GanttView = ({
                             cursor: hasOverlap ? "pointer" : canEdit ? (isSelectionMode ? "pointer" : "grab") : "pointer",
                           }}
                         >
-                          {/* Badge SAP */}
+                          {/* Badge SAP — desktop: tag centralizada com padding; mobile: ponto vermelho no canto */}
                           {!hasOverlap && sapTag && (
-                            <div className="absolute top-0 left-0 right-0 flex justify-center pointer-events-none">
-                              <span className="bg-red-600 text-white text-[6px] font-bold px-1 leading-tight rounded-b" style={{ letterSpacing: "0.02em" }}>
-                                {sapTag}
-                              </span>
-                            </div>
+                            <>
+                              {/* Desktop */}
+                              <div className="absolute hidden md:flex" style={{ top: 2, left: 0, right: 0, justifyContent: "center", pointerEvents: "none" }}>
+                                <span className="bg-red-600 text-white font-bold px-1 leading-tight rounded-b-sm" style={{ fontSize: 6, letterSpacing: "0.02em" }}>
+                                  {sapTag}
+                                </span>
+                              </div>
+                              {/* Mobile: indicador mínimo no canto superior direito */}
+                              <div className="absolute top-0 right-0 md:hidden flex items-center justify-center bg-red-600 rounded-bl-sm" style={{ width: 10, height: 8 }}>
+                                <span className="text-white font-black leading-none" style={{ fontSize: 4 }}>S</span>
+                              </div>
+                            </>
                           )}
                           {/* Código da disciplina — sempre visível, nunca truncado */}
                           <span className="text-white text-[9px] font-extrabold leading-none w-full text-center overflow-hidden" style={{ letterSpacing: "-0.02em" }}>

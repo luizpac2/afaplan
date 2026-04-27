@@ -8,7 +8,7 @@ import type { ScheduleChangeRequest } from "../types";
 interface LinkChangeRequestModalProps {
   selectedEventIds: string[];
   onClose: () => void;
-  onLinked?: () => void;
+  onLinked?: (requestId: string) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -50,7 +50,7 @@ export const LinkChangeRequestModal = ({
         ...new Set([...request.eventIds, ...selectedEventIds]),
       ];
       await linkEventsToRequest(selectedRequestId, mergedIds);
-      onLinked ? onLinked() : onClose();
+      onLinked ? onLinked(selectedRequestId) : onClose();
     } finally {
       setLinking(false);
     }

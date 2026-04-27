@@ -44,7 +44,7 @@ export const GanttProgramming = () => {
   const {
     disciplines, classes, cohorts, notices,
     updateEvent, deleteBatchEvents, addNotice, updateNotice, deleteNotice, addEvent, dataReady,
-    fetchYearlyEvents,
+    fetchYearlyEvents, unlinkEventsFromRequest,
   } = useCourseStore();
 
   const currentSquadron = useMemo(() => {
@@ -318,6 +318,23 @@ export const GanttProgramming = () => {
       setWeekEvents((prev) => prev.filter((e) => !selectedEventIds.includes(e.id)));
     }
     setIsDeleteConfirmOpen(false);
+    setIsSelectionMode(false);
+    setSelectedEventIds([]);
+  };
+
+  const selectedHaveSap = selectedEventIds.some(
+    (id) => weekEvents.find((e) => e.id === id)?.changeRequestId
+  );
+
+  const handleUnlink = async () => {
+    await unlinkEventsFromRequest(selectedEventIds);
+    setWeekEvents((prev) =>
+      prev.map((e) =>
+        selectedEventIds.includes(e.id)
+          ? { ...e, changeRequestId: undefined }
+          : e
+      )
+    );
     setIsSelectionMode(false);
     setSelectedEventIds([]);
   };
@@ -603,12 +620,18 @@ export const GanttProgramming = () => {
             </button>
           )}
           {canEdit && isSelectionMode && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className={`text-xs ${muted}`}>{selectedEventIds.length} selecionado(s)</span>
               <button onClick={() => setIsLinkModalOpen(true)} disabled={selectedEventIds.length === 0}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium text-blue-600 border-blue-400 hover:bg-blue-500/10 disabled:opacity-40 transition-colors">
-                <Link2 size={13} /> SAP
+                <Link2 size={13} /> Vincular SAP
               </button>
+              {selectedHaveSap && (
+                <button onClick={handleUnlink} disabled={selectedEventIds.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium text-orange-500 border-orange-400 hover:bg-orange-500/10 disabled:opacity-40 transition-colors">
+                  <Link2 size={13} /> Desvincular
+                </button>
+              )}
               <button onClick={() => setIsDeleteConfirmOpen(true)} disabled={selectedEventIds.length === 0}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium text-red-500 border-red-400 hover:bg-red-500/10 disabled:opacity-40 transition-colors">
                 <Trash2 size={13} /> Excluir
@@ -1289,7 +1312,15 @@ export const GanttProgramming = () => {
         <LinkChangeRequestModal
           selectedEventIds={selectedEventIds}
           onClose={() => setIsLinkModalOpen(false)}
-          onLinked={() => {
+          onLinked={(requestId) => {
+            // Atualiza weekEvents imediatamente para exibir a tag SAP sem reload
+            setWeekEvents((prev) =>
+              prev.map((e) =>
+                selectedEventIds.includes(e.id)
+                  ? { ...e, changeRequestId: requestId }
+                  : e
+              )
+            );
             setIsLinkModalOpen(false);
             setIsSelectionMode(false);
             setSelectedEventIds([]);

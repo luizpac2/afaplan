@@ -153,6 +153,7 @@ interface CourseState {
   ) => Promise<void>;
   deleteChangeRequest: (id: string) => Promise<void>;
   linkEventsToRequest: (requestId: string, eventIds: string[]) => Promise<void>;
+  unlinkEventsFromRequest: (eventIds: string[]) => Promise<void>;
 
   // Migration helper
   migrateDisciplinesLocation: () => void;
@@ -362,6 +363,46 @@ export const useCourseStore = create<CourseState>((set) => ({
     await saveDocument("schedule_change_requests", requestId, updatedRequest);
 
     // Invalida cache de eventos e da coleção de SAPs
+    invalidateEventsLocalCache();
+    invalidateStaticCache("schedule_change_requests");
+  },
+
+  unlinkEventsFromRequest: async (eventIds) => {
+    const state = useCourseStore.getState();
+
+    // Quais SAPs referenciam esses eventos
+    const affectedSaps = state.changeRequests.filter((r) =>
+      r.eventIds.some((id) => eventIds.includes(id))
+    );
+
+    // Remove changeRequestId dos eventos no banco
+    await Promise.all(
+      eventIds.map((evId) =>
+        updateDocument("programacao_aulas", evId, { changeRequestId: null })
+      )
+    );
+
+    // Atualiza store de eventos
+    set((state) => ({
+      events: state.events.map((ev) =>
+        eventIds.includes(ev.id)
+          ? { ...ev, changeRequestId: undefined }
+          : ev
+      ),
+    }));
+
+    // Remove os eventIds de cada SAP afetada
+    for (const sap of affectedSaps) {
+      const updatedEventIds = sap.eventIds.filter((id) => !eventIds.includes(id));
+      const updated = { ...sap, eventIds: updatedEventIds };
+      set((state) => ({
+        changeRequests: state.changeRequests.map((r) =>
+          r.id === sap.id ? updated : r
+        ),
+      }));
+      await updateDocument("schedule_change_requests", sap.id, { eventIds: updatedEventIds });
+    }
+
     invalidateEventsLocalCache();
     invalidateStaticCache("schedule_change_requests");
   },
