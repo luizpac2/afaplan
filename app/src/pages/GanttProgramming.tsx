@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, MousePointer2, Link2, Trash2, X,
@@ -83,6 +83,17 @@ export const GanttProgramming = () => {
   const [pickerMonth, setPickerMonth] = useState(() => {
     const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1);
   });
+  const datePickerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!isDatePickerOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node)) {
+        setIsDatePickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [isDatePickerOpen]);
 
   // ── All-squadrons replication ─────────────────────────────────────────────
   const [allSquadronsMode, setAllSquadronsMode] = useState(false);
@@ -656,9 +667,7 @@ export const GanttProgramming = () => {
               Hoje
             </button>
             {isDatePickerOpen && (
-              <>
-                <div className="fixed inset-0 z-[29]" onClick={() => setIsDatePickerOpen(false)} />
-                <div className={`absolute right-0 mt-1 z-50 rounded-xl border shadow-xl p-3 w-64 ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
+              <div ref={datePickerRef} className={`absolute right-0 mt-1 z-50 rounded-xl border shadow-xl p-3 w-64 ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
                   {/* Month nav */}
                   <div className="flex items-center justify-between mb-2">
                     <button onClick={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() - 1, 1))}
@@ -714,7 +723,7 @@ export const GanttProgramming = () => {
                     Ir para hoje
                   </button>
                 </div>
-              </>
+            </div>
             )}
           </div>
           <button onClick={() => setCurrentDate(addDays(currentDate, 7))}
@@ -992,9 +1001,7 @@ export const GanttProgramming = () => {
             Hoje
           </button>
           {isDatePickerOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setIsDatePickerOpen(false)} />
-              <div className={`absolute right-0 bottom-full mb-1 z-50 rounded-xl border shadow-xl p-3 w-64 ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
+              <div ref={datePickerRef} className={`absolute right-0 bottom-full mb-1 z-50 rounded-xl border shadow-xl p-3 w-64 ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
                 <div className="flex items-center justify-between mb-2">
                   <button onClick={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() - 1, 1))}
                     className={`p-1 rounded hover:bg-slate-500/20 ${muted}`}>
@@ -1046,7 +1053,6 @@ export const GanttProgramming = () => {
                   Ir para hoje
                 </button>
               </div>
-            </>
           )}
         </div>
         <button onClick={() => setCurrentDate(addDays(currentDate, 7))}
