@@ -572,10 +572,10 @@ export const GanttProgramming = () => {
   const sidebarBg = isDark ? "bg-slate-900/60" : "bg-slate-50/80";
 
   return (
-    <div className="p-4 md:p-6 flex flex-col gap-4 max-w-[1600px] mx-auto">
+    <div className="flex flex-col max-w-[1600px] mx-auto">
 
-      {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div className={`flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl border ${card}`}>
+      {/* ── Sticky Toolbar ────────────────────────────────────────────────── */}
+      <div className={`sticky top-0 z-30 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 md:px-6 py-3 border-b shadow-sm ${isDark ? "bg-slate-900/95 border-slate-800" : "bg-white/95 border-slate-200"} backdrop-blur-md`}>
         <div className="flex items-center gap-3">
           <div className="w-1 h-8 rounded-full" style={{ backgroundColor: cohortColorTokens.primary }} />
           <div>
@@ -723,6 +723,9 @@ export const GanttProgramming = () => {
           </button>
         </div>
       </div>
+
+      {/* ── Content ────────────────────────────────────────────────────────── */}
+      <div className="p-4 md:p-6 flex flex-col gap-4">
 
       {/* ── One card per work day ──────────────────────────────────────────── */}
       {weekDays.slice(0, 6).map((day, i) => {
@@ -1338,6 +1341,7 @@ export const GanttProgramming = () => {
         onConfirm={handleBatchDelete}
         type="danger"
       />
+      </div>{/* end content */}
     </div>
   );
 };
