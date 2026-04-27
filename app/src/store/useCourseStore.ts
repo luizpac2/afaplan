@@ -698,6 +698,7 @@ export const useCourseStore = create<CourseState>((set) => ({
       notes:          (event as any).notes ?? null,
       endDate:        (event as any).endDate ?? null,
       instructorId:   event.instructorTrigram || null,
+      evaluationType: event.evaluationType ?? null,
     };
     contentFn("save_event", { event: dbEvent }).catch((err) => {
       console.error("Failed to save event:", err);

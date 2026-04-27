@@ -298,7 +298,7 @@ export const GanttView = ({
                           {/* Label de avaliação */}
                           {!hasOverlap && isEval && (
                             <span className="text-white/90 text-[7px] font-bold leading-none uppercase tracking-wide w-full text-center truncate px-0.5">
-                              {EVAL_LABELS[evalType] || evalType || "Aval."}
+                              {EVAL_LABELS[evalType] || evalType || "Parcial"}
                             </span>
                           )}
                           {/* Contagem */}
