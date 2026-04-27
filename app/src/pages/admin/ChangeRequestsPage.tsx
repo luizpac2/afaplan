@@ -12,11 +12,13 @@ import {
   Download,
   Calendar,
   GitBranch,
+  FileText,
 } from "lucide-react";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCourseStore } from "../../store/useCourseStore";
 import { ChangeRequestModal } from "../../components/ChangeRequestModal";
+import { SAPReportModal } from "../../components/SAPReportModal";
 import { exportSAPsToExcel, exportSAPsToPDF } from "../../utils/exportUtils";
 import type { ScheduleChangeRequest, ChangeRequestStatus } from "../../types";
 
@@ -38,6 +40,7 @@ export const ChangeRequestsPage = () => {
   const [editingRequest, setEditingRequest] =
     useState<ScheduleChangeRequest | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [reportSap, setReportSap] = useState<ScheduleChangeRequest | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<ChangeRequestStatus | "ALL">(
     "ALL",
@@ -292,6 +295,13 @@ export const ChangeRequestsPage = () => {
                     </button>
                   )}
                   <button
+                    onClick={() => setReportSap(req)}
+                    className={`p-1.5 rounded-lg transition-colors ${theme === "dark" ? "text-slate-400 hover:text-blue-400 hover:bg-blue-900/20" : "text-slate-400 hover:text-blue-600 hover:bg-blue-50"}`}
+                    title="Relatório de aulas vinculadas"
+                  >
+                    <FileText size={16} />
+                  </button>
+                  <button
                     onClick={() =>
                       setExpandedId(expandedId === req.id ? null : req.id)
                     }
@@ -375,6 +385,10 @@ export const ChangeRequestsPage = () => {
           onClose={handleCloseModal}
           editingRequest={editingRequest}
         />
+      )}
+
+      {reportSap && (
+        <SAPReportModal sap={reportSap} onClose={() => setReportSap(null)} />
       )}
     </div>
   );

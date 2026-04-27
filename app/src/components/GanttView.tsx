@@ -60,7 +60,7 @@ export const GanttView = ({
   onSlotSelect,
   onDeleteEvent,
 }: Props) => {
-  const { instructors, locations } = useCourseStore();
+  const { instructors, locations, changeRequests } = useCourseStore();
   const { theme } = useTheme();
   const defaultRoomsMap = useDefaultRoomsMap();
   const isDark = theme === "dark";
@@ -174,6 +174,13 @@ export const GanttView = ({
                 // Se não achou a disciplina e o id parece UUID, mostra só "???"
                 const code = disc ? rawCode : (rawCode.includes("-") ? "???" : rawCode);
 
+                const sapLinked = ev?.changeRequestId
+                  ? changeRequests.find((r) => r.id === ev.changeRequestId)
+                  : null;
+                const sapTag = sapLinked
+                  ? sapLinked.numeroAlteracao.replace(/^SAP\s*/, "SAP-").replace(/\/\d+$/, "")
+                  : null;
+
                 const isSelected = ev ? selectedEventIds.includes(ev.id) : false;
                 const isSlotSelected = !ev && selectedSlots.some(
                   (s) => s.classId === classId && s.slotIndex === i && s.date === date
@@ -269,6 +276,14 @@ export const GanttView = ({
                             cursor: hasOverlap ? "pointer" : canEdit ? (isSelectionMode ? "pointer" : "grab") : "pointer",
                           }}
                         >
+                          {/* Badge SAP */}
+                          {!hasOverlap && sapTag && (
+                            <div className="absolute top-0 left-0 right-0 flex justify-center pointer-events-none">
+                              <span className="bg-red-600 text-white text-[6px] font-bold px-1 leading-tight rounded-b" style={{ letterSpacing: "0.02em" }}>
+                                {sapTag}
+                              </span>
+                            </div>
+                          )}
                           {/* Código da disciplina — sempre visível, nunca truncado */}
                           <span className="text-white text-[9px] font-extrabold leading-none w-full text-center overflow-hidden" style={{ letterSpacing: "-0.02em" }}>
                             {hasOverlap ? "⚠" : code}

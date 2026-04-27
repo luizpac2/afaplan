@@ -8,6 +8,7 @@ import type { ScheduleChangeRequest } from "../types";
 interface LinkChangeRequestModalProps {
   selectedEventIds: string[];
   onClose: () => void;
+  onLinked?: () => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -22,6 +23,7 @@ const STATUS_COLORS: Record<string, string> = {
 export const LinkChangeRequestModal = ({
   selectedEventIds,
   onClose,
+  onLinked,
 }: LinkChangeRequestModalProps) => {
   const { theme } = useTheme();
   const { changeRequests, linkEventsToRequest } = useCourseStore();
@@ -48,7 +50,7 @@ export const LinkChangeRequestModal = ({
         ...new Set([...request.eventIds, ...selectedEventIds]),
       ];
       await linkEventsToRequest(selectedRequestId, mergedIds);
-      onClose();
+      onLinked ? onLinked() : onClose();
     } finally {
       setLinking(false);
     }

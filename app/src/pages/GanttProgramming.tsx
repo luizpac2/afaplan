@@ -1286,7 +1286,15 @@ export const GanttProgramming = () => {
 
       {/* SAP Link */}
       {isLinkModalOpen && (
-        <LinkChangeRequestModal selectedEventIds={selectedEventIds} onClose={() => setIsLinkModalOpen(false)} />
+        <LinkChangeRequestModal
+          selectedEventIds={selectedEventIds}
+          onClose={() => setIsLinkModalOpen(false)}
+          onLinked={() => {
+            setIsLinkModalOpen(false);
+            setIsSelectionMode(false);
+            setSelectedEventIds([]);
+          }}
+        />
       )}
 
       {/* Delete confirm */}
