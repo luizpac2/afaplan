@@ -87,7 +87,7 @@ export const GanttProgramming = () => {
   useEffect(() => {
     if (!isDatePickerOpen) return;
     const handleOutside = (e: MouseEvent) => {
-      if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node)) {
+      if (!(e.target as Element).closest(".date-picker-popup")) {
         setIsDatePickerOpen(false);
       }
     };
@@ -667,7 +667,7 @@ export const GanttProgramming = () => {
               Hoje
             </button>
             {isDatePickerOpen && (
-              <div ref={datePickerRef} className={`absolute right-0 mt-1 z-50 rounded-xl border shadow-xl p-3 w-64 ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
+              <div ref={datePickerRef} className={`date-picker-popup absolute right-0 mt-1 z-50 rounded-xl border shadow-xl p-3 w-64 ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
                   {/* Month nav */}
                   <div className="flex items-center justify-between mb-2">
                     <button onClick={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() - 1, 1))}
@@ -1000,7 +1000,7 @@ export const GanttProgramming = () => {
             Hoje
           </button>
           {isDatePickerOpen && (
-              <div ref={datePickerRef} className={`absolute right-0 bottom-full mb-1 z-50 rounded-xl border shadow-xl p-3 w-64 ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
+              <div ref={datePickerRef} className={`date-picker-popup absolute right-0 bottom-full mb-1 z-50 rounded-xl border shadow-xl p-3 w-64 ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
                 <div className="flex items-center justify-between mb-2">
                   <button onClick={() => setPickerMonth(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() - 1, 1))}
                     className={`p-1 rounded hover:bg-slate-500/20 ${muted}`}>
