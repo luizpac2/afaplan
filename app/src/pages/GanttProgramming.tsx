@@ -840,7 +840,7 @@ export const GanttProgramming = () => {
                                 <span className="truncate">{n.title}</span>
                               </div>
                               {n.description && (
-                                <p className={`text-[9px] leading-tight mt-0.5 ${muted} line-clamp-2`}>
+                                <p className={`text-[9px] leading-tight mt-0.5 ${muted}`}>
                                   {n.description}
                                 </p>
                               )}

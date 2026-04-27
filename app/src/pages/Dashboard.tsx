@@ -296,9 +296,16 @@ export const Dashboard = () => {
                                 {n.description && (
                                   <p className={`text-[9px] leading-tight mt-0.5 ${muted} line-clamp-2`}>{n.description}</p>
                                 )}
-                                {n.startDate !== n.endDate && (
-                                  <p className={`text-[8px] mt-0.5 ${muted} opacity-70`}>até {n.endDate}</p>
-                                )}
+                                {n.startDate !== n.endDate && (() => {
+                                  const totalDays = Math.round((new Date(n.endDate).getTime() - new Date(n.startDate).getTime()) / 86400000) + 1;
+                                  const dayIdx = Math.round((new Date(DISPLAY_DATE).getTime() - new Date(n.startDate).getTime()) / 86400000) + 1;
+                                  return (
+                                    <div className="flex items-end justify-between mt-0.5">
+                                      <p className={`text-[8px] ${muted} opacity-70`}>até {n.endDate}</p>
+                                      <span className={`text-[9px] font-bold px-1 rounded ${isDark ? "bg-slate-600 text-slate-200" : "bg-slate-200 text-slate-600"}`}>{dayIdx}/{totalDays}</span>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             );
                           })}
@@ -350,6 +357,15 @@ export const Dashboard = () => {
                                 {ev.location && ev.description && (
                                   <p className={`text-[9px] ${col.sub}`}>📍 {ev.location}</p>
                                 )}
+                                {ev.endDate && ev.endDate !== ev.date && (() => {
+                                  const totalDays = Math.round((new Date(ev.endDate).getTime() - new Date(ev.date).getTime()) / 86400000) + 1;
+                                  const dayIdx = Math.round((new Date(DISPLAY_DATE).getTime() - new Date(ev.date).getTime()) / 86400000) + 1;
+                                  return (
+                                    <div className="flex justify-end mt-0.5">
+                                      <span className={`text-[9px] font-bold px-1 rounded ${isDark ? "bg-slate-600 text-slate-200" : "bg-slate-200 text-slate-600"}`}>{dayIdx}/{totalDays}</span>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             );
                           })}

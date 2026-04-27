@@ -776,7 +776,6 @@ export const EventForm = ({
                                 key={d.id}
                                 type="button"
                                 onClick={() => {
-                                  // Resolve local da disciplina contra o catálogo de locais ativos
                                   const discLoc = d.location ?? "";
                                   let resolvedLoc = "";
                                   if (discLoc && discLoc.toLowerCase() !== "sala de aula") {

@@ -300,17 +300,35 @@ export const Layout = () => {
     return item.roles.includes(userProfile?.role || "");
   };
 
-  const showHelp = () => {
-    alert(
-      "Bem-vindo ao AFA Plan!\n\nPara suporte, entre em contato com a Divisão de Ensino.\nRamal: 1234\nEmail: ensino.afa@fab.mil.br",
-    );
-  };
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const showHelp = () => setIsHelpOpen(true);
 
   return (
     <PresenceContext.Provider value={onlinePresence}>
     <div
       className={`flex flex-col h-[100dvh] font-sans overflow-hidden transition-colors duration-300 ${theme === "dark" ? "bg-slate-950 text-white" : "bg-gray-50 text-gray-900"}`}
     >
+      {isHelpOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className={`rounded-xl shadow-2xl w-full max-w-sm p-6 ${theme === "dark" ? "bg-slate-800 text-slate-100" : "bg-white text-gray-800"}`}>
+            <h2 className="text-lg font-semibold mb-3">Suporte AFA Plan</h2>
+            <p className={`text-sm mb-4 ${theme === "dark" ? "text-slate-300" : "text-gray-600"}`}>
+              Para suporte, entre em contato com a Divisão de Ensino.
+            </p>
+            <div className={`text-sm space-y-1 ${theme === "dark" ? "text-slate-200" : "text-gray-700"}`}>
+              <p><span className="font-medium">Ramal:</span> 6997</p>
+              <p><span className="font-medium">Email:</span> pachecolmpj@fab.mil.br</p>
+              <p className="pl-14">pelicano307@gmail.com</p>
+            </div>
+            <button
+              onClick={() => setIsHelpOpen(false)}
+              className="mt-5 w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
       {/* Main Header */}
       <header
         className={`h-16 border-b flex items-center justify-between px-4 z-50 shadow-sm relative sticky top-0 no-print transition-colors duration-300 ${theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-white border-slate-400"}`}

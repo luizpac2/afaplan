@@ -75,8 +75,8 @@ export const normalizeEvent = (row: Record<string, unknown>): Record<string, unk
 // ---------------------------------------------------------------------------
 
 /** Busca todos os registros de uma tabela */
-export const fetchCollection = async (tableName: string) => {
-  const { data, error } = await supabase.from(tableName).select("*");
+export const fetchCollection = async (tableName: string, select = "*") => {
+  const { data, error } = await supabase.from(tableName).select(select);
   if (error) throw error;
   return data ?? [];
 };
@@ -85,6 +85,7 @@ export const fetchCollection = async (tableName: string) => {
 export const fetchCollectionCached = async (
   tableName: string,
   ttlHours = 4,
+  select = "*",
 ) => {
   const key = `afa_cache_v3_${tableName}`;
   try {
@@ -95,7 +96,7 @@ export const fetchCollectionCached = async (
     }
   } catch { /* ignora cache corrompido */ }
 
-  const data = await fetchCollection(tableName);
+  const data = await fetchCollection(tableName, select);
   try {
     localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
   } catch { /* quota exceeded */ }
@@ -121,23 +122,38 @@ export const subscribeToCollection = (
 /**
  * Busca eventos por intervalo de datas — sem Realtime.
  */
+// Campos mínimos de programacao_aulas usados pelo frontend — evita baixar colunas desnecessárias
+const EVENTS_SELECT = "id,disciplineId,classId,date,startTime,endTime,location,type,evaluationType,isBlocking,targetSquadron,targetCourse,targetClass,description,notes,endDate,instructorTrigram,changeRequestId";
+
+/** Cache de eventos por semana: chave "startDate|endDate" → { data, ts } */
+const eventsWeekCache = new Map<string, { data: unknown[]; ts: number }>();
+const EVENTS_CACHE_TTL = 10 * 60_000; // 10 minutos
+
 export const subscribeToEventsByDateRange = (
   startDate: string,
   endDate: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   callback: (data: any[]) => void,
 ) => {
+  const cacheKey = `${startDate}|${endDate}`;
+  const cached = eventsWeekCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < EVENTS_CACHE_TTL) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    callback(cached.data as any[]);
+    return () => {};
+  }
+
   // Busca eventos normais (date dentro da semana) + eventos acadêmicos multi-dia que
   // se sobrepõem à semana (date <= weekEnd e endDate >= weekStart)
   Promise.all([
     supabase
       .from("programacao_aulas")
-      .select("*")
+      .select(EVENTS_SELECT)
       .gte("date", startDate)
       .lte("date", endDate),
     supabase
       .from("programacao_aulas")
-      .select("*")
+      .select(EVENTS_SELECT)
       .not("endDate", "is", null)
       .lte("date", endDate)
       .gte("endDate", startDate)
@@ -173,7 +189,9 @@ export const subscribeToEventsByDateRange = (
     });
     const deduped = [...slotSeen.values()];
     console.log(`[subscribeToEventsByDateRange] ${deduped.length} eventos após dedup`);
-    callback(deduped.map(normalizeEvent));
+    const normalized = deduped.map(normalizeEvent);
+    eventsWeekCache.set(cacheKey, { data: normalized, ts: Date.now() });
+    callback(normalized);
   });
   return () => {};
 };
