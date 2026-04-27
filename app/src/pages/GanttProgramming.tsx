@@ -657,7 +657,7 @@ export const GanttProgramming = () => {
             </button>
             {isDatePickerOpen && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setIsDatePickerOpen(false)} />
+                <div className="fixed inset-0 z-[29]" onClick={() => setIsDatePickerOpen(false)} />
                 <div className={`absolute right-0 mt-1 z-50 rounded-xl border shadow-xl p-3 w-64 ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
                   {/* Month nav */}
                   <div className="flex items-center justify-between mb-2">
