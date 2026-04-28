@@ -25,6 +25,7 @@ export const TABLE_READ: Record<string, string> = {
 export const invalidateCache = (writeTable: string) => {
   const readTable = TABLE_READ[writeTable] ?? writeTable;
   const keys = [
+    `afa_cache_v4_${readTable}`,
     `afa_cache_v3_${readTable}`,
     `afa_cache_v2_${readTable}`,
     `afa_cache_${readTable}`,
@@ -87,7 +88,7 @@ export const fetchCollectionCached = async (
   ttlHours = 4,
   select = "*",
 ) => {
-  const key = `afa_cache_v3_${tableName}`;
+  const key = `afa_cache_v4_${tableName}`;
   try {
     const raw = localStorage.getItem(key);
     if (raw) {
