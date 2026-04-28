@@ -97,9 +97,12 @@ export const fetchCollectionCached = async (
   } catch { /* ignora cache corrompido */ }
 
   const data = await fetchCollection(tableName, select);
-  try {
-    localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
-  } catch { /* quota exceeded */ }
+  // Não armazena array vazio — provavelmente falha silenciosa ou RLS
+  if (data.length > 0) {
+    try {
+      localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
+    } catch { /* quota exceeded */ }
+  }
   return data;
 };
 

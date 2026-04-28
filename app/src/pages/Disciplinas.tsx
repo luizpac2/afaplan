@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { Search, Plus, Trash2, Edit2, ArrowUpDown, ArrowUp, ArrowDown, Calendar, ChevronUp, Save, Undo2, PenLine, CheckCircle2, AlertCircle, Zap } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, ArrowUpDown, ArrowUp, ArrowDown, Calendar, ChevronUp, Save, Undo2, PenLine, CheckCircle2, AlertCircle, Zap, RefreshCw } from 'lucide-react';
 import { useCourseStore } from '../store/useCourseStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -8,16 +8,43 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { formatTrainingField } from '../utils/formatters';
 import type { Discipline, CourseYear } from '../types';
 import { Link } from 'react-router-dom';
+import { invalidateCache, fetchCollection } from '../services/supabaseService';
 
 // ---------- Bulk Edit Types ----------
 type EditableDisciplineFields = Pick<Discipline, 'name' | 'code' | 'instructor' | 'instructorTrigram' | 'noSpecificInstructor' | 'location' | 'load_hours' | 'trainingField' | 'color' | 'ppcLoads' | 'enabledCourses' | 'enabledYears'>;
 type BulkEdits = Record<string, Partial<EditableDisciplineFields>>;
 
 export const Disciplinas = () => {
-    const { disciplines, instructors, locations, addDiscipline, updateDiscipline, updateBatchDisciplines, deleteBatchDisciplines, deleteDiscipline, unifyAllDisciplines } = useCourseStore();
+    const { disciplines, instructors, locations, addDiscipline, updateDiscipline, updateBatchDisciplines, deleteBatchDisciplines, deleteDiscipline, unifyAllDisciplines, setDisciplines } = useCourseStore();
     const activeLocations = locations.filter((l) => l.status === 'ATIVO').sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
     const { userProfile } = useAuth();
     const { theme } = useTheme();
+
+    const [reloading, setReloading] = useState(false);
+    const handleReloadDisciplines = async () => {
+        setReloading(true);
+        try {
+            invalidateCache("disciplines");
+            const data = await fetchCollection("disciplinas");
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const expanded = (data as any[]).map((d) => ({
+                ...d,
+                ...(d.data && typeof d.data === "object" ? d.data : {}),
+                id: d.id,
+                code: (d.sigla || d.code || d.id || "").toUpperCase(),
+                name: d.nome || d.name || "Sem Nome",
+                color: d.color || d.data?.color || null,
+                trainingField: d.campo || d.trainingField || d.data?.trainingField || "GERAL",
+                load_hours: d.carga_horaria || d.load_hours,
+                location: d.location || d.data?.location || null,
+                instructorTrigram: d.instructorTrigram || d.data?.instructorTrigram || null,
+                instructor: d.instructor || d.data?.instructor || null,
+            }));
+            setDisciplines(expanded as Discipline[]);
+        } finally {
+            setReloading(false);
+        }
+    };
 
     // ---- Sticky offset measurement via refs ----
     const pageHeaderRef = useRef<HTMLDivElement>(null);
@@ -430,6 +457,15 @@ export const Disciplinas = () => {
                             >
                                 <Plus size={16} />
                                 Novo
+                            </button>
+                            <button
+                                onClick={handleReloadDisciplines}
+                                disabled={reloading}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-sm whitespace-nowrap border ${theme === 'dark' ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 shadow-sm'} disabled:opacity-50`}
+                                title="Limpa o cache e recarrega disciplinas do banco"
+                            >
+                                <RefreshCw size={14} className={reloading ? 'animate-spin' : ''} />
+                                {reloading ? 'Recarregando...' : 'Recarregar'}
                             </button>
                             {userProfile?.role === 'SUPER_ADMIN' && (
                                 <button
@@ -1007,13 +1043,23 @@ export const Disciplinas = () => {
                                     <Plus size={24} className={theme === 'dark' ? 'text-slate-500' : 'text-gray-400'} />
                                 </div>
                                 <h3 className={`text-lg  ${theme === 'dark' ? 'text-slate-200' : 'text-gray-900'}`}>Nenhuma disciplina ainda</h3>
-                                <p className={`mt-1 mb-6 ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'}`}>Comece criando sua primeira matéria.</p>
-                                <button
-                                    onClick={() => setIsModalOpen(true)}
-                                    className="text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:underline "
-                                >
-                                    Criar Disciplina
-                                </button>
+                                <p className={`mt-1 mb-4 ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'}`}>Se já existem disciplinas no banco, clique em Recarregar.</p>
+                                <div className="flex items-center justify-center gap-3">
+                                    <button
+                                        onClick={handleReloadDisciplines}
+                                        disabled={reloading}
+                                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                                    >
+                                        <RefreshCw size={14} className={reloading ? 'animate-spin' : ''} />
+                                        {reloading ? 'Recarregando...' : 'Recarregar'}
+                                    </button>
+                                    <button
+                                        onClick={() => setIsModalOpen(true)}
+                                        className="text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:underline text-sm"
+                                    >
+                                        Criar Disciplina
+                                    </button>
+                                </div>
                             </div>
                         ) : (
                             <div className="w-full relative">
