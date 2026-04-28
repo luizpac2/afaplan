@@ -51,19 +51,14 @@ export const SupabaseSync = () => {
     // Coleções estáticas: carregadas UMA VEZ ao login ou do localStorage se < 4h
     const loadStaticCollections = async () => {
       try {
-        const DISC_SELECT = "id,sigla,code,nome,name,data,carga_horaria,load_hours,location,instructorTrigram,instructor,trainingField,campo,year,course,category,enabledYears,enabledCourses,noSpecificInstructor,weeklyHours";
-        const INST_SELECT = "id,trigram,trigrama,warName,nome_guerra,name,nome_completo,data,venture,vinculo,rank,specialty,titulacao,especialidade,weeklyLoadLimit,carga_horaria_max,enabledDisciplines,enabledClasses,enabledCourses";
-        const SCR_SELECT = "id,type,classId,date,startTime,endTime,disciplineId,instructorTrigram,location,description,status,requestedBy,createdAt,numeroAlteracao,targetSquadron";
-
         const results = await Promise.allSettled([
-          fetchCollectionCached("disciplinas", 4, DISC_SELECT),
-          fetchCollectionCached("cohorts"),
+          fetchCollectionCached("disciplinas"),
           fetchCollectionCached("cohorts"),
           fetchCollectionCached("visual_configs"),
-          fetchCollectionCached("instructors", 4, INST_SELECT),
+          fetchCollectionCached("instructors"),
           fetchCollectionCached("occurrences"),
           fetchCollectionCached("semester_configs"),
-          fetchCollectionCached("schedule_change_requests", 4, SCR_SELECT),
+          fetchCollectionCached("schedule_change_requests"),
         ]);
 
         const [
