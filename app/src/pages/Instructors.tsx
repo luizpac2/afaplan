@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, Trash2, Edit2, History, PenLine, Save, Undo2, ChevronUp, CheckCircle2, AlertCircle, Zap } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, History, PenLine, Save, Undo2, ChevronUp, CheckCircle2, AlertCircle, Zap, Link2 } from 'lucide-react';
 import { useCourseStore } from '../store/useCourseStore';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import type { Instructor, InstructorOccurrence, InstructorVenture, AcademicTitle } from '../types';
 import { Badge } from '../components/common/Badge';
+import { supabase } from '../config/supabase';
 
 type BulkInstructorEdits = Record<string, Partial<Pick<Instructor, 'venture' | 'maxTitle' | 'weeklyLoadLimit' | 'specialty' | 'rank'>>>;
 
@@ -43,6 +44,22 @@ export const Instructors = () => {
    const [bulkEdits, setBulkEdits]       = useState<BulkInstructorEdits>({});
    const [isSaving, setIsSaving]         = useState(false);
    const [saveResult, setSaveResult]     = useState<{ success: number; total: number } | null>(null);
+
+   // Set of emails that have a linked auth user (DOCENTE role)
+   const [linkedEmails, setLinkedEmails] = useState<Set<string>>(new Set());
+   useEffect(() => {
+      if (!canEdit) return;
+      supabase.functions.invoke('admin-list-users').then(({ data }) => {
+         if (!data?.users) return;
+         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         const emails = new Set<string>((data.users as any[])
+            .filter((u: any) => u.role === 'DOCENTE' || u.role === 'docente')
+            .map((u: any) => (u.email ?? '').toLowerCase())
+            .filter(Boolean));
+         setLinkedEmails(emails);
+      });
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [canEdit]);
 
    useEffect(() => {
       const obs = new ResizeObserver(entries => {
@@ -347,7 +364,16 @@ export const Instructors = () => {
                         {filteredInstructors.length > 0 ? filteredInstructors.map(instructor => (
                            <tr key={instructor.trigram} className="hover:bg-blue-500/5 transition-colors group">
                               <td className="px-4 py-1.5 text-sm font-mono font-bold text-blue-500">{instructor.trigram}</td>
-                              <td className="px-4 py-1.5 text-sm font-medium">{instructor.warName}</td>
+                              <td className="px-4 py-1.5 text-sm font-medium">
+                                 <div className="flex items-center gap-1.5">
+                                    {instructor.warName}
+                                    {instructor.email && linkedEmails.has(instructor.email.toLowerCase()) && (
+                                       <span title={`Vinculado ao usuário ${instructor.email}`} className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                          <Link2 size={8} /> USER
+                                       </span>
+                                    )}
+                                 </div>
+                              </td>
                               <td className="px-4 py-1.5 hidden lg:table-cell">
                                  <Badge variant={instructor.venture === 'EFETIVO' ? 'blue' : instructor.venture === 'QOCON' ? 'purple' : instructor.venture === 'PRESTADOR_TAREFA' ? 'amber' : 'slate'}>
                                     {getVentureLabel(instructor.venture)}
@@ -446,7 +472,23 @@ export const Instructors = () => {
                            </div>
                         </div>
                         <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
-                           <div><label className="block text-xs font-medium text-slate-500 mb-1">E-mail</label><input name="email" type="email" defaultValue={editingInstructor?.email} className={inputCls} /></div>
+                           <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">
+                                 E-mail
+                                 <span className="ml-1 font-normal text-blue-400">(chave de vínculo com usuário)</span>
+                              </label>
+                              <input name="email" type="email" defaultValue={editingInstructor?.email} className={inputCls} />
+                              {editingInstructor?.email && linkedEmails.has(editingInstructor.email.toLowerCase()) && (
+                                 <p className="mt-1 text-[11px] text-green-600 dark:text-green-400 flex items-center gap-1">
+                                    <Link2 size={10} /> Vinculado ao usuário {editingInstructor.email}
+                                 </p>
+                              )}
+                              {editingInstructor?.email && !linkedEmails.has(editingInstructor.email.toLowerCase()) && (
+                                 <p className="mt-1 text-[11px] text-slate-400 flex items-center gap-1">
+                                    Nenhum usuário DOCENTE com este e-mail encontrado
+                                 </p>
+                              )}
+                           </div>
                            <div><label className="block text-xs font-medium text-slate-500 mb-1">Telefone/WhatsApp</label><input name="phone" defaultValue={editingInstructor?.phone} className={inputCls} /></div>
                         </div>
                      </div>

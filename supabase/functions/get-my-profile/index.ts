@@ -21,7 +21,6 @@ Deno.serve(async (req: Request) => {
   const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anonKey     = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-  // Identifica o usuário pelo token
   const callerClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
   });
@@ -47,7 +46,6 @@ Deno.serve(async (req: Request) => {
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
-  // Usa service role para bypassar RLS
   const admin = createClient(supabaseUrl, serviceKey);
   const { data: roleRow, error: roleErr } = await admin
     .from("user_roles")
@@ -74,12 +72,41 @@ Deno.serve(async (req: Request) => {
     cadete:      "CADETE",
   };
 
-  return new Response(JSON.stringify({
+  const role = roleMap[roleRow.role as string] ?? "CADETE";
+  const profile: Record<string, unknown> = {
     uid: user.id,
     email: user.email,
     displayName: meta.nome ?? user.email,
-    role: roleMap[roleRow.role as string] ?? "CADETE",
+    role,
     status: "APPROVED",
     createdAt: user.created_at,
-  }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  };
+
+  // Vincula docente ao registro de instructor via email
+  if (role === "DOCENTE") {
+    const { data: instrRow } = await admin
+      .from("instructors")
+      .select("trigram")
+      .ilike("email", email)
+      .maybeSingle();
+    if (instrRow?.trigram) {
+      profile.instructorTrigram = instrRow.trigram;
+    }
+  }
+
+  // Vincula cadete ao registro via email
+  if (role === "CADETE" || role === "CHEFE_TURMA") {
+    const { data: cadetRow } = await admin
+      .from("cadetes")
+      .select("id")
+      .ilike("email", email)
+      .maybeSingle();
+    if (cadetRow?.id) {
+      profile.cadetId = cadetRow.id;
+    }
+  }
+
+  return new Response(JSON.stringify(profile), {
+    status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 });

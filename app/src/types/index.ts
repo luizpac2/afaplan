@@ -15,8 +15,11 @@ export interface UserProfile {
   role: UserRole;
   createdAt: string; // ISO Date
 
+  // Vínculo com instructor (DOCENTE) — preenchido via email match
+  instructorTrigram?: string; // instructors.trigram correspondente ao email do usuário
+
   // Campos para cadetes
-  cadetId?: string;      // cadetes.id (ex: '26-001')
+  cadetId?: string;      // cadetes.id (ex: '26-001') — preenchido via email match
   turmaAula?: string;    // 'TURMA_A'…'TURMA_F'
   isChefeTurmaAtivo?: boolean; // true se estiver com mandato ativo hoje
 
