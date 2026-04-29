@@ -113,11 +113,16 @@ export const Dashboard = () => {
       (n.targetSquadron == null || Number(n.targetSquadron) === sq)
     );
 
+  const ACADEMIC_TYPES = new Set(["ACADEMIC", "EVALUATION", "COMMEMORATIVE", "SPORTS", "INFORMATIVE", "HOLIDAY"]);
   const squadronAcademic = (sq: number) =>
     todayEvents.filter((e) => {
-      if (e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC") return false;
-      const end = e.endDate ?? e.date;
+      if (!ACADEMIC_TYPES.has(e.type ?? "") && e.disciplineId !== "ACADEMIC") return false;
+      const end = (e as any).endDate ?? e.date;
       if (DISPLAY_DATE < e.date || DISPLAY_DATE > end) return false;
+      if (e.type === "EVALUATION") {
+        const evSq = e.classId ? parseInt(e.classId.charAt(0)) : NaN;
+        return isNaN(evSq) || evSq === sq;
+      }
       const ts = e.targetSquadron;
       return ts === "ALL" || ts == null || Number(ts) === sq;
     });
