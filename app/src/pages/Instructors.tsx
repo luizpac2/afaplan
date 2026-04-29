@@ -81,7 +81,7 @@ export const Instructors = () => {
       return [...instructors].sort((a, b) => a.warName.localeCompare(b.warName)).filter(i => {
          if (debouncedSearch.startsWith('!')) {
             const t = debouncedSearch.substring(1).toLowerCase();
-            if (t === 'disciplina') return !i.enabledDisciplines?.length;
+            if (t === 'disciplina') return !disciplines.some(d => d.instructorTrigram === i.trigram || d.substituteTrigram === i.trigram);
             if (t === 'turma')      return !i.enabledClasses?.length;
             if (t === 'ch')         return !i.weeklyLoadLimit;
             return false;
@@ -381,7 +381,7 @@ export const Instructors = () => {
                               </td>
                               <td className="px-4 py-1.5 min-w-[120px]">
                                  <div className="flex flex-wrap gap-1">
-                                    {(instructor.enabledDisciplines || []).length > 0 ? instructor.enabledDisciplines?.map(id => { const disc = disciplines.find(d => d.id === id || d.code === id); return disc ? <Badge key={id} variant="slate" title={disc.name}>{disc.code}</Badge> : null; }) : <span className="text-[10px] text-slate-400 italic">Nenhuma</span>}
+                                    {(() => { const assigned = disciplines.filter(d => d.instructorTrigram === instructor.trigram || d.substituteTrigram === instructor.trigram); return assigned.length > 0 ? assigned.map(d => <Badge key={d.id} variant="slate" title={d.name}>{d.code}</Badge>) : <span className="text-[10px] text-slate-400 italic">Nenhuma</span>; })()}
                                  </div>
                               </td>
                               <td className="px-4 py-1.5 min-w-[100px]">
@@ -395,7 +395,7 @@ export const Instructors = () => {
                                     <button onClick={() => { setSelectedInstructorForOccurrence(instructor.trigram); setIsOccurrenceModalOpen(true); }} className="p-1 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded" title="Ocorrência"><History size={14} /></button>
                                     {canEdit && (
                                        <>
-                                          <button onClick={() => { setEditingInstructor(instructor); setSelectedDisciplines(instructor.enabledDisciplines || []); setSelectedClasses(instructor.enabledClasses || []); setIsInstructorModalOpen(true); }} className="p-1 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"><Edit2 size={14} /></button>
+                                          <button onClick={() => { setEditingInstructor(instructor); setSelectedDisciplines([...new Set([...disciplines.filter(d => d.instructorTrigram === instructor.trigram || d.substituteTrigram === instructor.trigram).map(d => d.id), ...(instructor.enabledDisciplines || [])])]); setSelectedClasses(instructor.enabledClasses || []); setIsInstructorModalOpen(true); }} className="p-1 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"><Edit2 size={14} /></button>
                                           <button onClick={() => { if (confirm(`Excluir ${instructor.warName}?`)) deleteInstructor(instructor.trigram); }} className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"><Trash2 size={14} /></button>
                                        </>
                                     )}
