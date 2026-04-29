@@ -45,6 +45,8 @@ export const Instructors = () => {
    const [isSaving, setIsSaving]         = useState(false);
    const [saveResult, setSaveResult]     = useState<{ success: number; total: number } | null>(null);
 
+   const canEdit = useMemo(() => ['SUPER_ADMIN', 'ADMIN'].includes(userProfile?.role || ''), [userProfile]);
+
    // Set of emails that have a linked auth user (DOCENTE role)
    const [linkedEmails, setLinkedEmails] = useState<Set<string>>(new Set());
    useEffect(() => {
@@ -74,8 +76,6 @@ export const Instructors = () => {
       [pageHeaderRef, toolbarRef, bulkHeaderRef, bulkActionsRef].forEach(r => { if (r.current) obs.observe(r.current); });
       return () => obs.disconnect();
    }, [bulkEditOpen]);
-
-   const canEdit = useMemo(() => ['SUPER_ADMIN', 'ADMIN'].includes(userProfile?.role || ''), [userProfile]);
 
    const filteredInstructors = useMemo(() => {
       return [...instructors].sort((a, b) => a.warName.localeCompare(b.warName)).filter(i => {

@@ -15,10 +15,37 @@ type EditableDisciplineFields = Pick<Discipline, 'name' | 'code' | 'instructor' 
 type BulkEdits = Record<string, Partial<EditableDisciplineFields>>;
 
 export const Disciplinas = () => {
-    const { disciplines, instructors, locations, addDiscipline, updateDiscipline, updateBatchDisciplines, deleteBatchDisciplines, deleteDiscipline, unifyAllDisciplines, setDisciplines } = useCourseStore();
+    const { disciplines, instructors, locations, addDiscipline, updateDiscipline, updateBatchDisciplines, deleteBatchDisciplines, deleteDiscipline, unifyAllDisciplines, setDisciplines, updateInstructor } = useCourseStore();
     const activeLocations = locations.filter((l) => l.status === 'ATIVO').sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
     const { userProfile } = useAuth();
     const { theme } = useTheme();
+
+    // Paleta de cores escuras/médias — texto branco legível em todas
+    const COLOR_PALETTE = [
+        "#1d4ed8","#7c3aed","#b45309","#047857","#dc2626","#0369a1","#6d28d9","#92400e",
+        "#065f46","#991b1b","#1e40af","#5b21b6","#78350f","#064e3b","#7f1d1d","#1e3a8a",
+        "#4c1d95","#451a03","#022c22","#450a0a","#0c4a6e","#3b0764","#713f12","#14532d",
+        "#7f1d1d","#155e75","#4a044e","#431407","#052e16","#3f0818","#164e63","#2e1065",
+        "#78350f","#14532d","#1a2e05","#0a0a0a","#1c1917","#0c0a09","#fbbf24","#f97316",
+        "#84cc16","#06b6d4","#ec4899","#8b5cf6","#10b981","#f59e0b","#3b82f6","#ef4444",
+    ].filter(c => {
+        // Garante contraste mínimo com branco (luminância < 0.4)
+        const r = parseInt(c.slice(1,3),16)/255, g = parseInt(c.slice(3,5),16)/255, b = parseInt(c.slice(5,7),16)/255;
+        const lum = 0.2126*r + 0.7152*g + 0.0722*b;
+        return lum < 0.45;
+    });
+
+    const [distributing, setDistributing] = useState(false);
+    const handleDistribuirCores = async () => {
+        if (!window.confirm(`Distribuir cores únicas para todas as ${disciplines.length} disciplinas? Cores editadas manualmente serão substituídas.`)) return;
+        setDistributing(true);
+        const updates: Record<string, { color: string }> = {};
+        disciplines.forEach((d, i) => {
+            updates[d.id] = { color: COLOR_PALETTE[i % COLOR_PALETTE.length] };
+        });
+        await updateBatchDisciplines(updates);
+        setDistributing(false);
+    };
 
     const [reloading, setReloading] = useState(false);
     const handleReloadDisciplines = async () => {
@@ -136,11 +163,22 @@ export const Disciplinas = () => {
     }, [userProfile]);
 
     const handleSave = (data: Omit<Discipline, 'id'>) => {
+        const disciplineId = editingId ?? (data.code || '').toUpperCase();
         if (editingId) {
             updateDiscipline(editingId, data);
         } else {
-            addDiscipline({ ...data, id: (data.code || '').toUpperCase() });
+            addDiscipline({ ...data, id: disciplineId });
         }
+        // Habilita os instrutores selecionados para esta disciplina
+        const trigramsToEnable = [data.instructorTrigram, data.substituteTrigram].filter(Boolean) as string[];
+        trigramsToEnable.forEach(trigram => {
+            const inst = instructors.find(i => i.trigram === trigram);
+            if (inst && !inst.enabledDisciplines?.includes(disciplineId)) {
+                updateInstructor(trigram, {
+                    enabledDisciplines: [...(inst.enabledDisciplines ?? []), disciplineId],
+                });
+            }
+        });
         closeModal();
     };
 
@@ -457,6 +495,14 @@ export const Disciplinas = () => {
                             >
                                 <Plus size={16} />
                                 Novo
+                            </button>
+                            <button
+                                onClick={handleDistribuirCores}
+                                disabled={distributing}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-sm whitespace-nowrap border ${theme === 'dark' ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 shadow-sm'} disabled:opacity-50`}
+                                title="Atribui uma cor única para cada disciplina"
+                            >
+                                🎨 {distributing ? 'Distribuindo...' : 'Distribuir Cores'}
                             </button>
                             <button
                                 onClick={handleReloadDisciplines}

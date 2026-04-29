@@ -24,22 +24,33 @@ export const logAction = ({
   after,
   user,
 }: LogActionParams): void => {
-  const entry: Omit<AuditLogEntry, "id"> = {
-    timestamp: new Date().toISOString(),
-    action,
-    entity,
-    entityId,
-    entityName,
-    changes: (action === "UPDATE" && (before || after)) ? { before, after } : undefined,
-    user: user ?? "Sistema",
+  // Resolve o nome do usuário: parâmetro explícito → session do Supabase → erro
+  const resolveAndLog = async () => {
+    let resolvedUser = user;
+    if (!resolvedUser) {
+      const { data: { session } } = await supabase.auth.getSession();
+      const meta = session?.user?.user_metadata;
+      // meta.nome é o campo usado pelo get-my-profile (displayName)
+      resolvedUser = meta?.nome || meta?.name || meta?.full_name || meta?.display_name || session?.user?.email || "Desconhecido";
+      resolvedUser = resolvedUser ?? "Desconhecido";
+    }
+
+    const entry: Omit<AuditLogEntry, "id"> = {
+      timestamp: new Date().toISOString(),
+      action,
+      entity,
+      entityId,
+      entityName,
+      changes: (action === "UPDATE" && (before || after)) ? { before, after } : undefined,
+      user: resolvedUser,
+    };
+
+    const { error } = await supabase.functions
+      .invoke("admin-manage-content", { body: { action: "log_action", entry } });
+    if (error) console.warn("[audit] falha ao gravar log:", error.message);
   };
 
-  // Fire-and-forget: grava via edge function (service role, sem RLS)
-  supabase.functions
-    .invoke("admin-manage-content", { body: { action: "log_action", entry } })
-    .then(({ error }) => {
-      if (error) console.warn("[audit] falha ao gravar log:", error.message);
-    });
+  void resolveAndLog();
 };
 
 export const getEntityName = (

@@ -575,6 +575,51 @@ export const GanttProgramming = () => {
     }
   };
 
+  const selectAllSlotsForDay = (dateStr: string) => {
+    const slots: { classId: string; slotIndex: number; date: string }[] = [];
+    for (const classId of squadronClasses) {
+      for (let si = 0; si < TIME_SLOTS.length; si++) {
+        slots.push({ classId, slotIndex: si, date: dateStr });
+      }
+    }
+    setSelectedSlots((prev) => {
+      const existing = new Set(prev.map((s) => `${s.classId}|${s.slotIndex}|${s.date}`));
+      const toAdd = slots.filter((s) => !existing.has(`${s.classId}|${s.slotIndex}|${s.date}`));
+      return toAdd.length > 0 ? [...prev, ...toAdd] : prev.filter((s) => s.date !== dateStr);
+    });
+  };
+
+  const selectAllSlotsForWeek = () => {
+    const allSlots: { classId: string; slotIndex: number; date: string }[] = [];
+    for (const day of weekDays.slice(0, 6)) {
+      const dateStr = formatDate(day);
+      if (dayOff(dateStr).length > 0) continue;
+      for (const classId of squadronClasses) {
+        for (let si = 0; si < TIME_SLOTS.length; si++) {
+          allSlots.push({ classId, slotIndex: si, date: dateStr });
+        }
+      }
+    }
+    setSelectedSlots(allSlots);
+  };
+
+  const selectAllEventsForDay = (dateStr: string) => {
+    const ids = weekEvents
+      .filter((e) => e.date === dateStr && e.type !== "ACADEMIC" && e.type !== "DAY_OFF" && e.classId?.startsWith(String(currentSquadron)))
+      .map((e) => e.id);
+    setSelectedEventIds((prev) => {
+      const allSelected = ids.every((id) => prev.includes(id));
+      return allSelected ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])];
+    });
+  };
+
+  const selectAllEventsForWeek = () => {
+    const ids = weekEvents
+      .filter((e) => e.type !== "ACADEMIC" && e.type !== "DAY_OFF" && e.classId?.startsWith(String(currentSquadron)))
+      .map((e) => e.id);
+    setSelectedEventIds(ids);
+  };
+
   const today  = formatDate(new Date());
   const card   = isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200 shadow-sm";
   const text   = isDark ? "text-slate-100" : "text-slate-800";
@@ -607,8 +652,12 @@ export const GanttProgramming = () => {
             </button>
           )}
           {canEdit && isBatchMode && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className={`text-xs ${muted}`}>{selectedSlots.length} slot(s)</span>
+              <button onClick={selectAllSlotsForWeek}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-green-400 text-green-600`}>
+                ☑ Semana
+              </button>
               <button
                 onClick={() => { if (selectedSlots.length > 0) setIsBatchFormOpen(true); }}
                 disabled={selectedSlots.length === 0}
@@ -633,6 +682,10 @@ export const GanttProgramming = () => {
           {canEdit && isSelectionMode && (
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`text-xs ${muted}`}>{selectedEventIds.length} selecionado(s)</span>
+              <button onClick={selectAllEventsForWeek}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-blue-400 ${text}`}>
+                ☑ Semana
+              </button>
               <button onClick={() => setIsLinkModalOpen(true)} disabled={selectedEventIds.length === 0}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium text-blue-600 border-blue-400 hover:bg-blue-500/10 disabled:opacity-40 transition-colors">
                 <Link2 size={13} /> Vincular SAP
@@ -768,16 +821,44 @@ export const GanttProgramming = () => {
               <span className={`text-xs ${muted}`}>
                 {weekEvents.filter(e => e.date === dateStr && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC" && e.classId?.startsWith(String(currentSquadron))).length} aula(s)
               </span>
-              {notices_.length > 0 && (
-                <div className="flex gap-1 ml-auto">
-                  {notices_.slice(0, 3).map((n) => (
-                    <span key={n.id} title={n.description}
-                      className="text-[9px] bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-400/30 px-1.5 py-0.5 rounded-full truncate max-w-[120px]">
-                      {n.title}
-                    </span>
-                  ))}
-                </div>
-              )}
+              <div className="flex gap-1 ml-auto items-center">
+                {canEdit && isBatchMode && !isDayOff && (
+                  <button
+                    onClick={() => selectAllSlotsForDay(dateStr)}
+                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
+                      selectedSlots.some((s) => s.date === dateStr)
+                        ? "bg-green-500/20 border-green-400 text-green-600"
+                        : `${card} hover:border-green-400 text-green-600`
+                    }`}
+                    title="Selecionar/desselecionar todos os slots deste dia"
+                  >
+                    ☑ Dia
+                  </button>
+                )}
+                {canEdit && isSelectionMode && !isDayOff && (
+                  <button
+                    onClick={() => selectAllEventsForDay(dateStr)}
+                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
+                      weekEvents.filter((e) => e.date === dateStr && e.type !== "ACADEMIC" && e.type !== "DAY_OFF" && e.classId?.startsWith(String(currentSquadron))).every((e) => selectedEventIds.includes(e.id))
+                        ? "bg-blue-500/20 border-blue-400 text-blue-600"
+                        : `${card} hover:border-blue-400 text-blue-600`
+                    }`}
+                    title="Selecionar/desselecionar todos os eventos deste dia"
+                  >
+                    ☑ Dia
+                  </button>
+                )}
+                {notices_.length > 0 && (
+                  <>
+                    {notices_.slice(0, 3).map((n) => (
+                      <span key={n.id} title={n.description}
+                        className="text-[9px] bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-400/30 px-1.5 py-0.5 rounded-full truncate max-w-[120px]">
+                        {n.title}
+                      </span>
+                    ))}
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Body: Gantt + Sidebar — row on desktop, column on mobile */}

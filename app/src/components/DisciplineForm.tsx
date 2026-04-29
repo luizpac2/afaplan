@@ -1,6 +1,6 @@
 
-import { useState, useEffect } from 'react';
-import { X, Save } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Save, Search } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCourseStore } from '../store/useCourseStore';
 import type { Discipline, CourseYear } from '../types';
@@ -13,7 +13,13 @@ interface DisciplineFormProps {
 
 export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFormProps) => {
     const { theme } = useTheme();
-    const { instructors, classes, locations } = useCourseStore();
+    const { instructors, locations } = useCourseStore();
+    const [titularSearch, setTitularSearch] = useState('');
+    const [substituteSearch, setSubstituteSearch] = useState('');
+    const [showTitularDropdown, setShowTitularDropdown] = useState(false);
+    const [showSubstituteDropdown, setShowSubstituteDropdown] = useState(false);
+    const titularRef = useRef<HTMLDivElement>(null);
+    const substituteRef = useRef<HTMLDivElement>(null);
     const activeLocations = locations.filter((l) => l.status === 'ATIVO').sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
     const [formData, setFormData] = useState<Omit<Discipline, 'id'>>({
         code: '',
@@ -49,8 +55,23 @@ export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFo
                 color: initialData.color,
                 noSpecificInstructor: initialData.noSpecificInstructor || false
             });
+            // Pré-preenche os campos de busca com o nome do instrutor atual
+            const titular = instructors.find(i => i.trigram === initialData.instructorTrigram);
+            if (titular) setTitularSearch(`${titular.trigram} - ${titular.warName}`);
+            const substitute = instructors.find(i => i.trigram === initialData.substituteTrigram);
+            if (substitute) setSubstituteSearch(`${substitute.trigram} - ${substitute.warName}`);
         }
-    }, [initialData]);
+    }, [initialData, instructors]);
+
+    // Fecha dropdowns ao clicar fora
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (titularRef.current && !titularRef.current.contains(e.target as Node)) setShowTitularDropdown(false);
+            if (substituteRef.current && !substituteRef.current.contains(e.target as Node)) setShowSubstituteDropdown(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
 
     const handleLoadChange = (course: string, year: number, value: number) => {
         setFormData(prev => {
@@ -190,89 +211,104 @@ export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFo
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className={`block text-sm  mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'}`}>Docente Titular</label>
-                            <select
-                                value={formData.noSpecificInstructor ? '__NO_INSTRUCTOR__' : formData.instructorTrigram}
-                                onChange={e => {
-                                    const trigram = e.target.value;
-                                    if (trigram === '__NO_INSTRUCTOR__') {
-                                        setFormData({
-                                            ...formData,
-                                            instructorTrigram: '',
-                                            instructor: '',
-                                            noSpecificInstructor: true
-                                        });
-                                    } else {
-                                        const inst = instructors.find(i => i.trigram === trigram);
-                                        setFormData({
-                                            ...formData,
-                                            instructorTrigram: trigram,
-                                            instructor: inst ? inst.warName : '', // Keep legacy sync
-                                            noSpecificInstructor: false
-                                        });
-                                    }
-                                }}
-                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-slate-100' : 'border-gray-300'}`}
-                            >
-                                <option value="">Nenhum</option>
-                                <option value="__NO_INSTRUCTOR__">Sem instrutor (Setor)</option>
-                                {instructors
-                                    .filter(inst => {
-                                        // 1. If editing, check if enabled for this specific discipline
-                                        if (initialData?.id && !inst.enabledDisciplines?.includes(initialData.id)) return false;
-
-                                        // 2. Check squadron/year compatibility
-                                        if (formData.enabledYears.length > 0) {
-                                            const hasClassInYears = inst.enabledClasses?.some(cid => {
-                                                const classObj = classes.find(c => c.id === cid);
-                                                return classObj && formData.enabledYears.includes(classObj.year);
-                                            });
-                                            if (!hasClassInYears) return false;
-                                        }
-
-                                        return true;
-                                    })
-                                    .map(inst => (
-                                        <option key={inst.trigram} value={inst.trigram}>
-                                            {inst.trigram} - {inst.warName}
-                                        </option>
-                                    ))}
-                            </select>
-                            {initialData?.id && instructors.filter(i => i.enabledDisciplines?.includes(initialData.id)).length === 0 && (
-                                <p className="text-[10px] text-amber-600 mt-1 ">⚠️ Nenhum docente habilitado para esta disciplina.</p>
+                        {/* Docente Titular — pesquisa livre */}
+                        <div ref={titularRef}>
+                            <label className={`block text-sm mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'}`}>Docente Titular</label>
+                            <div className="flex gap-1 mb-1">
+                                <button type="button" onClick={() => { setFormData({ ...formData, noSpecificInstructor: true, instructorTrigram: '', instructor: '' }); setTitularSearch('Sem instrutor (Setor)'); setShowTitularDropdown(false); }}
+                                    className={`text-[10px] px-2 py-1 rounded border transition-colors ${formData.noSpecificInstructor ? 'bg-blue-600 text-white border-blue-600' : theme === 'dark' ? 'border-slate-600 text-slate-400 hover:border-blue-500' : 'border-gray-300 text-gray-500 hover:border-blue-400'}`}>
+                                    Sem instrutor (Setor)
+                                </button>
+                                {(formData.instructorTrigram || formData.noSpecificInstructor) && (
+                                    <button type="button" onClick={() => { setFormData({ ...formData, instructorTrigram: '', instructor: '', noSpecificInstructor: false }); setTitularSearch(''); }}
+                                        className={`text-[10px] px-2 py-1 rounded border transition-colors ${theme === 'dark' ? 'border-slate-600 text-slate-400 hover:text-red-400' : 'border-gray-300 text-gray-400 hover:text-red-500'}`}>
+                                        Limpar
+                                    </button>
+                                )}
+                            </div>
+                            <div className="relative">
+                                <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`} />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por trigrama ou nome..."
+                                    value={titularSearch}
+                                    onChange={e => { setTitularSearch(e.target.value); setShowTitularDropdown(true); }}
+                                    onFocus={() => setShowTitularDropdown(true)}
+                                    className={`w-full pl-8 pr-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-slate-100' : 'border-gray-300'}`}
+                                />
+                                {showTitularDropdown && titularSearch.length > 0 && (
+                                    <div className={`absolute top-full left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-lg border shadow-xl ${theme === 'dark' ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-200'}`}>
+                                        {instructors
+                                            .filter(i => {
+                                                const term = titularSearch.toLowerCase();
+                                                return i.trigram.toLowerCase().includes(term) || i.warName.toLowerCase().includes(term);
+                                            })
+                                            .map(inst => (
+                                                <button key={inst.trigram} type="button"
+                                                    onClick={() => { setFormData({ ...formData, instructorTrigram: inst.trigram, instructor: inst.warName, noSpecificInstructor: false }); setTitularSearch(`${inst.trigram} - ${inst.warName}`); setShowTitularDropdown(false); }}
+                                                    className={`w-full text-left px-3 py-2 text-sm border-b last:border-0 transition-colors ${theme === 'dark' ? 'border-slate-700 hover:bg-slate-700 text-slate-200' : 'border-gray-100 hover:bg-blue-50 text-slate-800'}`}>
+                                                    <span className={`text-xs font-mono font-bold mr-2 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>{inst.trigram}</span>
+                                                    {inst.warName}
+                                                    {inst.enabledDisciplines?.includes(initialData?.id || '') && (
+                                                        <span className="ml-2 text-[9px] text-green-500">✓ habilitado</span>
+                                                    )}
+                                                </button>
+                                            ))}
+                                    </div>
+                                )}
+                            </div>
+                            {formData.instructorTrigram && !formData.noSpecificInstructor && (
+                                <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>
+                                    ✓ {formData.instructorTrigram} selecionado — será habilitado para esta disciplina ao salvar
+                                </p>
                             )}
                         </div>
-                        <div>
-                            <label className={`block text-sm  mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'}`}>Docente Suplente</label>
-                            <select
-                                value={formData.substituteTrigram}
-                                onChange={e => setFormData({ ...formData, substituteTrigram: e.target.value })}
-                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-slate-100' : 'border-gray-300'}`}
-                            >
-                                <option value="">Nenhum</option>
-                                {instructors
-                                    .filter(inst => {
-                                        // 1. If editing, check if enabled for this specific discipline
-                                        if (initialData?.id && !inst.enabledDisciplines?.includes(initialData.id)) return false;
 
-                                        // 3. Check squadron/year compatibility (must be enabled for at least one class of that year)
-                                        if (formData.enabledYears.length > 0) {
-                                            const hasClassInYears = inst.enabledClasses?.some(cid => {
-                                                const classObj = classes.find(c => c.id === cid);
-                                                return classObj && formData.enabledYears.includes(classObj.year);
-                                            });
-                                            if (!hasClassInYears) return false;
-                                        }
-
-                                        return true;
-                                    })
-                                    .map(inst => (
-                                        <option key={inst.trigram} value={inst.trigram}>
-                                            {inst.trigram} - {inst.warName}
-                                        </option>
-                                    ))}
-                            </select>
+                        {/* Docente Suplente — pesquisa livre */}
+                        <div ref={substituteRef}>
+                            <label className={`block text-sm mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'}`}>Docente Suplente</label>
+                            <div className="relative mt-6">
+                                <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`} />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por trigrama ou nome..."
+                                    value={substituteSearch}
+                                    onChange={e => { setSubstituteSearch(e.target.value); setShowSubstituteDropdown(true); }}
+                                    onFocus={() => setShowSubstituteDropdown(true)}
+                                    className={`w-full pl-8 pr-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-slate-100' : 'border-gray-300'}`}
+                                />
+                                {formData.substituteTrigram && (
+                                    <button type="button" onClick={() => { setFormData({ ...formData, substituteTrigram: '' }); setSubstituteSearch(''); }}
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-400">
+                                        <X size={14} />
+                                    </button>
+                                )}
+                                {showSubstituteDropdown && substituteSearch.length > 0 && (
+                                    <div className={`absolute top-full left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-lg border shadow-xl ${theme === 'dark' ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-200'}`}>
+                                        {instructors
+                                            .filter(i => {
+                                                const term = substituteSearch.toLowerCase();
+                                                return i.trigram.toLowerCase().includes(term) || i.warName.toLowerCase().includes(term);
+                                            })
+                                            .map(inst => (
+                                                <button key={inst.trigram} type="button"
+                                                    onClick={() => { setFormData({ ...formData, substituteTrigram: inst.trigram }); setSubstituteSearch(`${inst.trigram} - ${inst.warName}`); setShowSubstituteDropdown(false); }}
+                                                    className={`w-full text-left px-3 py-2 text-sm border-b last:border-0 transition-colors ${theme === 'dark' ? 'border-slate-700 hover:bg-slate-700 text-slate-200' : 'border-gray-100 hover:bg-blue-50 text-slate-800'}`}>
+                                                    <span className={`text-xs font-mono font-bold mr-2 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>{inst.trigram}</span>
+                                                    {inst.warName}
+                                                    {inst.enabledDisciplines?.includes(initialData?.id || '') && (
+                                                        <span className="ml-2 text-[9px] text-green-500">✓ habilitado</span>
+                                                    )}
+                                                </button>
+                                            ))}
+                                    </div>
+                                )}
+                            </div>
+                            {formData.substituteTrigram && (
+                                <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>
+                                    ✓ {formData.substituteTrigram} selecionado — será habilitado para esta disciplina ao salvar
+                                </p>
+                            )}
                         </div>
                     </div>
 

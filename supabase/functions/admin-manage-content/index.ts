@@ -196,10 +196,32 @@ Deno.serve(async (req) => {
   if (action === "upsert_instructor") {
     const { trigram, data: instData } = body;
     if (!trigram || !instData) return err("trigram and data required");
+
+    // Busca colunas reais da tabela para evitar erro de coluna inexistente
+    const { data: cols, error: colErr } = await adminClient
+      .from("instructors")
+      .select("*")
+      .limit(1);
+    if (colErr) { console.error("upsert_instructor colcheck:", colErr.message); }
+    const knownCols = new Set(cols && cols.length > 0 ? Object.keys(cols[0]) : []);
+
+    // Filtra apenas campos que existem na tabela (ou inclui todos se não conseguiu inspecionar)
+    const safeData: Record<string, unknown> = { trigram };
+    if (knownCols.size > 0) {
+      for (const [k, v] of Object.entries(instData as Record<string, unknown>)) {
+        if (k !== "trigram" && knownCols.has(k)) safeData[k] = v;
+      }
+      // data JSONB sempre aceita qualquer conteúdo
+      if (knownCols.has("data")) safeData["data"] = (instData as any).data ?? {};
+    } else {
+      Object.assign(safeData, instData);
+    }
+
+    console.log("upsert_instructor safeData keys:", Object.keys(safeData));
     const { error: upsertErr } = await adminClient
       .from("instructors")
-      .upsert({ ...instData, trigram }, { onConflict: "trigram" });
-    if (upsertErr) return err(upsertErr.message, 500);
+      .upsert(safeData, { onConflict: "trigram" });
+    if (upsertErr) { console.error("upsert_instructor error:", upsertErr.message); return err(upsertErr.message, 500); }
     return ok({ success: true });
   }
 

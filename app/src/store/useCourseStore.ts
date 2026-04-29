@@ -1187,23 +1187,26 @@ export const useCourseStore = create<CourseState>((set) => ({
 
     try {
       const dbInstructor = {
+        id: crypto.randomUUID(),
         trigram: instructor.trigram,
         warName: instructor.warName,
-        name: instructor.fullName,
-        specialty: instructor.rank,
+        name: instructor.fullName ?? instructor.warName,
         data: {
           venture: instructor.venture,
           weeklyLoadLimit: instructor.weeklyLoadLimit,
-          enabledDisciplines: instructor.enabledDisciplines,
-          enabledClasses: instructor.enabledClasses,
+          enabledDisciplines: instructor.enabledDisciplines ?? [],
+          enabledClasses: instructor.enabledClasses ?? [],
+          rank: instructor.rank,
+          specialty: instructor.specialty,
         },
       };
       await contentFn("upsert_instructor", { trigram: instructor.trigram, data: dbInstructor });
       invalidateStaticCache("instructors");
       console.log(`✅ Docente ${instructor.trigram} salvo no DB`);
-    } catch (err) {
-      console.error("❌ Falha ao salvar docente no Supabase:", err);
-      alert("Erro ao salvar docente no banco de dados. Verifique os campos.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : JSON.stringify(err);
+      console.error("❌ Falha ao salvar docente no Supabase:", msg);
+      alert(`Erro ao salvar docente no banco de dados:\n${msg}`);
     }
   },
   updateInstructor: async (trigram, updates) => {
