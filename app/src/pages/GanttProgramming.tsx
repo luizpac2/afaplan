@@ -58,13 +58,23 @@ export const GanttProgramming = () => {
   );
 
   const dateParam = searchParams.get("date");
+  const sessionKey = `gantt_date_sq${currentSquadron}`;
   const [currentDate, setCurrentDate] = useState(() => {
     if (dateParam) {
       const d = new Date(dateParam + "T12:00:00");
       if (!isNaN(d.getTime())) return d;
     }
+    try {
+      const saved = sessionStorage.getItem(sessionKey);
+      if (saved) { const d = new Date(saved + "T12:00:00"); if (!isNaN(d.getTime())) return d; }
+    } catch { /* ignora */ }
     return new Date();
   });
+
+  // Persiste a semana atual na sessão (sem localStorage — nova aba/sessão começa em hoje)
+  useEffect(() => {
+    try { sessionStorage.setItem(sessionKey, formatDate(currentDate)); } catch { /* ignora */ }
+  }, [currentDate, sessionKey]);
 
   const [weekEvents, setWeekEvents]   = useState<ScheduleEvent[]>([]);
   const [yearlyEvents, setYearlyEvents] = useState<ScheduleEvent[]>([]);

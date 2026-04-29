@@ -82,7 +82,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => { void handleSession(session); }
+      (event, session) => {
+        // TOKEN_REFRESHED: apenas atualiza o objeto user silenciosamente,
+        // sem setar profileLoading(true) — evita desmontar a UI durante edição.
+        if (event === "TOKEN_REFRESHED") {
+          if (session?.user) setUser(session.user);
+          return;
+        }
+        void handleSession(session);
+      }
     );
 
     return () => subscription.unsubscribe();
