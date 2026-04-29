@@ -785,7 +785,7 @@ export const GanttProgramming = () => {
                 setIsDatePickerOpen((v) => !v);
               }}
               className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-blue-400 ${text}`}>
-              Hoje
+              Calendário
             </button>
             {isDatePickerOpen && (
               <div ref={datePickerRef} className={`date-picker-popup absolute right-0 mt-1 z-50 rounded-xl border shadow-xl p-3 w-64 ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
@@ -1146,7 +1146,7 @@ export const GanttProgramming = () => {
               setIsDatePickerOpen((v) => !v);
             }}
             className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-blue-400 ${text}`}>
-            Hoje
+            Calendário
           </button>
           {isDatePickerOpen && (
               <div ref={datePickerRef} className={`date-picker-popup absolute right-0 bottom-full mb-1 z-50 rounded-xl border shadow-xl p-3 w-64 ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200"}`}>
