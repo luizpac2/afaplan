@@ -376,6 +376,7 @@ export const GanttProgramming = () => {
     { type: "EXAM",          label: "Exame" },
     { type: "FINAL",         label: "Final" },
     { type: "SECOND_CHANCE", label: "2ª Época" },
+    { type: "REVIEW",        label: "Vista" },
   ] as const;
 
   const handleConvertToEvaluation = (evalType: typeof EVAL_CONVERT_OPTIONS[number]["type"]) => {
