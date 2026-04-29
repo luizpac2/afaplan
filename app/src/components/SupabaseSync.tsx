@@ -123,27 +123,13 @@ export const SupabaseSync = () => {
           console.warn("⚠️ Falha ao carregar visual_configs:", visualConfigs.reason);
 
         if (instructors.status === "fulfilled") {
-          // Busca vínculos docente↔disciplina da tabela docente_disciplinas
-          const ddMap: Record<string, string[]> = {};
-          try {
-            const { data: ddRows } = await supabase
-              .from("docente_disciplinas")
-              .select("docente_id, disciplina_id");
-            if (ddRows) {
-              for (const row of ddRows) {
-                if (!ddMap[row.docente_id]) ddMap[row.docente_id] = [];
-                ddMap[row.docente_id].push(row.disciplina_id);
-              }
-            }
-          } catch { /* silently ignore */ }
-
           const disciplinesList = disciplines.status === "fulfilled" ? (disciplines.value as any[]) : [];
           const turmasList = cohorts.status === "fulfilled" ? (cohorts.value as any[]) : [];
           const currentYear = new Date().getFullYear();
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const mapped = (instructors.value as any[]).map((i) => {
-            const rawDisciplines: string[] = ddMap[i.trigram] || ddMap[i.id] || i.data?.enabledDisciplines || i.enabledDisciplines || [];
+            const rawDisciplines: string[] = i.enabledDisciplines || i.data?.enabledDisciplines || [];
             const normalizedDisciplines = rawDisciplines.map((ref: string) => {
               const byId = disciplinesList.find((d: any) => d.id === ref);
               if (byId) return ref;

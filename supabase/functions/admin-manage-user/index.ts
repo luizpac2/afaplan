@@ -154,7 +154,6 @@ Deno.serve(async (req: Request) => {
       }
 
       await adminClient.from("user_roles").delete().eq("user_id", userId);
-      await adminClient.from("docente_disciplinas").delete().eq("docente_id", userId);
 
       const { error } = await adminClient.auth.admin.deleteUser(userId);
       if (error) throw error;
@@ -184,10 +183,13 @@ Deno.serve(async (req: Request) => {
         .eq("user_id", userId)
         .single();
 
-      const { data: prevDisciplinesData } = await adminClient
-        .from("docente_disciplinas")
-        .select("disciplina_id")
-        .eq("docente_id", userId);
+      // Vincula disciplinas ao instructor via email do usuário
+      const targetEmail = (targetUser?.email ?? "").trim().toLowerCase();
+      const { data: instrRow } = await adminClient
+        .from("instructors")
+        .select("trigram, \"enabledDisciplines\"")
+        .ilike("email", targetEmail)
+        .maybeSingle();
 
       const changesBefore: Record<string, unknown> = {};
       const changesAfter: Record<string, unknown> = {};
@@ -214,15 +216,14 @@ Deno.serve(async (req: Request) => {
       }
 
       if (disciplines !== undefined && disciplines !== null) {
-        const prevDisciplines = (prevDisciplinesData ?? []).map((d: { disciplina_id: string }) => d.disciplina_id);
-        changesBefore.disciplines = prevDisciplines;
+        changesBefore.disciplines = instrRow?.enabledDisciplines ?? [];
         changesAfter.disciplines  = disciplines;
 
-        await adminClient.from("docente_disciplinas").delete().eq("docente_id", userId);
-        if (disciplines.length > 0) {
-          const { error } = await adminClient.from("docente_disciplinas").insert(
-            disciplines.map((d: string) => ({ docente_id: userId, disciplina_id: d }))
-          );
+        if (instrRow?.trigram) {
+          const { error } = await adminClient
+            .from("instructors")
+            .update({ enabledDisciplines: disciplines })
+            .eq("trigram", instrRow.trigram);
           if (error) throw error;
         }
       }

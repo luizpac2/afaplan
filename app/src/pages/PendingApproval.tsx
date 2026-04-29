@@ -117,10 +117,9 @@ export const PendingApproval = () => {
             });
 
             if (requestedRole === 'DOCENTE' && selectedDisciplines.length > 0) {
-                await supabase.from('docente_disciplinas').delete().eq('docente_id', user.id);
-                await supabase.from('docente_disciplinas').insert(
-                    selectedDisciplines.map((d) => ({ docente_id: user.id, disciplina_id: d }))
-                );
+                await supabase.auth.updateUser({
+                    data: { teachingDisciplines: selectedDisciplines },
+                });
             }
 
             // Force reload to pick up the new status immediately
