@@ -30,7 +30,7 @@ const TRAINING_FIELDS = new Set(["GERAL", "MILITAR", "PROFISSIONAL", "ATIVIDADES
 const EVAL_LABELS: Record<string, string> = {
   PARTIAL:       "Parcial",
   EXAM:          "Exame",
-  FINAL:         "Prova Final",
+  FINAL:         "Final",
   SECOND_CHANCE: "2ª Chamada",
   REVIEW:        "Vista",
 };

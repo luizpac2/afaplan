@@ -19,7 +19,7 @@ export const Instructors = () => {
    const [bulkHeaderH, setBulkHeaderH]   = useState(64);
    const [bulkActionsH, setBulkActionsH] = useState(100);
 
-   const { instructors, addInstructor, updateInstructor, deleteInstructor, addOccurrence, disciplines, classes } = useCourseStore();
+   const { instructors, addInstructor, updateInstructor, renameTrigram, deleteInstructor, addOccurrence, disciplines, classes } = useCourseStore();
    const { theme } = useTheme();
    const { userProfile } = useAuth();
    const isDark = theme === 'dark';
@@ -144,11 +144,12 @@ export const Instructors = () => {
    const handleSelectAll = (checked: boolean) => setSelectedIds(checked ? new Set(filteredInstructors.map(i => i.trigram)) : new Set());
    const handleSelectOne = (id: string, checked: boolean) => { const s = new Set(selectedIds); if (checked) { s.add(id); } else { s.delete(id); } setSelectedIds(s); };
 
-   const handleSaveInstructor = (e: React.FormEvent<HTMLFormElement>) => {
+   const handleSaveInstructor = async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       const fd = new FormData(e.currentTarget);
+      const newTrigram = (fd.get('trigram') as string || '').toUpperCase().slice(0, 3);
       const data: Instructor = {
-         trigram: editingInstructor ? editingInstructor.trigram : (fd.get('trigram') as string || '').toUpperCase(),
+         trigram: newTrigram,
          fullName: fd.get('fullName') as string || '', warName: fd.get('warName') as string || '',
          rank: fd.get('rank') as string || '', cpf_saram: fd.get('cpf_saram') as string || '',
          email: fd.get('email') as string || '', phone: fd.get('phone') as string || '',
@@ -159,9 +160,17 @@ export const Instructors = () => {
          preferences: fd.get('preferences') as string,
          enabledDisciplines: selectedDisciplines, enabledClasses: selectedClasses,
       };
-      if (editingInstructor) updateInstructor(editingInstructor.trigram, data);
-      else {
-         if (instructors.some(i => i.trigram === data.trigram)) { alert('Trigrama já em uso!'); return; }
+      if (editingInstructor) {
+         const oldTrigram = editingInstructor.trigram;
+         if (newTrigram !== oldTrigram) {
+            if (instructors.some(i => i.trigram === newTrigram)) { alert('Trigrama já em uso!'); return; }
+            try {
+               await renameTrigram(oldTrigram, newTrigram);
+            } catch { alert('Erro ao renomear trigrama. Tente novamente.'); return; }
+         }
+         updateInstructor(newTrigram, data);
+      } else {
+         if (instructors.some(i => i.trigram === newTrigram)) { alert('Trigrama já em uso!'); return; }
          addInstructor(data);
       }
       setIsInstructorModalOpen(false); setEditingInstructor(null);
@@ -423,7 +432,7 @@ export const Instructors = () => {
                      <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
                         <div className="space-y-4">
                            <h3 className="text-xs font-bold uppercase text-blue-500 tracking-widest border-b pb-1">Identificação</h3>
-                           <div><label className="block text-xs font-medium text-slate-500 mb-1">Trigrama *</label><input name="trigram" required maxLength={3} defaultValue={editingInstructor?.trigram} disabled={!!editingInstructor} className={inputCls + ' font-mono uppercase'} placeholder="SLV" /></div>
+                           <div><label className="block text-xs font-medium text-slate-500 mb-1">Trigrama *</label><input name="trigram" required maxLength={3} defaultValue={editingInstructor?.trigram} className={inputCls + ' font-mono uppercase'} placeholder="SLV" /></div>
                            <div><label className="block text-xs font-medium text-slate-500 mb-1">Nome de Guerra *</label><input name="warName" required defaultValue={editingInstructor?.warName} className={inputCls} /></div>
                            <div><label className="block text-xs font-medium text-slate-500 mb-1">Nome Completo</label><input name="fullName" defaultValue={editingInstructor?.fullName} className={inputCls} /></div>
                            <div><label className="block text-xs font-medium text-slate-500 mb-1">Posto / Cargo</label><input name="rank" defaultValue={editingInstructor?.rank} className={inputCls} /></div>

@@ -127,6 +127,7 @@ interface CourseState {
   setInstructors: (instructors: Instructor[]) => void;
   addInstructor: (instructor: Instructor) => void;
   updateInstructor: (trigram: string, updates: Partial<Instructor>) => void;
+  renameTrigram: (oldTrigram: string, newTrigram: string) => Promise<void>;
   deleteInstructor: (trigram: string) => void;
 
   // Occurrence actions
@@ -1347,6 +1348,36 @@ export const useCourseStore = create<CourseState>((set) => ({
       return { merged, errors };
     } catch (err: any) {
       console.error("❌ Falha ao unificar disciplinas:", err?.message ?? err);
+      throw err;
+    }
+  },
+
+  renameTrigram: async (oldTrigram, newTrigram) => {
+    const nt = newTrigram.toUpperCase().slice(0, 3);
+    // Optimistic: atualiza store local
+    set((s) => ({
+      instructors: s.instructors.map((i) =>
+        i.trigram === oldTrigram ? { ...i, trigram: nt } : i
+      ),
+      disciplines: s.disciplines.map((d) =>
+        d.instructorTrigram === oldTrigram ? { ...d, instructorTrigram: nt } : d
+      ),
+    }));
+    try {
+      await contentFn("rename_trigram", { oldTrigram, newTrigram: nt });
+      invalidateStaticCache("instructors");
+      invalidateStaticCache("disciplines");
+    } catch (err) {
+      console.error("❌ Falha ao renomear trigrama:", err);
+      // Reverte em caso de erro
+      set((s) => ({
+        instructors: s.instructors.map((i) =>
+          i.trigram === nt ? { ...i, trigram: oldTrigram } : i
+        ),
+        disciplines: s.disciplines.map((d) =>
+          d.instructorTrigram === nt ? { ...d, instructorTrigram: oldTrigram } : d
+        ),
+      }));
       throw err;
     }
   },

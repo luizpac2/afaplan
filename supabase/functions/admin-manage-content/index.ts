@@ -253,6 +253,43 @@ Deno.serve(async (req) => {
     return ok({ success: true, updatedByTrigram: updated.length });
   }
 
+  // ── rename_trigram ──────────────────────────────────────────────────────────
+  if (action === "rename_trigram") {
+    const { oldTrigram, newTrigram } = body;
+    if (!oldTrigram || !newTrigram) return err("oldTrigram and newTrigram required");
+    if (oldTrigram === newTrigram) return ok({ success: true });
+
+    // 1. Lê dados do instrutor atual
+    const { data: instrRow, error: readErr } = await adminClient
+      .from("instructors").select("*").eq("trigram", oldTrigram).single();
+    if (readErr || !instrRow) return err("Instrutor não encontrado", 404);
+
+    // 2. Insere novo registro com novo trigrama
+    const { error: insErr } = await adminClient
+      .from("instructors").insert({ ...instrRow, trigram: newTrigram });
+    if (insErr) return err(insErr.message, 500);
+
+    // 3. Atualiza referências em programacao_aulas
+    await adminClient.from("programacao_aulas")
+      .update({ instructorId: newTrigram })
+      .eq("instructorId", oldTrigram);
+
+    // 4. Atualiza disciplinas (instructorTrigram desnormalizado)
+    const { data: discs } = await adminClient.from("disciplinas")
+      .select("id, data").ilike("data->>'instructorTrigram'", oldTrigram);
+    if (discs) {
+      for (const d of discs) {
+        const newData = { ...(d.data || {}), instructorTrigram: newTrigram };
+        await adminClient.from("disciplinas").update({ data: newData }).eq("id", d.id);
+      }
+    }
+
+    // 5. Remove registro antigo
+    await adminClient.from("instructors").delete().eq("trigram", oldTrigram);
+
+    return ok({ success: true });
+  }
+
   // ── delete_instructor ───────────────────────────────────────────────────────
   if (action === "delete_instructor") {
     const { trigram } = body;
