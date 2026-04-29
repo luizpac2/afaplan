@@ -264,24 +264,27 @@ Deno.serve(async (req) => {
       .from("instructors").select("*").eq("trigram", oldTrigram).single();
     if (readErr || !instrRow) return err("Instrutor não encontrado", 404);
 
-    // 2. Insere novo registro com novo trigrama
+    // 2. Insere novo registro com novo trigrama e novo id (evita conflito de PK)
+    const { id: _oldId, trigram: _oldTrig, ...restRow } = instrRow as Record<string, unknown>;
     const { error: insErr } = await adminClient
-      .from("instructors").insert({ ...instrRow, trigram: newTrigram });
-    if (insErr) return err(insErr.message, 500);
+      .from("instructors").insert({ ...restRow, id: crypto.randomUUID(), trigram: newTrigram });
+    if (insErr) return err(`insert: ${insErr.message}`, 500);
 
     // 3. Atualiza referências em programacao_aulas
-    await adminClient.from("programacao_aulas")
-      .update({ instructorId: newTrigram })
-      .eq("instructorId", oldTrigram);
+    const { error: evErr } = await adminClient.from("programacao_aulas")
+      .update({ instructorId: newTrigram }).eq("instructorId", oldTrigram);
+    if (evErr) console.warn("rename_trigram: programacao_aulas update warn:", evErr.message);
 
-    // 4. Atualiza disciplinas (instructorTrigram desnormalizado)
-    const { data: discs } = await adminClient.from("disciplinas")
-      .select("id, data").ilike("data->>'instructorTrigram'", oldTrigram);
-    if (discs) {
-      for (const d of discs) {
-        const newData = { ...(d.data || {}), instructorTrigram: newTrigram };
-        await adminClient.from("disciplinas").update({ data: newData }).eq("id", d.id);
-      }
+    // 4. Atualiza disciplinas — busca todas e filtra em JS (evita sintaxe JSONB inválida no PostgREST)
+    const { data: allDiscs } = await adminClient.from("disciplinas").select("id, data, instructorTrigram");
+    for (const d of (allDiscs ?? []) as Record<string, any>[]) {
+      const directMatch = d.instructorTrigram === oldTrigram;
+      const jsonbMatch  = (d.data as any)?.instructorTrigram === oldTrigram;
+      if (!directMatch && !jsonbMatch) continue;
+      const updates: Record<string, unknown> = {};
+      if (directMatch) updates.instructorTrigram = newTrigram;
+      if (jsonbMatch)  updates.data = { ...(d.data || {}), instructorTrigram: newTrigram };
+      await adminClient.from("disciplinas").update(updates).eq("id", d.id);
     }
 
     // 5. Remove registro antigo
