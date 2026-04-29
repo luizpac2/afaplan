@@ -1209,8 +1209,8 @@ export const Disciplinas = () => {
                                                                     <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px]  ${theme === 'dark' ? 'bg-slate-700 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
                                                                         {displayInstructor.charAt(0)}
                                                                     </div>
-                                                                    <span className={`whitespace-normal capitalize ${theme === 'dark' ? 'text-slate-400' : 'text-gray-600'}`} title={displayInstructor}>
-                                                                        {displayInstructor.toLowerCase()}
+                                                                    <span className={`whitespace-normal ${theme === 'dark' ? 'text-slate-400' : 'text-gray-600'}`} title={displayInstructor}>
+                                                                        {displayInstructor}
                                                                     </span>
                                                                 </>
                                                             ) : (

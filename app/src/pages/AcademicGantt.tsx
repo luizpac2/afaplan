@@ -32,7 +32,7 @@ const TYPE_LABELS: Record<string, string> = {
   EVALUATION:    "Avaliação",
   DAY_OFF:       "Day Off",
   COMMEMORATIVE: "Comemorativo",
-  SPORTS:        "Esportivo",
+  SPORTS:        "CDEF",
   INFORMATIVE:   "Informativo",
   HOLIDAY:       "Feriado",
 };

@@ -83,7 +83,7 @@ export const Instructors = () => {
             const t = debouncedSearch.substring(1).toLowerCase();
             if (t === 'disciplina') return !disciplines.some(d => d.instructorTrigram === i.trigram || d.substituteTrigram === i.trigram);
             if (t === 'turma')      return !i.enabledClasses?.length;
-            if (t === 'ch')         return !i.weeklyLoadLimit;
+            if (t === 'email')      return !i.email?.trim();
             return false;
          }
          const q = debouncedSearch.toLowerCase();
@@ -154,7 +154,7 @@ export const Instructors = () => {
          email: fd.get('email') as string || '', phone: fd.get('phone') as string || '',
          venture: fd.get('venture') as InstructorVenture, maxTitle: fd.get('maxTitle') as AcademicTitle,
          specialty: fd.get('specialty') as string || '',
-         weeklyLoadLimit: parseInt(fd.get('weeklyLoadLimit') as string) || 0,
+         weeklyLoadLimit: editingInstructor?.weeklyLoadLimit || 0,
          fixedBlocks: [], plannedAbsences: editingInstructor?.plannedAbsences || [],
          preferences: fd.get('preferences') as string,
          enabledDisciplines: selectedDisciplines, enabledClasses: selectedClasses,
@@ -341,7 +341,7 @@ export const Instructors = () => {
                   </div>
                   <div className="flex items-center gap-3 pt-1 border-t border-gray-100 dark:border-slate-700 overflow-x-auto whitespace-nowrap h-8">
                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mr-1"><Zap size={12} className="text-amber-500" /> Filtros Rápidos:</div>
-                     {[{label:'Sem Disciplina',cmd:'!disciplina'},{label:'Sem Turma',cmd:'!turma'},{label:'Sem CH',cmd:'!ch'}].map(({label,cmd}) => (
+                     {[{label:'Sem Disciplina',cmd:'!disciplina'},{label:'Sem Turma',cmd:'!turma'},{label:'Sem E-mail',cmd:'!email'}].map(({label,cmd}) => (
                         <button key={cmd} onClick={() => setSearchTerm(searchTerm === cmd ? '' : cmd)}
                            className={`px-3 py-1 text-xs font-medium rounded-lg border transition-all ${searchTerm === cmd ? 'bg-amber-500 text-white border-amber-600 shadow-sm' : (isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-amber-500' : 'bg-white text-slate-600 border-slate-200 hover:border-amber-300 hover:bg-amber-50/30')}`}>
                            {label}
@@ -355,8 +355,8 @@ export const Instructors = () => {
                   <table className="w-full text-left border-collapse">
                      <thead>
                         <tr className={`text-xs uppercase tracking-wider border-b ${isDark ? 'bg-slate-900/50 text-slate-400 border-slate-700' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                           {['Tri', 'Guerra', 'Vínculo', 'Disciplinas', 'Turmas', 'CH', 'Ações'].map((h, i) => (
-                              <th key={h} className={`sticky z-30 px-4 py-3 font-medium ${i===6?'text-right':i===5?'text-center':'text-left'} ${isDark?'bg-slate-900/50':'bg-slate-50'}`} style={{ top: regularHeadTop }}>{h}</th>
+                           {['Tri', 'Guerra', 'Vínculo', 'Disciplinas', 'Turmas', 'E-mail', 'Ações'].map((h, i) => (
+                              <th key={h} className={`sticky z-30 px-4 py-3 font-medium ${i===6?'text-right':'text-left'} ${isDark?'bg-slate-900/50':'bg-slate-50'}`} style={{ top: regularHeadTop }}>{h}</th>
                            ))}
                         </tr>
                      </thead>
@@ -389,7 +389,7 @@ export const Instructors = () => {
                                     {instructor.enabledClasses?.length === classes.length && classes.length > 0 ? <Badge variant="blue">Todas</Badge> : (instructor.enabledClasses || []).length > 0 ? instructor.enabledClasses?.map(id => { const cls = classes.find(c => c.id === id); return cls ? <Badge key={id} variant="blue">{cls.year}{cls.name}</Badge> : null; }) : <span className="text-[10px] text-slate-400 italic">Nenhuma</span>}
                                  </div>
                               </td>
-                              <td className="px-4 py-1.5 text-sm text-center font-mono">{instructor.weeklyLoadLimit}h</td>
+                              <td className="px-4 py-1.5 text-xs text-slate-500">{instructor.email || <span className="italic opacity-50">—</span>}</td>
                               <td className="px-4 py-1.5 text-right">
                                  <div className="flex justify-end gap-1">
                                     <button onClick={() => { setSelectedInstructorForOccurrence(instructor.trigram); setIsOccurrenceModalOpen(true); }} className="p-1 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded" title="Ocorrência"><History size={14} /></button>
@@ -435,10 +435,7 @@ export const Instructors = () => {
                               <div><label className="block text-xs font-medium text-slate-500 mb-1">Titulação</label><select name="maxTitle" defaultValue={editingInstructor?.maxTitle || 'GRADUADO'} className={selectCls}><option value="GRADUADO">Graduado</option><option value="ESPECIALISTA">Especialista</option><option value="MESTRE">Mestre</option><option value="DOUTOR">Doutor</option></select></div>
                            </div>
                            <div><label className="block text-xs font-medium text-slate-500 mb-1">Especialidade</label><input name="specialty" defaultValue={editingInstructor?.specialty} className={inputCls} /></div>
-                           <div className="grid grid-cols-2 gap-2">
-                              <div><label className="block text-xs font-medium text-slate-500 mb-1">CH Máx (Semanal)</label><input name="weeklyLoadLimit" type="number" required defaultValue={editingInstructor?.weeklyLoadLimit || 12} className={inputCls} /></div>
-                              <div><label className="block text-xs font-medium text-slate-500 mb-1">CPF/SARAM</label><input name="cpf_saram" defaultValue={editingInstructor?.cpf_saram} className={inputCls} /></div>
-                           </div>
+                           <div><label className="block text-xs font-medium text-slate-500 mb-1">CPF/SARAM</label><input name="cpf_saram" defaultValue={editingInstructor?.cpf_saram} className={inputCls} /></div>
                         </div>
                         <div className="space-y-4">
                            <h3 className="text-xs font-bold uppercase text-blue-500 tracking-widest border-b pb-1">Vinculação Multi-Nível</h3>

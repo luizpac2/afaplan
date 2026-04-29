@@ -136,7 +136,7 @@ export const AcademicEventForm = ({
             ACADEMIC:      { border: "border-purple-500/30", bg: "bg-purple-500/10", icon: <Calendar size={16} className="text-purple-400" />, textCls: "text-purple-300", label: "Evento Acadêmico" },
             DAY_OFF:       { border: "border-red-500/30",    bg: "bg-red-500/10",    icon: <Ban size={16} className="text-red-400" />,      textCls: "text-red-300",    label: "Day Off" },
             COMMEMORATIVE: { border: "border-amber-500/30",  bg: "bg-amber-500/10",  icon: <Calendar size={16} className="text-amber-400" />, textCls: "text-amber-300",  label: "Comemorativo" },
-            SPORTS:        { border: "border-teal-500/30",   bg: "bg-teal-500/10",   icon: <Calendar size={16} className="text-teal-400" />,  textCls: "text-teal-300",   label: "Esportivo" },
+            SPORTS:        { border: "border-teal-500/30",   bg: "bg-teal-500/10",   icon: <Calendar size={16} className="text-teal-400" />,  textCls: "text-teal-300",   label: "CDEF" },
           };
           const h = hdrMap[category] ?? hdrMap.ACADEMIC;
           return (
@@ -163,7 +163,7 @@ export const AcademicEventForm = ({
                 { key: "ACADEMIC",      label: "Acadêmico",   active: "bg-purple-600 border-purple-600 text-white", hover: "hover:border-purple-500" },
                 { key: "DAY_OFF",       label: "Day Off",     active: "bg-red-600 border-red-600 text-white",    hover: "hover:border-red-500" },
                 { key: "COMMEMORATIVE", label: "Comemorativo",active: "bg-amber-500 border-amber-500 text-white", hover: "hover:border-amber-500" },
-                { key: "SPORTS",        label: "Esportivo",   active: "bg-teal-600 border-teal-600 text-white",  hover: "hover:border-teal-500" },
+                { key: "SPORTS",        label: "CDEF",        active: "bg-teal-600 border-teal-600 text-white",  hover: "hover:border-teal-500" },
                 { key: "INFORMATIVE",   label: "Informativo", active: "bg-sky-500 border-sky-500 text-white",    hover: "hover:border-sky-500" },
                 { key: "HOLIDAY",       label: "Feriado",     active: "bg-rose-600 border-rose-600 text-white",  hover: "hover:border-rose-500" },
               ] as const).map(opt => (

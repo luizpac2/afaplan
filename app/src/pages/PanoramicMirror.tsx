@@ -319,7 +319,7 @@ export const PanoramicMirror = () => {
             const DAY_NUM_H = 28; // px reserved for day number at top of cell
             const CELL_PADDING = 6; // px padding inside cell
             const TYPE_LABEL_MAP: Record<string, string> = {
-              DAY_OFF: "Day Off", COMMEMORATIVE: "Comemorativo", SPORTS: "Esportivo",
+              DAY_OFF: "Day Off", COMMEMORATIVE: "Comemorativo", SPORTS: "CDEF",
               INFORMATIVE: "Informativo", HOLIDAY: "Feriado",
             };
             const TYPE_COLOR_MAP2: Record<string, string> = {
@@ -691,7 +691,7 @@ export const PanoramicMirror = () => {
                   ["EVALUATION",    "#c2410c", "Avaliação"],
                   ["COMMEMORATIVE", "#b45309", "Comemorativo"],
                   ["HOLIDAY",       "#be123c", "Feriado"],
-                  ["SPORTS",        "#0f766e", "Esportivo"],
+                  ["SPORTS",        "#0f766e", "CDEF"],
                   ["INFORMATIVE",   "#0369a1", "Informativo"],
                 ] as [string, string, string][]).map(([type, color, label]) => (
                   <div key={type} className="flex items-center gap-2">
