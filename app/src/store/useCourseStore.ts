@@ -24,6 +24,7 @@ import {
   normalizeEvent,
   normalizeTime,
   invalidateCache,
+  invalidateEventsWeekCache,
 } from "../services/supabaseService";
 import { supabase } from "../config/supabase";
 
@@ -191,6 +192,7 @@ interface CourseState {
 
 // Invalida o cache de eventos no localStorage ao escrever/deletar (chamado nos mutators)
 const invalidateEventsLocalCache = () => {
+  invalidateEventsWeekCache();
   try {
     Object.keys(localStorage)
       .filter((k) => k.startsWith("afa_events_"))

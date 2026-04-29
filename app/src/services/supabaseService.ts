@@ -133,6 +133,9 @@ const EVENTS_SELECT = "id,disciplineId,classId,date,startTime,endTime,location,t
 const eventsWeekCache = new Map<string, { data: unknown[]; ts: number }>();
 const EVENTS_CACHE_TTL = 10 * 60_000; // 10 minutos
 
+/** Invalida todo o cache de semanas em memória (chamar após qualquer mutação de evento) */
+export const invalidateEventsWeekCache = () => eventsWeekCache.clear();
+
 export const subscribeToEventsByDateRange = (
   startDate: string,
   endDate: string,
