@@ -78,7 +78,7 @@ export const Dashboard = () => {
       const total = (disc?.ppcLoads && pkKey && disc.ppcLoads[pkKey]) || disc?.load_hours || group.length;
       group
         .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`))
-        .forEach((ev, i) => { counts[String(ev.id)] = { current: i + 1, total }; });
+        .forEach((ev, i) => { counts[`${ev.classId}|${ev.date}|${ev.startTime}`] = { current: i + 1, total }; });
     });
     return counts;
   }, [yearlyEvents, todayEvents, disciplines, storeClasses]);
@@ -334,41 +334,86 @@ export const Dashboard = () => {
                         <p className={`text-[10px] italic ${muted} opacity-60`}>Sem eventos</p>
                       ) : (
                         <div className="flex flex-col gap-1">
-                          {academic_.map((ev) => {
-                            const col = getAcademicColor(ev.targetSquadron, isDark);
+                          {(() => {
+                            const evalMap = new Map<string, { ev: typeof academic_[0]; turmas: string[] }>();
+                            const others: typeof academic_ = [];
+                            for (const ev of academic_) {
+                              if (ev.type === "EVALUATION") {
+                                const key = `${ev.disciplineId}|${ev.evaluationType || ""}`;
+                                if (!evalMap.has(key)) evalMap.set(key, { ev, turmas: [] });
+                                if (ev.classId && !evalMap.get(key)!.turmas.includes(ev.classId))
+                                  evalMap.get(key)!.turmas.push(ev.classId);
+                              } else {
+                                others.push(ev);
+                              }
+                            }
+                            const EVAL_LABELS: Record<string, string> = {
+                              PARTIAL: "Av. Parcial", EXAM: "Exame", FINAL: "Av. Final",
+                              SECOND_CHANCE: "2ª Chamada", REVIEW: "Vista",
+                            };
                             return (
-                              <div
-                                key={ev.id}
-                                className={`rounded-lg border ${col.border} ${col.bg} px-2 py-1.5 transition-colors ${canEdit ? `cursor-pointer ${col.hover}` : ""}`}
-                                onClick={() => canEdit && setEditingAcademic(ev)}
-                                title={canEdit ? "Clique para editar" : undefined}
-                              >
-                                <p className={`text-[10px] font-semibold leading-tight ${col.title}`}>
-                                  {ev.description || ev.location || "Evento acadêmico"}
-                                </p>
-                                {ev.notes && (
-                                  <p className={`text-[9px] mt-0.5 leading-snug ${col.sub}`}>{ev.notes}</p>
-                                )}
-                                {ev.startTime && (
-                                  <p className={`text-[9px] mt-0.5 ${col.sub}`}>
-                                    🕐 {ev.startTime}{ev.endTime && ev.endTime !== ev.startTime ? ` – ${ev.endTime}` : ""}
-                                  </p>
-                                )}
-                                {ev.location && ev.description && (
-                                  <p className={`text-[9px] ${col.sub}`}>📍 {ev.location}</p>
-                                )}
-                                {ev.endDate && ev.endDate !== ev.date && (() => {
-                                  const totalDays = Math.round((new Date(ev.endDate).getTime() - new Date(ev.date).getTime()) / 86400000) + 1;
-                                  const dayIdx = Math.round((new Date(DISPLAY_DATE).getTime() - new Date(ev.date).getTime()) / 86400000) + 1;
+                              <>
+                                {[...evalMap.values()].map(({ ev, turmas }) => {
+                                  const disc = disciplines.find((d) => d.id === ev.disciplineId);
+                                  const code = disc?.code || ev.disciplineId;
+                                  const evalLabel = EVAL_LABELS[ev.evaluationType || ""] || "Avaliação";
+                                  turmas.sort();
                                   return (
-                                    <div className="flex justify-end mt-0.5">
-                                      <span className={`text-[9px] font-bold px-1 rounded ${isDark ? "bg-slate-600 text-slate-200" : "bg-slate-200 text-slate-600"}`}>{dayIdx}/{totalDays}</span>
+                                    <div
+                                      key={`eval-${ev.disciplineId}-${ev.evaluationType}`}
+                                      className="rounded-lg border border-orange-500/40 bg-orange-500/10 px-2 py-1.5"
+                                    >
+                                      <p className="text-[10px] font-bold leading-tight text-orange-500">
+                                        {code} — {evalLabel}
+                                      </p>
+                                      <div className="flex flex-wrap gap-[3px] mt-1">
+                                        {turmas.map((t) => (
+                                          <span key={t} className="text-[8px] font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded px-1">
+                                            {t}
+                                          </span>
+                                        ))}
+                                      </div>
                                     </div>
                                   );
-                                })()}
-                              </div>
+                                })}
+                                {others.map((ev) => {
+                                  const col = getAcademicColor(ev.targetSquadron, isDark);
+                                  return (
+                                    <div
+                                      key={ev.id}
+                                      className={`rounded-lg border ${col.border} ${col.bg} px-2 py-1.5 transition-colors ${canEdit ? `cursor-pointer ${col.hover}` : ""}`}
+                                      onClick={() => canEdit && setEditingAcademic(ev)}
+                                      title={canEdit ? "Clique para editar" : undefined}
+                                    >
+                                      <p className={`text-[10px] font-semibold leading-tight ${col.title}`}>
+                                        {ev.description || ev.location || "Evento acadêmico"}
+                                      </p>
+                                      {ev.notes && (
+                                        <p className={`text-[9px] mt-0.5 leading-snug ${col.sub}`}>{ev.notes}</p>
+                                      )}
+                                      {ev.startTime && (
+                                        <p className={`text-[9px] mt-0.5 ${col.sub}`}>
+                                          🕐 {ev.startTime}{ev.endTime && ev.endTime !== ev.startTime ? ` – ${ev.endTime}` : ""}
+                                        </p>
+                                      )}
+                                      {ev.location && ev.description && (
+                                        <p className={`text-[9px] ${col.sub}`}>📍 {ev.location}</p>
+                                      )}
+                                      {ev.endDate && ev.endDate !== ev.date && (() => {
+                                        const totalDays = Math.round((new Date(ev.endDate).getTime() - new Date(ev.date).getTime()) / 86400000) + 1;
+                                        const dayIdx = Math.round((new Date(DISPLAY_DATE).getTime() - new Date(ev.date).getTime()) / 86400000) + 1;
+                                        return (
+                                          <div className="flex justify-end mt-0.5">
+                                            <span className={`text-[9px] font-bold px-1 rounded ${isDark ? "bg-slate-600 text-slate-200" : "bg-slate-200 text-slate-600"}`}>{dayIdx}/{totalDays}</span>
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+                                  );
+                                })}
+                              </>
                             );
-                          })}
+                          })()}
                         </div>
                       )}
                     </div>
