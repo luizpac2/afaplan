@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, MousePointer2, Link2, Trash2, X,
-  Plus, Bell, CalendarDays, AlertTriangle, Info, Zap, BookOpen,
+  Plus, Bell, CalendarDays, AlertTriangle, Info, Zap, BookOpen, ClipboardList, ChevronDown,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
@@ -360,6 +360,42 @@ export const GanttProgramming = () => {
     setSelectedEventIds([]);
   };
 
+  const [evalDropdownOpen, setEvalDropdownOpen] = useState(false);
+  const evalDropdownRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!evalDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (!evalDropdownRef.current?.contains(e.target as Node)) setEvalDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [evalDropdownOpen]);
+
+  const EVAL_CONVERT_OPTIONS = [
+    { type: "PARTIAL",       label: "Parcial" },
+    { type: "EXAM",          label: "Exame" },
+    { type: "FINAL",         label: "Final" },
+    { type: "SECOND_CHANCE", label: "2ª Época" },
+  ] as const;
+
+  const handleConvertToEvaluation = (evalType: typeof EVAL_CONVERT_OPTIONS[number]["type"]) => {
+    selectedEventIds.forEach((id) => {
+      const ev = weekEvents.find((e) => e.id === id);
+      if (!ev || ev.type === "ACADEMIC") return;
+      updateEvent(id, { type: "EVALUATION", evaluationType: evalType });
+    });
+    setWeekEvents((prev) =>
+      prev.map((e) =>
+        selectedEventIds.includes(e.id) && e.type !== "ACADEMIC"
+          ? { ...e, type: "EVALUATION", evaluationType: evalType }
+          : e
+      )
+    );
+    setEvalDropdownOpen(false);
+    setIsSelectionMode(false);
+    setSelectedEventIds([]);
+  };
+
   const handleNoticeSubmit = (data: Partial<SystemNotice>) => {
     addNotice({
       ...data,
@@ -706,6 +742,28 @@ export const GanttProgramming = () => {
                   <Link2 size={13} /> Desvincular
                 </button>
               )}
+              <div ref={evalDropdownRef} className="relative">
+                <button
+                  onClick={() => setEvalDropdownOpen((o) => !o)}
+                  disabled={selectedEventIds.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium text-amber-500 border-amber-400 hover:bg-amber-500/10 disabled:opacity-40 transition-colors"
+                >
+                  <ClipboardList size={13} /> Avaliação <ChevronDown size={11} />
+                </button>
+                {evalDropdownOpen && (
+                  <div className={`absolute top-full left-0 mt-1 z-50 rounded-lg border shadow-lg py-1 min-w-[130px] ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
+                    {EVAL_CONVERT_OPTIONS.map(({ type, label }) => (
+                      <button
+                        key={type}
+                        onClick={() => handleConvertToEvaluation(type)}
+                        className={`w-full text-left px-3 py-1.5 text-xs font-medium transition-colors ${isDark ? "hover:bg-slate-700 text-slate-200" : "hover:bg-amber-50 text-slate-700"}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button onClick={() => setIsDeleteConfirmOpen(true)} disabled={selectedEventIds.length === 0}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium text-red-500 border-red-400 hover:bg-red-500/10 disabled:opacity-40 transition-colors">
                 <Trash2 size={13} /> Excluir

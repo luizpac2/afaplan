@@ -404,7 +404,7 @@ export const EventForm = ({
                         : type === "EXAM"
                           ? "Exame"
                           : type === "FINAL"
-                            ? "Prova Final"
+                            ? "Final"
                             : type === "SECOND_CHANCE"
                               ? "2ª Época"
                               : "Vista"}
