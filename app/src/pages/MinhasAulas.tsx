@@ -213,6 +213,8 @@ export const MinhasAulas = () => {
   // DOCENTE STATE
   // ═══════════════════════════════════════════════════════════════════════════
 
+  const [docenteTab, setDocenteTab] = useState<"proximas" | "anteriores" | "avaliacoes">("proximas");
+
   const [docenteFilter, setDocenteFilter] = useState<string>(
     () => localStorage.getItem(LS_KEY_DOCENTE) ?? (userProfile?.instructorTrigram ?? "")
   );
@@ -581,54 +583,65 @@ export const MinhasAulas = () => {
             </div>
           )}
 
-          {/* Upcoming / Past two-column list */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className={`rounded-xl border overflow-hidden ${card}`}>
-              <div className={`px-3 py-2 border-b ${border} flex items-center gap-2`}>
-                <CalendarDays size={12} className="text-green-400" />
-                <span className={`text-[10px] font-bold uppercase tracking-wide ${text}`}>Próximas Aulas</span>
-                <span className={`text-[10px] ${muted}`}>({docenteUpcoming.filter((e) => e.type !== "EVALUATION").length})</span>
-              </div>
-              <div className="max-h-64 overflow-y-auto">
-                {docenteUpcoming.filter((e) => e.type !== "EVALUATION").slice(0, 30).map((ev) => (
+          {/* Secondary tabs: Próximas / Anteriores / Avaliações */}
+          <div className={`rounded-xl border overflow-hidden ${card}`}>
+            {/* Tab bar */}
+            <div className={`flex items-center gap-0 border-b ${border} px-2 pt-1.5`}>
+              {([
+                { id: "proximas",   label: "Próximas Aulas",   icon: <CalendarDays size={11} />, count: docenteUpcoming.filter((e) => e.type !== "EVALUATION").length, color: "text-green-400" },
+                { id: "anteriores", label: "Aulas Anteriores", icon: <ClipboardList size={11} />, count: docentePast.filter((e) => e.type !== "EVALUATION").length,    color: muted },
+                { id: "avaliacoes", label: "Avaliações",       icon: <Zap size={11} />,           count: upcomingEvalDocente.length,                                    color: "text-orange-400" },
+              ] as const).map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setDocenteTab(tab.id)}
+                  className={`flex items-center gap-1.5 px-3 pb-1.5 text-[11px] font-semibold border-b-2 transition-colors ${
+                    docenteTab === tab.id
+                      ? `border-blue-500 ${text}`
+                      : `border-transparent ${muted} hover:${text}`
+                  }`}
+                >
+                  <span className={docenteTab === tab.id ? tab.color : ""}>{tab.icon}</span>
+                  {tab.label}
+                  <span className={`text-[10px] font-normal ${muted}`}>({tab.count})</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Tab content */}
+            {docenteTab === "proximas" && (
+              <div className="max-h-72 overflow-y-auto">
+                {docenteUpcoming.filter((e) => e.type !== "EVALUATION").slice(0, 50).map((ev) => (
                   <DocenteEventRow key={ev.id} ev={ev} isDark={isDark} muted={muted} text={text} getDisciplineLabel={getDisciplineLabel} getDisciplineColor={getDisciplineColor} />
                 ))}
                 {docenteUpcoming.filter((e) => e.type !== "EVALUATION").length === 0 && (
-                  <p className={`px-3 py-3 text-[10px] italic ${muted} opacity-60`}>Nenhuma aula futura</p>
+                  <p className={`px-3 py-4 text-[11px] italic ${muted} opacity-60`}>Nenhuma aula futura</p>
                 )}
               </div>
-            </div>
-            <div className={`rounded-xl border overflow-hidden ${card}`}>
-              <div className={`px-3 py-2 border-b ${border} flex items-center gap-2`}>
-                <ClipboardList size={12} className={muted} />
-                <span className={`text-[10px] font-bold uppercase tracking-wide ${muted}`}>Aulas Anteriores</span>
-                <span className={`text-[10px] ${muted}`}>({docentePast.filter((e) => e.type !== "EVALUATION").length})</span>
-              </div>
-              <div className="max-h-64 overflow-y-auto opacity-75">
-                {docentePast.filter((e) => e.type !== "EVALUATION").slice(0, 30).map((ev) => (
+            )}
+
+            {docenteTab === "anteriores" && (
+              <div className="max-h-72 overflow-y-auto opacity-75">
+                {docentePast.filter((e) => e.type !== "EVALUATION").slice(0, 50).map((ev) => (
                   <DocenteEventRow key={ev.id} ev={ev} isDark={isDark} muted={muted} text={text} getDisciplineLabel={getDisciplineLabel} getDisciplineColor={getDisciplineColor} />
                 ))}
                 {docentePast.filter((e) => e.type !== "EVALUATION").length === 0 && (
-                  <p className={`px-3 py-3 text-[10px] italic ${muted} opacity-60`}>Nenhuma aula anterior</p>
+                  <p className={`px-3 py-4 text-[11px] italic ${muted} opacity-60`}>Nenhuma aula anterior</p>
                 )}
               </div>
-            </div>
-          </div>
+            )}
 
-          {upcomingEvalDocente.length > 0 && (
-            <div className={`rounded-xl border overflow-hidden ${card}`}>
-              <div className={`px-3 py-2 border-b ${border} flex items-center gap-2`}>
-                <Zap size={12} className="text-orange-400" />
-                <span className={`text-[10px] font-bold uppercase tracking-wide ${text}`}>Próximas Avaliações</span>
-                <span className={`text-[10px] ${muted}`}>({upcomingEvalDocente.length})</span>
-              </div>
+            {docenteTab === "avaliacoes" && (
               <div className="divide-y divide-slate-700/20">
                 {upcomingEvalDocente.map((ev) => (
                   <EvalRow key={ev.id} ev={ev} disciplines={disciplines} isDark={isDark} muted={muted} text={text} getDisciplineColor={getDisciplineColor} />
                 ))}
+                {upcomingEvalDocente.length === 0 && (
+                  <p className={`px-3 py-4 text-[11px] italic ${muted} opacity-60`}>Nenhuma avaliação próxima</p>
+                )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </>
       )}
 
