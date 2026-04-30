@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   ChevronLeft, ChevronRight, CalendarDays, BookOpen,
   Info, Zap, ClipboardList, GraduationCap, Clock, MapPin, User, Star,
+  Bell,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
@@ -374,43 +375,103 @@ export const MinhasAulas = () => {
 
           {/* ── Minhas Aulas tab ─────────────────────────────────────────── */}
           {activeTab === "aulas" && (
-            <div className={`rounded-xl border overflow-hidden ${card}`}>
-              {weekDayStrs.map((dateStr, idx) => {
-                const dayEvents = classWeekEvents
-                  .filter((e) => e.date === dateStr)
-                  .sort((a, b) => a.startTime.localeCompare(b.startTime));
-                const isToday = dateStr === todayStr;
-                const dow     = new Date(dateStr + "T12:00:00").getDay();
+            <div className="flex flex-col gap-2">
+              {weekDayStrs.map((dateStr) => {
+                const dayEvents   = classWeekEvents.filter((e) => e.date === dateStr);
+                const isToday     = dateStr === todayStr;
+                const dow         = new Date(dateStr + "T12:00:00").getDay();
+                const dayNotices  = notices.filter((n) => dateStr >= n.startDate && dateStr <= n.endDate);
+                const ACADEMIC_TYPES = new Set(["ACADEMIC","EVALUATION","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY"]);
+                const academic_   = weekEvents.filter((e) => {
+                  if (!ACADEMIC_TYPES.has(e.type ?? "") && e.disciplineId !== "ACADEMIC") return false;
+                  const end = (e as any).endDate ?? e.date;
+                  if (dateStr < e.date || dateStr > end) return false;
+                  if (e.type === "EVALUATION") {
+                    const sq = e.classId ? parseInt(e.classId.charAt(0)) : NaN;
+                    return isNaN(sq) || String(sq) === selectedClass.charAt(0);
+                  }
+                  return true;
+                });
+                const hasSidebar  = dayNotices.length > 0 || academic_.length > 0;
+                const sidebarBg   = isDark ? "bg-slate-900/60" : "bg-slate-50/80";
                 return (
-                  <div key={dateStr} className={`flex items-center gap-2 px-3 py-1.5 ${idx < 5 ? `border-b ${border}` : ""} ${isToday ? (isDark ? "bg-blue-600/10" : "bg-blue-50") : ""}`}>
-                    {/* Date label */}
-                    <div className="shrink-0 flex items-center gap-1.5 w-28">
+                  <div key={dateStr} className={`rounded-xl border overflow-hidden ${isToday ? (isDark ? "bg-blue-600/10 border-blue-500/40" : "bg-blue-50 border-blue-300") : card}`}>
+                    {/* Day header */}
+                    <div className={`flex items-center gap-2 px-3 py-1.5 border-b ${border}`}>
                       <span className={`text-[10px] font-bold uppercase w-7 ${isToday ? "text-blue-500" : muted}`}>{DAYS_SHORT[dow]}</span>
-                      <span className={`text-[11px] font-semibold ${isToday ? "text-blue-500" : text}`}>{dateStr.slice(8)}/{dateStr.slice(5,7)}</span>
-                      {isToday && <span className="text-[9px] font-bold bg-blue-500 text-white px-1 rounded">HOJE</span>}
+                      <span className={`text-[12px] font-bold ${isToday ? "text-blue-500" : text}`}>{dateStr.slice(8)}/{dateStr.slice(5,7)}</span>
+                      {isToday && <span className="text-[9px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded">HOJE</span>}
+                      <span className={`text-[10px] ${muted} ml-auto`}>{dayEvents.length} aula(s)</span>
                     </div>
-                    {/* Event chips */}
-                    <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-                      {dayEvents.length === 0 ? (
-                        <span className={`text-[10px] italic ${muted} opacity-50`}>Sem aulas</span>
-                      ) : dayEvents.map((ev) => {
-                        const disc  = disciplines.find((d) => d.id === ev.disciplineId);
-                        const color = getDisciplineColor(ev.disciplineId);
-                        const isEval = ev.type === "EVALUATION";
-                        const cnt   = eventCounts[`${ev.classId}|${ev.date}|${ev.startTime}`];
-                        return (
-                          <span
-                            key={ev.id}
-                            title={disc?.name ?? ev.disciplineId}
-                            className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border"
-                            style={{ borderColor: color + "60", backgroundColor: isEval ? "#f97316" + "25" : color + "20", color: isEval ? "#f97316" : color }}
-                          >
-                            {disc?.code ?? ev.disciplineId}
-                            {isEval && <span className="opacity-70 text-[9px]">{EVAL_LABELS[ev.evaluationType ?? ""] ?? "Av."}</span>}
-                            {cnt && !isEval && <span className="opacity-60 text-[9px]">{cnt.current}/{cnt.total}</span>}
-                          </span>
-                        );
-                      })}
+                    {/* Body: Gantt + Sidebar */}
+                    <div className="flex flex-col md:flex-row">
+                      <div className="flex-1 min-w-0 overflow-hidden px-2 py-1.5">
+                        {selectedClass ? (
+                          <GanttView date={dateStr} events={dayEvents} disciplines={disciplines} classes={[selectedClass]} canEdit={false} eventCounts={eventCounts} />
+                        ) : (
+                          <p className={`text-[10px] italic ${muted} opacity-50 py-1`}>Selecione uma turma</p>
+                        )}
+                      </div>
+                      {hasSidebar && (
+                        <div className={`border-t md:border-t-0 md:border-l ${border} ${sidebarBg} w-full md:w-48 md:shrink-0 flex flex-col`}>
+                          {/* Avisos */}
+                          {dayNotices.length > 0 && (
+                            <div className="px-2.5 pt-2 pb-1.5">
+                              <span className={`text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 mb-1 ${muted}`}><Bell size={9} /> Avisos</span>
+                              <div className="flex flex-col gap-0.5">
+                                {dayNotices.map((n) => {
+                                  const s = ({ URGENT: "bg-red-500/15 border-red-400/40 text-red-400", WARNING: "bg-amber-500/15 border-amber-400/40 text-amber-400", INFO: "bg-blue-500/15 border-blue-400/40 text-blue-400", EVALUATION: "bg-orange-500/15 border-orange-400/40 text-orange-400", EVENT: "bg-purple-500/15 border-purple-400/40 text-purple-400", GENERAL: "bg-slate-500/15 border-slate-400/40 text-slate-400" } as Record<string, string>)[n.type] ?? "bg-slate-500/15 border-slate-400/40 text-slate-400";
+                                  return (
+                                    <div key={n.id} className={`rounded border px-1.5 py-1 ${s}`}>
+                                      <p className="text-[9px] font-semibold leading-tight truncate">{n.title}</p>
+                                      {n.description && <p className={`text-[8px] leading-tight ${muted} opacity-70 truncate`}>{n.description}</p>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          {/* Eventos acadêmicos */}
+                          {academic_.length > 0 && (
+                            <div className={`px-2.5 pt-1.5 pb-2 ${dayNotices.length > 0 ? `border-t ${border}` : ""}`}>
+                              <span className={`text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 mb-1 ${muted}`}><BookOpen size={9} /> Eventos</span>
+                              <div className="flex flex-col gap-0.5">
+                                {(() => {
+                                  const evalMap = new Map<string, { ev: typeof academic_[0]; turmas: string[] }>();
+                                  const others: typeof academic_ = [];
+                                  for (const ev of academic_) {
+                                    if (ev.type === "EVALUATION") {
+                                      const key = `${ev.disciplineId}|${ev.evaluationType ?? ""}`;
+                                      if (!evalMap.has(key)) evalMap.set(key, { ev, turmas: [] });
+                                      if (ev.classId && !evalMap.get(key)!.turmas.includes(ev.classId)) evalMap.get(key)!.turmas.push(ev.classId);
+                                    } else { others.push(ev); }
+                                  }
+                                  return (<>
+                                    {[...evalMap.values()].map(({ ev, turmas }) => {
+                                      const disc = disciplines.find((d) => d.id === ev.disciplineId);
+                                      turmas.sort();
+                                      return (
+                                        <div key={`eval-${ev.disciplineId}-${ev.evaluationType}`} className="rounded border border-orange-500/40 bg-orange-500/10 px-1.5 py-1">
+                                          <p className="text-[9px] font-bold leading-tight text-orange-500">{disc?.code ?? ev.disciplineId} — {EVAL_LABELS[ev.evaluationType ?? ""] ?? "Avaliação"}</p>
+                                          <div className="flex flex-wrap gap-[2px] mt-0.5">
+                                            {turmas.map((t) => <span key={t} className="text-[8px] font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded px-1">{t}</span>)}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                    {others.map((ev) => (
+                                      <div key={ev.id} className={`rounded border px-1.5 py-1 ${isDark ? "bg-purple-500/10 border-purple-500/30" : "bg-purple-50 border-purple-200"}`}>
+                                        <p className={`text-[9px] font-semibold leading-tight truncate ${isDark ? "text-purple-300" : "text-purple-700"}`}>{ev.description || ev.location || "Evento"}</p>
+                                        {ev.startTime && <p className={`text-[8px] ${muted}`}>{ev.startTime}</p>}
+                                      </div>
+                                    ))}
+                                  </>);
+                                })()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
