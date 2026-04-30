@@ -52,7 +52,7 @@ const MENU_ITEMS: MenuItem[] = [
   {
     title: "MINHAS AULAS",
     icon: Star,
-    roles: ["CADETE", "DOCENTE", "CHEFE_TURMA"],
+    roles: ALL_ROLES,
     submenu: [
       { title: "Minhas Aulas", path: "/my-classes", icon: Star },
     ],
