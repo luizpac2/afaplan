@@ -173,9 +173,17 @@ export const MinhasAulas = () => {
     if (selectedClass) localStorage.setItem(LS_KEY_CADET_CLASS, selectedClass);
   }, [selectedClass]);
 
+  // Deriva turmas de aula dos eventos reais (mesmo padrão do GanttProgramming)
   const allClassIds = useMemo(
-    () => [...new Set(classes.map((c) => `${c.year}${c.name}`))].sort(),
-    [classes]
+    () =>
+      [
+        ...new Set(
+          yearlyEvents
+            .filter((e) => e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC" && e.classId)
+            .map((e) => e.classId as string)
+        ),
+      ].sort(),
+    [yearlyEvents]
   );
 
   const classWeekEvents = useMemo(
@@ -302,7 +310,7 @@ export const MinhasAulas = () => {
         <>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="flex items-center gap-2">
-              <span className={`text-[11px] font-semibold uppercase tracking-wide ${muted}`}>Turma</span>
+              <span className={`text-[11px] font-semibold uppercase tracking-wide ${muted}`}>Turma de Aula</span>
               <select
                 value={selectedClass}
                 onChange={(e) => setSelectedClass(e.target.value)}
