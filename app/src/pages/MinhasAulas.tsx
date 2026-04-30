@@ -190,9 +190,19 @@ export const MinhasAulas = () => {
     [yearlyEvents, selectedClass]
   );
 
+  // Deduplicação: avaliação com vários tempos no mesmo dia → só o mais cedo
+  const dedupedEvals = useMemo(() => {
+    const seen = new Map<string, ScheduleEvent>();
+    for (const ev of myEvaluations) {
+      const key = `${ev.date}|${ev.disciplineId}|${ev.evaluationType}`;
+      if (!seen.has(key) || ev.startTime < seen.get(key)!.startTime) seen.set(key, ev);
+    }
+    return [...seen.values()].sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`));
+  }, [myEvaluations]);
+
   const filteredEvals = useMemo(
-    () => evalTypeFilter === "ALL" ? myEvaluations : myEvaluations.filter((e) => e.evaluationType === evalTypeFilter),
-    [myEvaluations, evalTypeFilter]
+    () => evalTypeFilter === "ALL" ? dedupedEvals : dedupedEvals.filter((e) => e.evaluationType === evalTypeFilter),
+    [dedupedEvals, evalTypeFilter]
   );
 
   const upcomingEvals = filteredEvals.filter((e) => e.date >= todayStr);
@@ -364,26 +374,44 @@ export const MinhasAulas = () => {
 
           {/* ── Minhas Aulas tab ─────────────────────────────────────────── */}
           {activeTab === "aulas" && (
-            <div className="flex flex-col gap-2">
-              {weekDayStrs.map((dateStr) => {
-                const dayEvents = classWeekEvents.filter((e) => e.date === dateStr);
-                const isToday   = dateStr === todayStr;
-                const dow       = new Date(dateStr + "T12:00:00").getDay();
+            <div className={`rounded-xl border overflow-hidden ${card}`}>
+              {weekDayStrs.map((dateStr, idx) => {
+                const dayEvents = classWeekEvents
+                  .filter((e) => e.date === dateStr)
+                  .sort((a, b) => a.startTime.localeCompare(b.startTime));
+                const isToday = dateStr === todayStr;
+                const dow     = new Date(dateStr + "T12:00:00").getDay();
                 return (
-                  <div key={dateStr} className={`rounded-xl border overflow-hidden ${isToday ? todayBg : card}`}>
-                    <div className={`flex items-center gap-2 px-3 py-1.5 border-b ${border}`}>
-                      <span className={`text-[10px] font-bold uppercase tracking-wide w-7 ${isToday ? "text-blue-500" : muted}`}>{DAYS_SHORT[dow]}</span>
-                      <span className={`text-[12px] font-bold ${isToday ? "text-blue-500" : text}`}>{dateStr.slice(8)}/{dateStr.slice(5,7)}</span>
-                      {isToday && <span className="text-[9px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded">HOJE</span>}
-                      <span className={`text-[10px] ${muted} ml-auto`}>{dayEvents.length} aula(s)</span>
+                  <div key={dateStr} className={`flex items-center gap-2 px-3 py-1.5 ${idx < 5 ? `border-b ${border}` : ""} ${isToday ? (isDark ? "bg-blue-600/10" : "bg-blue-50") : ""}`}>
+                    {/* Date label */}
+                    <div className="shrink-0 flex items-center gap-1.5 w-28">
+                      <span className={`text-[10px] font-bold uppercase w-7 ${isToday ? "text-blue-500" : muted}`}>{DAYS_SHORT[dow]}</span>
+                      <span className={`text-[11px] font-semibold ${isToday ? "text-blue-500" : text}`}>{dateStr.slice(8)}/{dateStr.slice(5,7)}</span>
+                      {isToday && <span className="text-[9px] font-bold bg-blue-500 text-white px-1 rounded">HOJE</span>}
                     </div>
-                    {dayEvents.length === 0 ? (
-                      <p className={`px-3 py-2 text-[10px] italic ${muted} opacity-50`}>Sem aulas</p>
-                    ) : selectedClass ? (
-                      <div className="px-1.5 py-1.5">
-                        <GanttView date={dateStr} events={dayEvents} disciplines={disciplines} classes={[selectedClass]} canEdit={false} eventCounts={eventCounts} />
-                      </div>
-                    ) : null}
+                    {/* Event chips */}
+                    <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                      {dayEvents.length === 0 ? (
+                        <span className={`text-[10px] italic ${muted} opacity-50`}>Sem aulas</span>
+                      ) : dayEvents.map((ev) => {
+                        const disc  = disciplines.find((d) => d.id === ev.disciplineId);
+                        const color = getDisciplineColor(ev.disciplineId);
+                        const isEval = ev.type === "EVALUATION";
+                        const cnt   = eventCounts[`${ev.classId}|${ev.date}|${ev.startTime}`];
+                        return (
+                          <span
+                            key={ev.id}
+                            title={disc?.name ?? ev.disciplineId}
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border"
+                            style={{ borderColor: color + "60", backgroundColor: isEval ? "#f97316" + "25" : color + "20", color: isEval ? "#f97316" : color }}
+                          >
+                            {disc?.code ?? ev.disciplineId}
+                            {isEval && <span className="opacity-70 text-[9px]">{EVAL_LABELS[ev.evaluationType ?? ""] ?? "Av."}</span>}
+                            {cnt && !isEval && <span className="opacity-60 text-[9px]">{cnt.current}/{cnt.total}</span>}
+                          </span>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })}
