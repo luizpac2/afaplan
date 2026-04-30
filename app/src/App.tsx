@@ -10,6 +10,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 // Carregamento imediato — páginas críticas para a navegação inicial
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
+import { MinhasAulas } from "./pages/MinhasAulas";
 import { Inbox } from "./pages/Inbox";
 import { Profile } from "./pages/Profile";
 import { ChangePassword } from "./pages/ChangePassword";
@@ -82,6 +83,14 @@ function App() {
                 >
                   {/* ENSINO */}
                   <Route index element={<Dashboard />} />
+                  <Route
+                    path="my-classes"
+                    element={
+                      <ProtectedRoute allowedRoles={["CADETE", "DOCENTE", "CHEFE_TURMA", "SUPER_ADMIN", "ADMIN"]}>
+                        <MinhasAulas />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route
                     path="programming/:squadronId"
                     element={<SquadronProgramming />}

@@ -2,7 +2,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   BookOpen,
   Plane,
-
+  Star,
   Users,
   History,
   BarChart2,
@@ -49,6 +49,14 @@ interface MenuItem {
 const ALL_ROLES = ["SUPER_ADMIN", "ADMIN", "CADETE", "DOCENTE", "CHEFE_TURMA"];
 
 const MENU_ITEMS: MenuItem[] = [
+  {
+    title: "MINHAS AULAS",
+    icon: Star,
+    roles: ["CADETE", "DOCENTE", "CHEFE_TURMA"],
+    submenu: [
+      { title: "Minhas Aulas", path: "/my-classes", icon: Star },
+    ],
+  },
   {
     title: "CHEFE DE TURMA",
     icon: ClipboardList,
