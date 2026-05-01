@@ -53,7 +53,6 @@ export const SquadronProgramming = () => {
     addNotice,
     dataReady,
     fetchYearlyEvents,
-    eventsMutationCount,
   } = useCourseStore();
   const { userProfile } = useAuth();
   const { theme } = useTheme();
