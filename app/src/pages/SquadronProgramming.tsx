@@ -123,7 +123,7 @@ export const SquadronProgramming = () => {
     });
 
     return () => unsubscribe();
-  }, [startDayStr, endDayStr, dataReady, eventsMutationCount]);
+  }, [startDayStr, endDayStr, dataReady]);
 
   // Query all events for the year to calculate continuous counts (Offline via store)
   useEffect(() => {
@@ -358,28 +358,43 @@ export const SquadronProgramming = () => {
   const handleSave = (data: any) => {
     const { classIds, ...eventData } = data;
     if (isSelectionMode) {
+      const newEvents: ScheduleEvent[] = [];
       classIds.forEach((classId: string) => {
         selectedSlots.forEach((slotKey) => {
           const [date, startTime] = slotKey.split("|");
           const slot = TIME_SLOTS.find((s) => s.start === startTime);
-          addEvent({
+          const ev: ScheduleEvent = {
             ...eventData,
             classId,
             id: crypto.randomUUID(),
             date,
             startTime,
             endTime: slot ? slot.end : startTime,
-          });
+          };
+          addEvent(ev);
+          newEvents.push(ev);
         });
       });
+      // Optimistic: add to local view immediately (DB save is async)
+      setSquadronEvents((prev) => [...prev, ...newEvents]);
       setIsSelectionMode(false);
       setSelectedSlots([]);
     } else if (editingEvent?.id && !editingEvent.id.startsWith("virtual-")) {
       updateEvent(editingEvent.id, { ...eventData, classId: classIds[0] });
-    } else {
-      classIds.forEach((classId: string) =>
-        addEvent({ ...eventData, classId, id: crypto.randomUUID() }),
+      setSquadronEvents((prev) =>
+        prev.map((e) =>
+          e.id === editingEvent.id ? { ...e, ...eventData, classId: classIds[0] } : e,
+        ),
       );
+    } else {
+      const newEvents: ScheduleEvent[] = classIds.map((classId: string) => ({
+        ...eventData,
+        classId,
+        id: crypto.randomUUID(),
+      }));
+      newEvents.forEach((ev) => addEvent(ev));
+      // Optimistic: add to local view immediately (DB save is async)
+      setSquadronEvents((prev) => [...prev, ...newEvents]);
     }
     setIsEventModalOpen(false);
     setEditingEvent(undefined);
