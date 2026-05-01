@@ -540,8 +540,12 @@ export const GanttProgramming = () => {
         setWeekEvents((prev) => prev.map((e) => e.id === existingId ? { ...e, ...eventData } : e));
       } else {
         const newEvent: ScheduleEvent = { ...eventData, id: crypto.randomUUID() };
+        console.log("[doSaveEvent] novo evento:", JSON.stringify(newEvent));
         addEvent(newEvent);
-        setWeekEvents((prev) => [...prev, newEvent]);
+        setWeekEvents((prev) => {
+          console.log("[doSaveEvent] weekEvents:", prev.length, "→", prev.length + 1);
+          return [...prev, newEvent];
+        });
       }
     };
 
