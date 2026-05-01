@@ -287,7 +287,15 @@ export const GanttProgramming = () => {
 
     if (!batchAllSquadronsMode) {
       baseEvents.forEach((ev) => addEvent(ev));
-      setWeekEvents((prev) => [...prev, ...baseEvents]);
+      setWeekEvents((prev) => {
+        const filtered = prev.filter(
+          (e) => !baseEvents.some(
+            (ne) => ne.classId === e.classId && ne.date === e.date && ne.startTime === e.startTime
+              && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC",
+          ),
+        );
+        return [...filtered, ...baseEvents];
+      });
       setIsBatchFormOpen(false);
       setIsBatchMode(false);
       setSelectedSlots([]);
@@ -540,11 +548,18 @@ export const GanttProgramming = () => {
         setWeekEvents((prev) => prev.map((e) => e.id === existingId ? { ...e, ...eventData } : e));
       } else {
         const newEvent: ScheduleEvent = { ...eventData, id: crypto.randomUUID() };
-        console.log("[doSaveEvent] novo evento:", JSON.stringify(newEvent));
         addEvent(newEvent);
         setWeekEvents((prev) => {
-          console.log("[doSaveEvent] weekEvents:", prev.length, "→", prev.length + 1);
-          return [...prev, newEvent];
+          // Remove existing event at same slot (mirrors DB slot-clear)
+          const filtered = prev.filter(
+            (e) =>
+              !(e.classId === newEvent.classId &&
+                e.date === newEvent.date &&
+                e.startTime === newEvent.startTime &&
+                e.type !== "ACADEMIC" &&
+                e.disciplineId !== "ACADEMIC"),
+          );
+          return [...filtered, newEvent];
         });
       }
     };
