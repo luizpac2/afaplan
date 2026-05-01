@@ -391,9 +391,13 @@ export const SquadronProgramming = () => {
         classId,
         id: crypto.randomUUID(),
       }));
+      console.log("[handleSave] newEvents:", JSON.stringify(newEvents));
       newEvents.forEach((ev) => addEvent(ev));
       // Optimistic: add to local view immediately (DB save is async)
-      setSquadronEvents((prev) => [...prev, ...newEvents]);
+      setSquadronEvents((prev) => {
+        console.log("[handleSave] squadronEvents antes:", prev.length, "→ depois:", prev.length + newEvents.length);
+        return [...prev, ...newEvents];
+      });
     }
     setIsEventModalOpen(false);
     setEditingEvent(undefined);
