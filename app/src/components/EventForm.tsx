@@ -553,9 +553,12 @@ export const EventForm = ({
                               newClassIds = [classId];
                             } else {
                               if (isActive) {
-                                newClassIds = newClassIds.filter(
-                                  (id) => id !== classId,
-                                );
+                                // Prevent deselecting the last class
+                                if (newClassIds.length > 1) {
+                                  newClassIds = newClassIds.filter(
+                                    (id) => id !== classId,
+                                  );
+                                }
                               } else {
                                 newClassIds.push(classId);
                               }
