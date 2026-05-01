@@ -163,6 +163,7 @@ interface CourseState {
   // Yearly Events Cache Logic
   yearEventsCache: Record<number, ScheduleEvent[]>;
   weeklyEventsCache: Record<string, ScheduleEvent[]>; // key: "YYYY-MM-DD-SQUADRON"
+  eventsMutationCount: number; // incremented on every add/update/delete to trigger re-fetches
   fetchYearlyEvents: (year: number) => Promise<ScheduleEvent[]>;
   fetchWeeklyEvents: (
     startDay: string,
@@ -223,6 +224,7 @@ export const useCourseStore = create<CourseState>((set) => ({
   changeRequests: [],
   yearEventsCache: {},
   weeklyEventsCache: {},
+  eventsMutationCount: 0,
   dataReady: false,
   appConfigs: {},
 
@@ -668,6 +670,7 @@ export const useCourseStore = create<CourseState>((set) => ({
         events: [...state.events, event],
         yearEventsCache: newYearCache,
         weeklyEventsCache: {},
+        eventsMutationCount: state.eventsMutationCount + 1,
       };
     });
     invalidateEventsLocalCache();
@@ -764,6 +767,7 @@ export const useCourseStore = create<CourseState>((set) => ({
         events: newEvents,
         yearEventsCache: newYearCache,
         weeklyEventsCache: {},
+        eventsMutationCount: state.eventsMutationCount + 1,
       };
     });
     invalidateEventsLocalCache();
@@ -789,6 +793,7 @@ export const useCourseStore = create<CourseState>((set) => ({
         events: state.events.filter((e) => e.id !== id),
         yearEventsCache: newYearCache,
         weeklyEventsCache: {},
+        eventsMutationCount: state.eventsMutationCount + 1,
       };
     });
     invalidateEventsLocalCache();
@@ -815,7 +820,8 @@ export const useCourseStore = create<CourseState>((set) => ({
       return {
         events: state.events.filter((e) => !ids.includes(e.id)),
         yearEventsCache: newYearCache,
-        weeklyEventsCache: {}, // Invalida cache semanal para forçar recarga na programação
+        weeklyEventsCache: {},
+        eventsMutationCount: state.eventsMutationCount + 1,
       };
     });
     invalidateEventsLocalCache();

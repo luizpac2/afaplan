@@ -53,6 +53,7 @@ export const SquadronProgramming = () => {
     addNotice,
     dataReady,
     fetchYearlyEvents,
+    eventsMutationCount,
   } = useCourseStore();
   const { userProfile } = useAuth();
   const { theme } = useTheme();
@@ -122,7 +123,7 @@ export const SquadronProgramming = () => {
     });
 
     return () => unsubscribe();
-  }, [startDayStr, endDayStr, dataReady]);
+  }, [startDayStr, endDayStr, dataReady, eventsMutationCount]);
 
   // Query all events for the year to calculate continuous counts (Offline via store)
   useEffect(() => {
