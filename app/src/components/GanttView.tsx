@@ -86,7 +86,8 @@ export const GanttView = ({
   const textMuted = isDark ? "text-slate-400" : "text-slate-500";
 
   function slotIndex(startTime: string) {
-    return TIME_SLOTS.findIndex((s) => s.start === startTime);
+    const normalized = startTime?.slice(0, 5) ?? "";
+    return TIME_SLOTS.findIndex((s) => s.start === normalized);
   }
 
   return (
