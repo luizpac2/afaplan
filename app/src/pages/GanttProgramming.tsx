@@ -536,7 +536,7 @@ export const GanttProgramming = () => {
     const otherSquadrons = ([1, 2, 3, 4] as CourseYear[]).filter((s) => s !== currentSquadron);
 
     const saveOne = (eventData: Omit<ScheduleEvent, "id">, existingId?: string) => {
-      console.log("[doSaveEvent] saveOne existingId:", existingId, "classId:", eventData.classId, "date:", eventData.date, "startTime:", eventData.startTime);
+      console.log("[doSaveEvent] saveOne existingId:", existingId, "disciplineId:", eventData.disciplineId, "type:", eventData.type, "classId:", eventData.classId, "date:", eventData.date, "startTime:", eventData.startTime);
       if (existingId) {
         updateEvent(existingId, eventData);
         setWeekEvents((prev) => prev.map((e) => e.id === existingId ? { ...e, ...eventData } : e));
