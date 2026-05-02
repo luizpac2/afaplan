@@ -545,8 +545,15 @@ export const GanttProgramming = () => {
         }, 800);
       } else {
         const newEvent: ScheduleEvent = { ...eventData, id: crypto.randomUUID() };
-        addEvent(newEvent);
         setWeekEvents((prev) => [...prev, newEvent]);
+        addEvent(newEvent).then(() => {
+          // Recarrega do banco após confirmação de persistência
+          invalidateEventsWeekCache();
+          subscribeToEventsByDateRange(startDayStr, endDayStr, (evs) => setWeekEvents(evs as ScheduleEvent[]));
+        }).catch(() => {
+          // Remove o evento otimista se falhou
+          setWeekEvents((prev) => prev.filter((e) => e.id !== newEvent.id));
+        });
       }
     };
 

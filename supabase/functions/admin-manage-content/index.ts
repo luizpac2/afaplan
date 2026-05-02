@@ -820,14 +820,25 @@ Deno.serve(async (req) => {
     const yearStart = `${year}-01-01`;
     const yearEnd = `${year}-12-31`;
 
-    const { data: allEventsRaw, error: fetchErr } = await adminClient
-      .from("programacao_aulas")
-      .select("id, classId, date, startTime, endDate, type, disciplineId")
-      .gte("date", yearStart)
-      .lte("date", yearEnd);
-    if (fetchErr) return err(`Falha ao carregar eventos: ${fetchErr.message}`, 500);
+    // Pagina para superar o limite de 1000 linhas do Supabase
+    const PAGE = 1000;
+    let allEventsRaw: any[] = [];
+    let pageIdx = 0;
+    while (true) {
+      const { data: page, error: fetchErr } = await adminClient
+        .from("programacao_aulas")
+        .select("id, classId, date, startTime, endDate, type, disciplineId")
+        .gte("date", yearStart)
+        .lte("date", yearEnd)
+        .range(pageIdx * PAGE, (pageIdx + 1) * PAGE - 1);
+      if (fetchErr) return err(`Falha ao carregar eventos (pág ${pageIdx}): ${fetchErr.message}`, 500);
+      if (!page || page.length === 0) break;
+      allEventsRaw = allEventsRaw.concat(page);
+      if (page.length < PAGE) break;
+      pageIdx++;
+    }
 
-    console.log(`deduplicate_events: ${allEventsRaw?.length ?? 0} eventos encontrados`);
+    console.log(`deduplicate_events: ${allEventsRaw.length} eventos encontrados (${pageIdx + 1} páginas)`);
 
     // Remove eventos com id vazio/nulo do banco (dados inválidos)
     const invalidIds = (allEventsRaw ?? []).filter((e: any) => !e.id).map((e: any) => e.id);

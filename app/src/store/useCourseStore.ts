@@ -80,7 +80,7 @@ interface CourseState {
   deleteBatchDisciplines: (ids: string[]) => Promise<void>;
   unifyAllDisciplines: () => Promise<{ merged: number; errors: number }> ;
   clearDisciplines: () => void;
-  addEvent: (event: ScheduleEvent) => void;
+  addEvent: (event: ScheduleEvent) => Promise<unknown>;
   addBatchEvents: (events: ScheduleEvent[]) => void;
   updateEvent: (id: string, updates: Partial<ScheduleEvent>) => void;
   swapEvents: (
@@ -703,8 +703,9 @@ export const useCourseStore = create<CourseState>((set) => ({
       instructorId:   event.instructorTrigram || null,
       evaluationType: event.evaluationType ?? null,
     };
-    contentFn("save_event", { event: dbEvent }).catch((err) => {
+    return contentFn("save_event", { event: dbEvent }).catch((err) => {
       console.error("Failed to save event:", err?.message ?? err);
+      throw err;
     });
   },
 
