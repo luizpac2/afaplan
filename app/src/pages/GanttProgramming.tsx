@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, MousePointer2, Link2, Trash2, X,
@@ -77,21 +77,6 @@ export const GanttProgramming = () => {
   }, [currentDate, sessionKey]);
 
   const [weekEvents, setWeekEvents]   = useState<ScheduleEvent[]>([]);
-  const weekEventsRef = React.useRef<ScheduleEvent[]>([]);
-  const trackedIdRef = React.useRef<string | null>(null);
-  // Detecta quando um evento rastreado desaparece do weekEvents
-  React.useEffect(() => {
-    const id = trackedIdRef.current;
-    if (!id) return;
-    const prev = weekEventsRef.current;
-    const hadIt = prev.some((e) => e.id === id);
-    const hasIt = weekEvents.some((e) => e.id === id);
-    if (hadIt && !hasIt) {
-      console.error("[weekEvents] EVENTO SUMIU:", id, "total antes:", prev.length, "total agora:", weekEvents.length);
-      console.error("[weekEvents] Primeiros 5 ids agora:", weekEvents.slice(0, 5).map(e => e.id));
-    }
-    weekEventsRef.current = weekEvents;
-  }, [weekEvents]);
   const [yearlyEvents, setYearlyEvents] = useState<ScheduleEvent[]>([]);
   const [editingEvent, setEditingEvent] = useState<ScheduleEvent | undefined>();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -551,14 +536,14 @@ export const GanttProgramming = () => {
     const otherSquadrons = ([1, 2, 3, 4] as CourseYear[]).filter((s) => s !== currentSquadron);
 
     const saveOne = (eventData: Omit<ScheduleEvent, "id">, existingId?: string) => {
-      console.log("[doSaveEvent] saveOne existingId:", existingId, "disciplineId:", eventData.disciplineId, "type:", eventData.type, "classId:", eventData.classId, "date:", eventData.date, "startTime:", eventData.startTime);
       if (existingId) {
         updateEvent(existingId, eventData);
-        setWeekEvents((prev) => {
-          const found = prev.some((e) => e.id === existingId);
-          if (!found) console.warn("[doSaveEvent] id não encontrado em weekEvents:", existingId, "total:", prev.length);
-          return prev.map((e) => e.id === existingId ? { ...e, ...eventData } : e);
-        });
+        setWeekEvents((prev) => prev.map((e) => e.id === existingId ? { ...e, ...eventData } : e));
+        // Recarrega do banco após um breve delay para garantir consistência visual
+        setTimeout(() => {
+          invalidateEventsWeekCache();
+          subscribeToEventsByDateRange(startDayStr, endDayStr, (evs) => setWeekEvents(evs as ScheduleEvent[]));
+        }, 800);
       } else {
         const newEvent: ScheduleEvent = { ...eventData, id: crypto.randomUUID() };
         addEvent(newEvent);

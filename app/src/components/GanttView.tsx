@@ -210,7 +210,6 @@ export const GanttView = ({
                 };
 
                 const handleClick = () => {
-                  console.log("[GanttView] handleClick slot", i, "ev:", ev?.id ?? "null", "hasOverlap:", hasOverlap, "canEdit:", canEdit);
                   if (!ev) return;
                   if (hasOverlap && canEdit) {
                     const key = `${classId}_${i}`;
