@@ -813,18 +813,18 @@ Deno.serve(async (req) => {
   if (action === "deduplicate_events") {
     const { date, startDate, endDate } = body as { date?: string; startDate?: string; endDate?: string };
 
-    // Busca todos os eventos do período — sem filtro de tipo (filtramos no JS)
-    let query = adminClient
+    // Busca eventos que COBREM o período (incluindo multi-dia com endDate)
+    // Estratégia: busca todos que têm date <= endDate E (endDate >= startDate OU endDate is null)
+    // Para simplificar: busca tudo do ano corrente e filtra no JS
+    const year = (startDate ?? date ?? new Date().toISOString().slice(0,4)).slice(0, 4);
+    const yearStart = `${year}-01-01`;
+    const yearEnd = `${year}-12-31`;
+
+    const { data: allEventsRaw, error: fetchErr } = await adminClient
       .from("programacao_aulas")
-      .select("id, classId, date, startTime, type, disciplineId");
-
-    if (date) {
-      query = query.eq("date", date);
-    } else if (startDate && endDate) {
-      query = query.gte("date", startDate).lte("date", endDate);
-    }
-
-    const { data: allEventsRaw, error: fetchErr } = await query;
+      .select("id, classId, date, startTime, endDate, type, disciplineId")
+      .gte("date", yearStart)
+      .lte("date", yearEnd);
     if (fetchErr) return err(`Falha ao carregar eventos: ${fetchErr.message}`, 500);
 
     console.log(`deduplicate_events: ${allEventsRaw?.length ?? 0} eventos encontrados`);
@@ -837,9 +837,22 @@ Deno.serve(async (req) => {
 
     // Só deduplica eventos com classId e id válido
     const SKIP_TYPES = new Set(["DAY_OFF", "ACADEMIC", "COMMEMORATIVE", "HOLIDAY"]);
-    const allEvents = (allEventsRaw ?? []).filter((e: any) =>
+    let allEvents = (allEventsRaw ?? []).filter((e: any) =>
       e.id && e.classId && !SKIP_TYPES.has(e.type ?? "")
     );
+
+    // Se filtro de período foi fornecido, restringe ao período (considerando eventos multi-dia)
+    if (startDate && endDate) {
+      allEvents = allEvents.filter((e: any) => {
+        const evEnd = e.endDate ?? e.date;
+        return e.date <= endDate && evEnd >= startDate;
+      });
+    } else if (date) {
+      allEvents = allEvents.filter((e: any) => {
+        const evEnd = e.endDate ?? e.date;
+        return e.date <= date && evEnd >= date;
+      });
+    }
 
     console.log(`deduplicate_events: ${allEvents.length} aulas com classId após filtro`);
 
