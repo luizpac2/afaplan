@@ -703,12 +703,15 @@ export const useCourseStore = create<CourseState>((set) => ({
       instructorId:   event.instructorTrigram || null,
       evaluationType: event.evaluationType ?? null,
     };
-    contentFn("save_event", { event: dbEvent }).catch(async (err) => {
-      console.warn("save_event via edge function falhou, tentando insert direto:", err?.message ?? err);
-      // Fallback: insert direto no Supabase (sem RLS admin, mas com anon key)
-      const { error: insErr } = await supabase.from("programacao_aulas").upsert(dbEvent, { onConflict: "id" });
-      if (insErr) console.error("Fallback insert também falhou:", insErr.message);
-      else console.log("Fallback insert OK para evento:", dbEvent.id);
+    contentFn("save_event", { event: dbEvent }).then(async () => {
+      // Verifica se o evento está acessível via SELECT após salvar
+      const { data: check, error: chkErr } = await supabase
+        .from("programacao_aulas").select("id,classId,date,startTime").eq("id", dbEvent.id).maybeSingle();
+      if (chkErr) console.error("[addEvent] SELECT check error:", chkErr.message);
+      else if (!check) console.error("[addEvent] SELECT retornou null — evento não visível via RLS! id:", dbEvent.id);
+      else console.log("[addEvent] SELECT OK:", check);
+    }).catch((err) => {
+      console.error("Failed to save event:", err?.message ?? err);
     });
   },
 
