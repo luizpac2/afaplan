@@ -210,9 +210,9 @@ export const GanttView = ({
                 };
 
                 const handleClick = () => {
+                  console.log("[GanttView] handleClick slot", i, "ev:", ev?.id ?? "null", "hasOverlap:", hasOverlap, "canEdit:", canEdit);
                   if (!ev) return;
                   if (hasOverlap && canEdit) {
-                    // Open overlap popover instead of edit modal
                     const key = `${classId}_${i}`;
                     setOverlapPopover(prev => prev?.key === key ? null : { key, evs: overlapEvs! });
                     return;

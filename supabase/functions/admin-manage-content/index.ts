@@ -807,5 +807,82 @@ Deno.serve(async (req) => {
     return ok({ table, columns, sampleRow: data?.[0] ?? null });
   }
 
+  // ── deduplicate_events ────────────────────────────────────────────────────────
+  // Remove aulas duplicadas no mesmo slot (classId + date + startTime), mantendo a mais antiga (menor id lexicográfico).
+  // Se date for passado, filtra apenas esse dia. Retorna quantas foram removidas.
+  if (action === "deduplicate_events") {
+    const { date, startDate, endDate } = body as { date?: string; startDate?: string; endDate?: string };
+
+    // Busca todos os eventos do período — sem filtro de tipo (filtramos no JS)
+    let query = adminClient
+      .from("programacao_aulas")
+      .select("id, classId, date, startTime, type, disciplineId");
+
+    if (date) {
+      query = query.eq("date", date);
+    } else if (startDate && endDate) {
+      query = query.gte("date", startDate).lte("date", endDate);
+    }
+
+    const { data: allEventsRaw, error: fetchErr } = await query;
+    if (fetchErr) return err(`Falha ao carregar eventos: ${fetchErr.message}`, 500);
+
+    console.log(`deduplicate_events: ${allEventsRaw?.length ?? 0} eventos encontrados`);
+
+    // Remove eventos com id vazio/nulo do banco (dados inválidos)
+    const invalidIds = (allEventsRaw ?? []).filter((e: any) => !e.id).map((e: any) => e.id);
+    if (invalidIds.length > 0) {
+      console.warn(`deduplicate_events: ${invalidIds.length} eventos com id vazio encontrados — não é possível deletar por id vazio`);
+    }
+
+    // Só deduplica eventos com classId e id válido
+    const SKIP_TYPES = new Set(["DAY_OFF", "ACADEMIC", "COMMEMORATIVE", "HOLIDAY"]);
+    const allEvents = (allEventsRaw ?? []).filter((e: any) =>
+      e.id && e.classId && !SKIP_TYPES.has(e.type ?? "")
+    );
+
+    console.log(`deduplicate_events: ${allEvents.length} aulas com classId após filtro`);
+
+    if (allEvents.length === 0) return ok({ deleted: 0, duplicates: [], totalRaw: allEventsRaw?.length ?? 0 });
+
+    // Agrupa por chave de slot
+    const groups: Record<string, any[]> = {};
+    for (const ev of allEvents) {
+      if (!ev.classId || !ev.date || !ev.startTime) continue;
+      const key = `${ev.classId}|${ev.date}|${ev.startTime}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(ev);
+    }
+
+    // Para cada grupo com duplicatas, mantém o primeiro (menor id) e deleta o restante
+    const toDelete: string[] = [];
+    const duplicateReport: any[] = [];
+    for (const [key, evs] of Object.entries(groups)) {
+      if (evs.length <= 1) continue;
+      evs.sort((a: any, b: any) => a.id.localeCompare(b.id));
+      const kept = evs[0];
+      const extras = evs.slice(1);
+      toDelete.push(...extras.map((e: any) => e.id));
+      duplicateReport.push({ slot: key, kept: kept.id, deleted: extras.map((e: any) => e.id) });
+    }
+
+    if (toDelete.length === 0) return ok({ deleted: 0, duplicates: [], totalSlots: Object.keys(groups).length });
+
+    console.log(`deduplicate_events: ${toDelete.length} duplicatas para deletar`);
+
+    // Deleta em lotes de 100 para evitar timeout
+    const BATCH = 100;
+    for (let i = 0; i < toDelete.length; i += BATCH) {
+      const batch = toDelete.slice(i, i + BATCH);
+      const { error: delErr } = await adminClient
+        .from("programacao_aulas")
+        .delete()
+        .in("id", batch);
+      if (delErr) return err(`Falha ao deletar duplicatas (lote ${i}): ${delErr.message}`, 500);
+    }
+
+    return ok({ deleted: toDelete.length, duplicates: duplicateReport });
+  }
+
   return err("Unknown action");
 });

@@ -7,7 +7,7 @@ import {
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { useAuth } from "../contexts/AuthContext";
-import { subscribeToEventsByDateRange, saveDocument } from "../services/supabaseService";
+import { subscribeToEventsByDateRange, saveDocument, invalidateEventsWeekCache } from "../services/supabaseService";
 import { supabase } from "../config/supabase";
 import { GanttView } from "../components/GanttView";
 import { EventForm } from "../components/EventForm";
@@ -216,6 +216,7 @@ export const GanttProgramming = () => {
   // ── Helpers ───────────────────────────────────────────────────────────────
   const handleEventClick = (ev: ScheduleEvent) => {
     if (!canEdit) return;
+    console.log("[handleEventClick] id:", JSON.stringify(ev.id), "classId:", ev.classId, "date:", ev.date, "startTime:", ev.startTime);
     setEditingEvent(ev);
     setIsModalOpen(true);
   };
@@ -535,6 +536,7 @@ export const GanttProgramming = () => {
     const otherSquadrons = ([1, 2, 3, 4] as CourseYear[]).filter((s) => s !== currentSquadron);
 
     const saveOne = (eventData: Omit<ScheduleEvent, "id">, existingId?: string) => {
+      console.log("[doSaveEvent] saveOne existingId:", existingId, "classId:", eventData.classId, "date:", eventData.date, "startTime:", eventData.startTime);
       if (existingId) {
         updateEvent(existingId, eventData);
         setWeekEvents((prev) => prev.map((e) => e.id === existingId ? { ...e, ...eventData } : e));
@@ -594,14 +596,27 @@ export const GanttProgramming = () => {
   };
 
   const handleEventSubmit = (data: Omit<ScheduleEvent, "id">) => {
+    // Sempre verifica conflito no esquadrão atual (exceto ao editar o próprio evento)
+    const selfConflict = weekEvents.find(
+      (e) => e.classId === data.classId && e.date === data.date && e.startTime === data.startTime
+        && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC"
+        && e.id !== editingEvent?.id
+    );
+
     if (!allSquadronsMode) {
-      doSaveEvent(data, false);
+      if (selfConflict) {
+        setPendingSubmitData(data);
+        setConflictEvents([selfConflict]);
+        setIsConflictDialogOpen(true);
+      } else {
+        doSaveEvent(data, false);
+      }
       return;
     }
 
-    // Verifica conflitos nos outros esquadrões
+    // Verifica conflitos no esquadrão atual + outros esquadrões
+    const conflicts: ScheduleEvent[] = selfConflict ? [selfConflict] : [];
     const otherSquadrons = ([1, 2, 3, 4] as CourseYear[]).filter((s) => s !== currentSquadron);
-    const conflicts: ScheduleEvent[] = [];
     otherSquadrons.forEach((sq) => {
       const origClass = data.classId || "";
       const suffix = origClass.replace(String(currentSquadron), "");
@@ -667,6 +682,31 @@ export const GanttProgramming = () => {
     setSelectedEventIds(ids);
   };
 
+  const [deduplicating, setDeduplicating] = useState(false);
+  const handleDeduplicateWeek = async () => {
+    setDeduplicating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-manage-content", {
+        body: { action: "deduplicate_events", startDate: startDayStr, endDate: endDayStr },
+      });
+      if (error) { alert(`Erro: ${error.message}`); return; }
+      console.log("deduplicate_events result:", data);
+      if (data?.deleted > 0) {
+        alert(`✅ ${data.deleted} aula(s) duplicada(s) removida(s) da semana.`);
+        // Invalida cache e recarrega
+        invalidateEventsWeekCache();
+        subscribeToEventsByDateRange(startDayStr, endDayStr, (evs) => setWeekEvents(evs as ScheduleEvent[]));
+      } else {
+        const detail = data?.totalRaw != null ? ` (${data.totalRaw} eventos no banco, nenhum duplicado por slot)` : "";
+        alert(`Nenhuma duplicata encontrada nesta semana.${detail}`);
+      }
+    } catch (e) {
+      alert("Erro ao limpar duplicatas.");
+    } finally {
+      setDeduplicating(false);
+    }
+  };
+
   const today  = formatDate(new Date());
   const card   = isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200 shadow-sm";
   const text   = isDark ? "text-slate-100" : "text-slate-800";
@@ -724,6 +764,16 @@ export const GanttProgramming = () => {
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-blue-400 ${text}`}
             >
               <MousePointer2 size={13} /> Selecionar
+            </button>
+          )}
+          {userProfile?.role === "SUPER_ADMIN" && !isSelectionMode && !isBatchMode && (
+            <button
+              onClick={handleDeduplicateWeek}
+              disabled={deduplicating}
+              title="Remove aulas duplicadas no mesmo slot desta semana"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-orange-400 text-orange-500 disabled:opacity-40`}
+            >
+              🧹 {deduplicating ? "Limpando..." : "Duplicatas"}
             </button>
           )}
           {canEdit && isSelectionMode && (

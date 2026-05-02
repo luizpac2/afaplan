@@ -60,8 +60,8 @@ export const normalizeEvent = (row: Record<string, unknown>): Record<string, unk
   return {
     ...row,
     date:           row.date ?? row.data ?? null,
-    startTime:      row.startTime ?? (row.horario_inicio ? normalizeTime(row.horario_inicio as string) : null),
-    endTime:        row.endTime ?? (row.horario_fim ? normalizeTime(row.horario_fim as string) : null),
+    startTime:      normalizeTime((row.startTime ?? row.horario_inicio) as string | null | undefined),
+    endTime:        normalizeTime((row.endTime ?? row.horario_fim) as string | null | undefined),
     classId:        row.classId ?? row.turma_id ?? row.class_id ?? null,
     disciplineId:   row.disciplineId ?? row.disciplina_id ?? row.discipline_id ?? null,
     instructorTrigram: row.instructorTrigram ?? row.instructorId ?? null,
@@ -173,6 +173,7 @@ export const subscribeToEventsByDateRange = (
     }
     const seen = new Set<string>();
     const rows = [...(r1.data ?? []), ...(r2.data ?? [])].filter((r) => {
+      if (!r.id) { console.warn("[subscribeToEventsByDateRange] evento sem id ignorado:", r); return false; }
       if (seen.has(r.id)) return false;
       seen.add(r.id);
       return true;
@@ -186,12 +187,9 @@ export const subscribeToEventsByDateRange = (
         return;
       }
       const slotKey = `${r.classId}|${r.date}|${normalizeTime(r.startTime)}`;
-      // Mantém o mais recente: prefere o que tem type=EVALUATION, ou o último pelo id
       const existing = slotSeen.get(slotKey);
       if (!existing) { slotSeen.set(slotKey, r); return; }
-      // Se o novo tem type EVALUATION e o existente não, prefere o novo
       if (r.type === "EVALUATION" && existing.type !== "EVALUATION") { slotSeen.set(slotKey, r); return; }
-      // Senão, mantém o de id maior (mais recentemente criado/atualizado)
       if (r.id > existing.id) slotSeen.set(slotKey, r);
     });
     const deduped = [...slotSeen.values()];
