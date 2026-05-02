@@ -539,7 +539,11 @@ export const GanttProgramming = () => {
       console.log("[doSaveEvent] saveOne existingId:", existingId, "disciplineId:", eventData.disciplineId, "type:", eventData.type, "classId:", eventData.classId, "date:", eventData.date, "startTime:", eventData.startTime);
       if (existingId) {
         updateEvent(existingId, eventData);
-        setWeekEvents((prev) => prev.map((e) => e.id === existingId ? { ...e, ...eventData } : e));
+        setWeekEvents((prev) => {
+          const found = prev.some((e) => e.id === existingId);
+          if (!found) console.warn("[doSaveEvent] id não encontrado em weekEvents:", existingId, "total:", prev.length);
+          return prev.map((e) => e.id === existingId ? { ...e, ...eventData } : e);
+        });
       } else {
         const newEvent: ScheduleEvent = { ...eventData, id: crypto.randomUUID() };
         addEvent(newEvent);
