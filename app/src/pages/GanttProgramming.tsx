@@ -554,7 +554,18 @@ export const GanttProgramming = () => {
     if (editingEvent?.id) {
       saveOne(data, editingEvent.id);
     } else {
-      saveOne(data);
+      // Verifica se já existe evento no banco nesse slot (pode ter startTime com formato diferente)
+      const slotExisting = weekEvents.find((e) =>
+        e.classId === data.classId && e.date === data.date &&
+        e.startTime?.slice(0, 5) === data.startTime?.slice(0, 5) &&
+        e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC"
+      );
+      if (slotExisting?.id) {
+        console.log("[doSaveEvent] slot já ocupado no banco, fazendo update em:", slotExisting.id);
+        saveOne(data, slotExisting.id);
+      } else {
+        saveOne(data);
+      }
     }
 
     // Replica para os outros esquadrões

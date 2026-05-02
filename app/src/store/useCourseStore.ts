@@ -703,14 +703,7 @@ export const useCourseStore = create<CourseState>((set) => ({
       instructorId:   event.instructorTrigram || null,
       evaluationType: event.evaluationType ?? null,
     };
-    contentFn("save_event", { event: dbEvent }).then(async () => {
-      // Verifica se o evento está acessível via SELECT após salvar
-      const { data: check, error: chkErr } = await supabase
-        .from("programacao_aulas").select("id,classId,date,startTime").eq("id", dbEvent.id).maybeSingle();
-      if (chkErr) console.error("[addEvent] SELECT check error:", chkErr.message);
-      else if (!check) console.error("[addEvent] SELECT retornou null — evento não visível via RLS! id:", dbEvent.id);
-      else console.log("[addEvent] SELECT OK:", check);
-    }).catch((err) => {
+    contentFn("save_event", { event: dbEvent }).catch((err) => {
       console.error("Failed to save event:", err?.message ?? err);
     });
   },
