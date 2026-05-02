@@ -845,11 +845,12 @@ Deno.serve(async (req) => {
 
     if (allEvents.length === 0) return ok({ deleted: 0, duplicates: [], totalRaw: allEventsRaw?.length ?? 0 });
 
-    // Agrupa por chave de slot
+    // Agrupa por chave de slot — normaliza startTime para HH:MM (remove segundos)
     const groups: Record<string, any[]> = {};
     for (const ev of allEvents) {
       if (!ev.classId || !ev.date || !ev.startTime) continue;
-      const key = `${ev.classId}|${ev.date}|${ev.startTime}`;
+      const normalizedStart = String(ev.startTime).slice(0, 5);
+      const key = `${ev.classId}|${ev.date}|${normalizedStart}`;
       if (!groups[key]) groups[key] = [];
       groups[key].push(ev);
     }
