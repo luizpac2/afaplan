@@ -216,7 +216,6 @@ export const GanttProgramming = () => {
   // ── Helpers ───────────────────────────────────────────────────────────────
   const handleEventClick = (ev: ScheduleEvent) => {
     if (!canEdit) return;
-    trackedIdRef.current = ev.id;
     setEditingEvent(ev);
     setIsModalOpen(true);
   };
