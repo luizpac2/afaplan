@@ -546,13 +546,8 @@ export const GanttProgramming = () => {
       } else {
         const newEvent: ScheduleEvent = { ...eventData, id: crypto.randomUUID() };
         setWeekEvents((prev) => [...prev, newEvent]);
-        addEvent(newEvent).then(() => {
-          // Recarrega do banco após confirmação de persistência
-          invalidateEventsWeekCache();
-          subscribeToEventsByDateRange(startDayStr, endDayStr, (evs) => setWeekEvents(evs as ScheduleEvent[]));
-        }).catch(() => {
-          // Remove o evento otimista se falhou
-          setWeekEvents((prev) => prev.filter((e) => e.id !== newEvent.id));
+        addEvent(newEvent).catch((err) => {
+          console.error("[saveOne] Falha ao salvar evento no banco:", err?.message ?? err);
         });
       }
     };
