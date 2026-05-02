@@ -703,8 +703,12 @@ export const useCourseStore = create<CourseState>((set) => ({
       instructorId:   event.instructorTrigram || null,
       evaluationType: event.evaluationType ?? null,
     };
-    contentFn("save_event", { event: dbEvent }).catch((err) => {
-      console.error("Failed to save event:", err);
+    contentFn("save_event", { event: dbEvent }).catch(async (err) => {
+      console.warn("save_event via edge function falhou, tentando insert direto:", err?.message ?? err);
+      // Fallback: insert direto no Supabase (sem RLS admin, mas com anon key)
+      const { error: insErr } = await supabase.from("programacao_aulas").upsert(dbEvent, { onConflict: "id" });
+      if (insErr) console.error("Fallback insert também falhou:", insErr.message);
+      else console.log("Fallback insert OK para evento:", dbEvent.id);
     });
   },
 
