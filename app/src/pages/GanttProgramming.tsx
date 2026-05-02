@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, MousePointer2, Link2, Trash2, X,
@@ -77,6 +77,21 @@ export const GanttProgramming = () => {
   }, [currentDate, sessionKey]);
 
   const [weekEvents, setWeekEvents]   = useState<ScheduleEvent[]>([]);
+  const weekEventsRef = React.useRef<ScheduleEvent[]>([]);
+  const trackedIdRef = React.useRef<string | null>(null);
+  // Detecta quando um evento rastreado desaparece do weekEvents
+  React.useEffect(() => {
+    const id = trackedIdRef.current;
+    if (!id) return;
+    const prev = weekEventsRef.current;
+    const hadIt = prev.some((e) => e.id === id);
+    const hasIt = weekEvents.some((e) => e.id === id);
+    if (hadIt && !hasIt) {
+      console.error("[weekEvents] EVENTO SUMIU:", id, "total antes:", prev.length, "total agora:", weekEvents.length);
+      console.error("[weekEvents] Primeiros 5 ids agora:", weekEvents.slice(0, 5).map(e => e.id));
+    }
+    weekEventsRef.current = weekEvents;
+  }, [weekEvents]);
   const [yearlyEvents, setYearlyEvents] = useState<ScheduleEvent[]>([]);
   const [editingEvent, setEditingEvent] = useState<ScheduleEvent | undefined>();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -216,7 +231,7 @@ export const GanttProgramming = () => {
   // ── Helpers ───────────────────────────────────────────────────────────────
   const handleEventClick = (ev: ScheduleEvent) => {
     if (!canEdit) return;
-    console.log("[handleEventClick] id:", JSON.stringify(ev.id), "classId:", ev.classId, "date:", ev.date, "startTime:", ev.startTime);
+    trackedIdRef.current = ev.id;
     setEditingEvent(ev);
     setIsModalOpen(true);
   };
