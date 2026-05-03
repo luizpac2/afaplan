@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { X, Save, Trash2, Calendar, Clock, MapPin, FileText, Users, Ban } from "lucide-react";
+import { X, Save, Trash2, Calendar, Clock, MapPin, FileText, Users, Ban, Shield, Plane, ClipboardList } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
+import { useCourseStore } from "../store/useCourseStore";
 import { TIME_SLOTS, LOCATION_OPTIONS } from "../utils/constants";
 import { ConfirmDialog } from "./ConfirmDialog";
 import type { ScheduleEvent } from "../types";
@@ -37,6 +38,16 @@ export const getAcademicColor = (targetSquadron: number | "ALL" | null | undefin
   return (isDark ? COLORS_DARK : COLORS_LIGHT)[key] ?? (isDark ? COLORS_DARK : COLORS_LIGHT)["ALL"];
 };
 
+type EvalType = "PARTIAL" | "EXAM" | "FINAL" | "SECOND_CHANCE" | "REVIEW";
+
+const EVAL_TYPE_OPTIONS: { key: EvalType; label: string }[] = [
+  { key: "PARTIAL",       label: "PARCIAL"   },
+  { key: "EXAM",          label: "EXAME"     },
+  { key: "FINAL",         label: "FINAL"     },
+  { key: "SECOND_CHANCE", label: "2ª ÉPOCA"  },
+  { key: "REVIEW",        label: "VISTA"     },
+];
+
 export const AcademicEventForm = ({
   initialData,
   onSubmit,
@@ -45,6 +56,7 @@ export const AcademicEventForm = ({
 }: AcademicEventFormProps) => {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const { disciplines } = useCourseStore();
 
   const card     = isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-200 text-gray-900";
   const inputCls = isDark
@@ -53,20 +65,25 @@ export const AcademicEventForm = ({
   const labelCls = isDark ? "text-gray-300" : "text-gray-600";
   const muted    = isDark ? "text-gray-400" : "text-gray-500";
 
-  type Category = "ACADEMIC" | "DAY_OFF" | "COMMEMORATIVE" | "SPORTS" | "INFORMATIVE" | "HOLIDAY";
+  type Category = "ACADEMIC" | "EVALUATION" | "DAY_OFF" | "COMMEMORATIVE" | "SPORTS" | "INFORMATIVE" | "HOLIDAY" | "MILITARY" | "FLIGHT_INSTRUCTION" | "TRIP";
   const initCat: Category =
-    initialData?.type === "DAY_OFF"       ? "DAY_OFF"       :
-    initialData?.type === "COMMEMORATIVE" ? "COMMEMORATIVE" :
-    initialData?.type === "SPORTS"        ? "SPORTS"        :
-    initialData?.type === "INFORMATIVE"   ? "INFORMATIVE"   :
-    initialData?.type === "HOLIDAY"       ? "HOLIDAY"       : "ACADEMIC";
-  const [category, setCategory]   = useState<Category>(initCat);
+    initialData?.type === "EVALUATION"         ? "EVALUATION"        :
+    initialData?.type === "DAY_OFF"            ? "DAY_OFF"           :
+    initialData?.type === "COMMEMORATIVE"      ? "COMMEMORATIVE"     :
+    initialData?.type === "SPORTS"             ? "SPORTS"            :
+    initialData?.type === "INFORMATIVE"        ? "INFORMATIVE"       :
+    initialData?.type === "HOLIDAY"            ? "HOLIDAY"           :
+    initialData?.type === "MILITARY"           ? "MILITARY"          :
+    initialData?.type === "FLIGHT_INSTRUCTION" ? "FLIGHT_INSTRUCTION":
+    initialData?.type === "TRIP"               ? "TRIP"              : "ACADEMIC";
+
+  const [category, setCategory] = useState<Category>(initCat);
   const wasAllDay = !initialData?.startTime || initialData.startTime === "";
 
   const today = new Date().toISOString().split("T")[0];
 
   const defaultTitle = initCat === "DAY_OFF" ? "Day Off" : "";
-  const [title, setTitle]         = useState(initialData?.description ?? initialData?.location ?? defaultTitle);
+  const [title, setTitle]         = useState(initialData?.type === "EVALUATION" ? "" : (initialData?.description ?? initialData?.location ?? defaultTitle));
   const [notes, setNotes]         = useState(initialData?.notes ?? "");
   const [startDate, setStartDate] = useState(initialData?.date ?? today);
   const [endDate, setEndDate]     = useState(initialData?.endDate ?? initialData?.date ?? today);
@@ -79,13 +96,47 @@ export const AcademicEventForm = ({
       ? "ALL"
       : Number(initialData.targetSquadron)
   );
+
+  // Evaluation-specific state
+  const [evalDisciplineId, setEvalDisciplineId] = useState<string>(
+    initialData?.type === "EVALUATION" ? (initialData.disciplineId ?? "") : ""
+  );
+  const [evalType, setEvalType] = useState<EvalType>(
+    (initialData?.evaluationType as EvalType) ?? "PARTIAL"
+  );
+
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   const isEditing = !!initialData?.id;
 
+  const isEvalValid = category !== "EVALUATION" || (evalDisciplineId !== "" && evalType !== undefined);
+  const isTitleValid = category === "EVALUATION" ? isEvalValid : !!title.trim();
+
   const handleSubmit = () => {
-    if (!title.trim()) return;
+    if (!isTitleValid) return;
     const effectiveEnd = endDate < startDate ? startDate : endDate;
+
+    if (category === "EVALUATION") {
+      onSubmit({
+        disciplineId: evalDisciplineId,
+        classId: initialData?.classId ?? "",
+        date:    startDate,
+        endDate: effectiveEnd,
+        startTime: allDay ? null as any : startTime,
+        endTime:   allDay ? null as any : (endTime || startTime),
+        location:  location || undefined,
+        type: "EVALUATION" as any,
+        evaluationType: evalType as any,
+        description: undefined,
+        notes: notes.trim() || undefined,
+        targetSquadron: squadron === "ALL" ? "ALL" : squadron as any,
+        targetCourse: null,
+        targetClass: null,
+        color: initialData?.color,
+      });
+      return;
+    }
+
     onSubmit({
       disciplineId: "ACADEMIC",
       classId: initialData?.classId ?? "",
@@ -133,10 +184,16 @@ export const AcademicEventForm = ({
         {/* Header */}
         {(() => {
           const hdrMap: Record<string, { border: string; bg: string; icon: React.ReactNode; textCls: string; label: string }> = {
-            ACADEMIC:      { border: "border-purple-500/30", bg: "bg-purple-500/10", icon: <Calendar size={16} className="text-purple-400" />, textCls: "text-purple-300", label: "Evento Acadêmico" },
-            DAY_OFF:       { border: "border-red-500/30",    bg: "bg-red-500/10",    icon: <Ban size={16} className="text-red-400" />,      textCls: "text-red-300",    label: "Day Off" },
-            COMMEMORATIVE: { border: "border-amber-500/30",  bg: "bg-amber-500/10",  icon: <Calendar size={16} className="text-amber-400" />, textCls: "text-amber-300",  label: "Comemorativo" },
-            SPORTS:        { border: "border-teal-500/30",   bg: "bg-teal-500/10",   icon: <Calendar size={16} className="text-teal-400" />,  textCls: "text-teal-300",   label: "CDEF" },
+            ACADEMIC:          { border: "border-purple-500/30",  bg: "bg-purple-500/10",  icon: <Calendar size={16} className="text-purple-400" />,      textCls: "text-purple-300",  label: "Evento Acadêmico"  },
+            EVALUATION:        { border: "border-orange-500/30",  bg: "bg-orange-500/10",  icon: <ClipboardList size={16} className="text-orange-400" />,  textCls: "text-orange-300",  label: "Avaliação"         },
+            DAY_OFF:           { border: "border-red-500/30",     bg: "bg-red-500/10",     icon: <Ban size={16} className="text-red-400" />,               textCls: "text-red-300",     label: "Day Off"           },
+            COMMEMORATIVE:     { border: "border-amber-500/30",   bg: "bg-amber-500/10",   icon: <Calendar size={16} className="text-amber-400" />,        textCls: "text-amber-300",   label: "Comemorativo"      },
+            SPORTS:            { border: "border-teal-500/30",    bg: "bg-teal-500/10",    icon: <Calendar size={16} className="text-teal-400" />,         textCls: "text-teal-300",    label: "CDEF"              },
+            INFORMATIVE:       { border: "border-sky-500/30",     bg: "bg-sky-500/10",     icon: <Calendar size={16} className="text-sky-400" />,          textCls: "text-sky-300",     label: "Informativo"       },
+            HOLIDAY:           { border: "border-rose-500/30",    bg: "bg-rose-500/10",    icon: <Calendar size={16} className="text-rose-400" />,         textCls: "text-rose-300",    label: "Feriado"           },
+            MILITARY:          { border: "border-green-500/30",   bg: "bg-green-500/10",   icon: <Shield size={16} className="text-green-400" />,          textCls: "text-green-300",   label: "Militar"           },
+            FLIGHT_INSTRUCTION:{ border: "border-blue-500/30",    bg: "bg-blue-500/10",    icon: <Plane size={16} className="text-blue-400" />,            textCls: "text-blue-300",    label: "Instrução de Voo"  },
+            TRIP:              { border: "border-violet-500/30",  bg: "bg-violet-500/10",  icon: <MapPin size={16} className="text-violet-400" />,         textCls: "text-violet-300",  label: "Viagem"            },
           };
           const h = hdrMap[category] ?? hdrMap.ACADEMIC;
           return (
@@ -160,12 +217,16 @@ export const AcademicEventForm = ({
             <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>Categoria</label>
             <div className="grid grid-cols-2 gap-2">
               {([
-                { key: "ACADEMIC",      label: "Acadêmico",   active: "bg-purple-600 border-purple-600 text-white", hover: "hover:border-purple-500" },
-                { key: "DAY_OFF",       label: "Day Off",     active: "bg-red-600 border-red-600 text-white",    hover: "hover:border-red-500" },
-                { key: "COMMEMORATIVE", label: "Comemorativo",active: "bg-amber-500 border-amber-500 text-white", hover: "hover:border-amber-500" },
-                { key: "SPORTS",        label: "CDEF",        active: "bg-teal-600 border-teal-600 text-white",  hover: "hover:border-teal-500" },
-                { key: "INFORMATIVE",   label: "Informativo", active: "bg-sky-500 border-sky-500 text-white",    hover: "hover:border-sky-500" },
-                { key: "HOLIDAY",       label: "Feriado",     active: "bg-rose-600 border-rose-600 text-white",  hover: "hover:border-rose-500" },
+                { key: "ACADEMIC",           label: "Acadêmico",        active: "bg-purple-600 border-purple-600 text-white",  hover: "hover:border-purple-500"  },
+                { key: "EVALUATION",         label: "Avaliação",        active: "bg-orange-600 border-orange-600 text-white",  hover: "hover:border-orange-500"  },
+                { key: "DAY_OFF",            label: "Day Off",          active: "bg-red-600 border-red-600 text-white",        hover: "hover:border-red-500"     },
+                { key: "COMMEMORATIVE",      label: "Comemorativo",     active: "bg-amber-500 border-amber-500 text-white",    hover: "hover:border-amber-500"   },
+                { key: "SPORTS",             label: "CDEF",             active: "bg-teal-600 border-teal-600 text-white",      hover: "hover:border-teal-500"    },
+                { key: "INFORMATIVE",        label: "Informativo",      active: "bg-sky-500 border-sky-500 text-white",        hover: "hover:border-sky-500"     },
+                { key: "HOLIDAY",            label: "Feriado",          active: "bg-rose-600 border-rose-600 text-white",      hover: "hover:border-rose-500"    },
+                { key: "MILITARY",           label: "Militar",          active: "bg-green-600 border-green-600 text-white",    hover: "hover:border-green-500"   },
+                { key: "FLIGHT_INSTRUCTION", label: "Instrução de Voo", active: "bg-blue-600 border-blue-600 text-white",      hover: "hover:border-blue-500"    },
+                { key: "TRIP",               label: "Viagem",           active: "bg-violet-600 border-violet-600 text-white",  hover: "hover:border-violet-500"  },
               ] as const).map(opt => (
                 <button key={opt.key} type="button"
                   onClick={() => {
@@ -188,21 +249,67 @@ export const AcademicEventForm = ({
             )}
           </div>
 
-          {/* Título */}
-          <div>
-            <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
-              <FileText size={12} className="text-purple-400" />
-              Título *
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex: Início do Voo Primário, Recesso, Formatura..."
-              className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${inputCls}`}
-              autoFocus
-            />
-          </div>
+          {/* Campos específicos de Avaliação */}
+          {category === "EVALUATION" && (
+            <>
+              <div>
+                <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
+                  <ClipboardList size={12} className="text-orange-400" />
+                  Disciplina *
+                </label>
+                <select
+                  value={evalDisciplineId}
+                  onChange={(e) => setEvalDisciplineId(e.target.value)}
+                  className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${inputCls}`}
+                >
+                  <option value="">Selecione a disciplina...</option>
+                  {disciplines.map(d => (
+                    <option key={d.id} value={d.id}>{d.code} — {d.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
+                  <FileText size={12} className="text-orange-400" />
+                  Tipo de Avaliação *
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {EVAL_TYPE_OPTIONS.map(opt => (
+                    <button key={opt.key} type="button"
+                      onClick={() => setEvalType(opt.key)}
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors ${
+                        evalType === opt.key
+                          ? "bg-orange-600 border-orange-600 text-white"
+                          : isDark
+                            ? "border-gray-600 text-gray-400 hover:border-orange-500 hover:text-orange-300"
+                            : "border-gray-300 text-gray-500 hover:border-orange-500 hover:text-orange-700"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Título — oculto para Avaliação */}
+          {category !== "EVALUATION" && (
+            <div>
+              <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
+                <FileText size={12} className="text-purple-400" />
+                Título *
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Ex: Início do Voo Primário, Recesso, Formatura..."
+                className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${inputCls}`}
+                autoFocus
+              />
+            </div>
+          )}
 
           {/* Descrição */}
           <div>
@@ -355,7 +462,7 @@ export const AcademicEventForm = ({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={!title.trim()}
+              disabled={!isTitleValid}
               className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors"
             >
               <Save size={13} /> Salvar
@@ -366,8 +473,8 @@ export const AcademicEventForm = ({
 
       <ConfirmDialog
         isOpen={deleteConfirm}
-        title="Excluir evento acadêmico?"
-        message={`"${title}" será removido permanentemente.`}
+        title="Excluir evento?"
+        message={`Este evento será removido permanentemente.`}
         confirmText="Excluir"
         cancelText="Cancelar"
         onConfirm={() => { onDelete!(initialData!.id!); setDeleteConfirm(false); }}
