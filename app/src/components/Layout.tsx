@@ -71,6 +71,15 @@ const MENU_ITEMS: MenuItem[] = [
     ],
   },
   {
+    title: "INSTRUÇÃO DE VOO",
+    icon: Plane,
+    roles: ALL_ROLES,
+    submenu: [
+      { title: "Calendário de Voo", path: "/flight-calendar", icon: CalendarIcon },
+      { title: "Dashboard de Voo", path: "/flight-dashboard", icon: BarChart2 },
+    ],
+  },
+  {
     title: "EVENTOS",
     icon: CalendarIcon,
     roles: ALL_ROLES,
