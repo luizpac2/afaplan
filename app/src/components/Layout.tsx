@@ -151,7 +151,7 @@ export const Layout = () => {
 
   const location = useLocation();
   const clearStore = useCourseStore((state) => state.clearStore);
-  const [isSidebarOpen, setSidebarOpen] = useState(true); // Default open on desktop
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
@@ -200,11 +200,7 @@ export const Layout = () => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      if (mobile) {
-        setSidebarOpen(false);
-      } else {
-        setSidebarOpen(true);
-      }
+      if (mobile) setSidebarOpen(false);
     };
 
     window.addEventListener("resize", handleResize);
@@ -257,11 +253,9 @@ export const Layout = () => {
     }
   };
 
-  // Close mobile sidebar and collapse all sections when route changes
+  // Collapse sidebar and sections when route changes
   useEffect(() => {
-    if (window.innerWidth < 768) {
-      setSidebarOpen(false);
-    }
+    setSidebarOpen(false);
     setOpenSections({});
   }, [location.pathname]);
 
@@ -573,7 +567,7 @@ export const Layout = () => {
                                                     <NavLink
                                                       key={lIdx}
                                                       to={leaf.path || "#"}
-                                                      onClick={() => setOpenSections({})}
+                                                      onClick={() => { setSidebarOpen(false); setOpenSections({}); }}
                                                       className={({
                                                         isActive,
                                                       }) => `
@@ -605,7 +599,7 @@ export const Layout = () => {
                                         <NavLink
                                           key={sIdx}
                                           to={sub.path || "#"}
-                                          onClick={() => setOpenSections({})}
+                                          onClick={() => { setSidebarOpen(false); setOpenSections({}); }}
                                           className={({ isActive }) => `
                                                                                         flex items-center gap-2 px-3 py-1.5 rounded-md text-xs transition-all duration-200 relative
                                                                                         ${
@@ -645,7 +639,7 @@ export const Layout = () => {
                             <NavLink
                               key={iIdx}
                               to={item.path || "#"}
-                              onClick={() => setOpenSections({})}
+                              onClick={() => { setSidebarOpen(false); setOpenSections({}); }}
                               className={({
                                 isActive,
                               }) => `flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-all
