@@ -271,7 +271,7 @@ export default function LocaisGrid() {
                                   const code     = disc?.code ?? (ev.disciplineId?.includes("-") ? "???" : ev.disciplineId) ?? "";
                                   const color    = disc?.color || ev.color || "#3b82f6";
                                   const cls      = ev.classId ?? "";
-                                  const trigram  = ev.instructorTrigram || disc?.instructorTrigram || (disc as unknown as { data?: Record<string, string> })?.data?.instructor || "";
+                                  const trigram  = ev.instructorTrigram || disc?.instructorByClass?.[ev.classId] || disc?.instructorTrigram || (disc as unknown as { data?: Record<string, string> })?.data?.instructor || "";
                                   const inst     = trigram ? instructors.find((i) => i.trigram === trigram) : null;
                                   const instrName = inst?.warName || trigram || "";
                                   const tip      = `${disc?.name ?? code} · ${cls}${instrName ? ` · ${instrName}` : ""}`;

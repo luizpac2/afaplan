@@ -121,6 +121,7 @@ export interface Discipline {
   trainingField: TrainingField;
   instructor?: string; // Still here for legacy, but will map to trigram
   instructorTrigram?: string; // Link to Instructor.trigram
+  instructorByClass?: Record<string, string>; // classId → trigram (overrides instructorTrigram for specific classes)
   noSpecificInstructor?: boolean; // Flag for disciplines without a specific instructor
   substituteTrigram?: string; // Link to Instructor.trigram for substitute
   substituteHours?: number; // How many hours the substitute taught

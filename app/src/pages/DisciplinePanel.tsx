@@ -528,28 +528,50 @@ export const DisciplinePanel = () => {
       [yearEventsCache],
    );
 
-   // Events grouped by discipline, optionally filtered by classFilter
+   // Events grouped by discipline, filtered by classFilter AND by instructor's assigned classes
    const eventsByDisc = useMemo(() => {
       const map: Record<string, ScheduleEvent[]> = {};
+      const filterTrigram = instrFilter !== 'ALL' ? instrFilter : (isDocente && myInstructor ? myInstructor.trigram : null);
       for (const ev of allEvents) {
          if (classFilter !== 'ALL' && ev.classId !== classFilter) continue;
+         if (filterTrigram) {
+            const disc = disciplines.find(d => d.id === ev.disciplineId);
+            if (disc) {
+               const defaultTri = disc.instructorTrigram || (instructorByWarName[disc.instructor || '']?.trigram);
+               const classOverride = disc.instructorByClass?.[ev.classId];
+               // If this class has an override, only include if override matches filter
+               // If no override, include only if default instructor matches filter
+               const effectiveTri = classOverride || defaultTri;
+               if (effectiveTri !== filterTrigram) continue;
+            }
+         }
          if (!map[ev.disciplineId]) map[ev.disciplineId] = [];
          map[ev.disciplineId].push(ev);
       }
       for (const id of Object.keys(map)) map[id].sort((a, b) => a.date.localeCompare(b.date));
       return map;
-   }, [allEvents, classFilter]);
+   }, [allEvents, classFilter, instrFilter, isDocente, myInstructor, disciplines, instructorByWarName]);
 
-   // Full events by disc (unfiltered by class) for modal
+   // Full events by disc filtered only by instructor's assigned classes (for modal & bulk download)
    const allEventsByDisc = useMemo(() => {
       const map: Record<string, ScheduleEvent[]> = {};
+      const filterTrigram = instrFilter !== 'ALL' ? instrFilter : (isDocente && myInstructor ? myInstructor.trigram : null);
       for (const ev of allEvents) {
+         if (filterTrigram) {
+            const disc = disciplines.find(d => d.id === ev.disciplineId);
+            if (disc) {
+               const defaultTri = disc.instructorTrigram || (instructorByWarName[disc.instructor || '']?.trigram);
+               const classOverride = disc.instructorByClass?.[ev.classId];
+               const effectiveTri = classOverride || defaultTri;
+               if (effectiveTri !== filterTrigram) continue;
+            }
+         }
          if (!map[ev.disciplineId]) map[ev.disciplineId] = [];
          map[ev.disciplineId].push(ev);
       }
       for (const id of Object.keys(map)) map[id].sort((a, b) => a.date.localeCompare(b.date));
       return map;
-   }, [allEvents]);
+   }, [allEvents, instrFilter, isDocente, myInstructor, disciplines, instructorByWarName]);
 
    // classMap is kept for function signatures but lookups use clsLabel(undefined, ev.classId)
    const classMap: Record<string, CourseClass> = {};
@@ -589,12 +611,16 @@ export const DisciplinePanel = () => {
       return [...disciplines].filter(d => {
          // Docente role: only show disciplines they are assigned to
          if (isDocente && myInstructor) {
-            const tri = d.instructorTrigram || (instructorByWarName[d.instructor || '']?.trigram);
-            if (tri !== myInstructor.trigram) return false;
+            const defaultTri = d.instructorTrigram || (instructorByWarName[d.instructor || '']?.trigram);
+            const isDefault = defaultTri === myInstructor.trigram;
+            const isOverride = Object.values(d.instructorByClass || {}).includes(myInstructor.trigram);
+            if (!isDefault && !isOverride) return false;
          }
          if (instrFilter !== 'ALL') {
-            const tri = d.instructorTrigram || (instructorByWarName[d.instructor || '']?.trigram);
-            if (tri !== instrFilter) return false;
+            const defaultTri = d.instructorTrigram || (instructorByWarName[d.instructor || '']?.trigram);
+            const isDefault = defaultTri === instrFilter;
+            const isOverride = Object.values(d.instructorByClass || {}).includes(instrFilter);
+            if (!isDefault && !isOverride) return false;
          }
          if (fieldFilter !== 'ALL' && d.trainingField !== fieldFilter) return false;
          if (courseFilter !== 'ALL' && !d.enabledCourses?.includes(courseFilter as any)) return false;

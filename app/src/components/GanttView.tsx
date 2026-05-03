@@ -158,7 +158,7 @@ export const GanttView = ({
                   : isEval ? (EVAL_COLORS[evalType] || "#92400e")
                   : (disc?.color || "#3b82f6");
                 const trigram = ev
-                  ? (ev.instructorTrigram || disc?.instructorTrigram || (disc as unknown as { data?: Record<string,string> })?.data?.instructor || "")
+                  ? (ev.instructorTrigram || disc?.instructorByClass?.[ev.classId] || disc?.instructorTrigram || (disc as unknown as { data?: Record<string,string> })?.data?.instructor || "")
                   : "";
                 const inst = trigram ? instructors.find((ins) => ins.trigram === trigram) : null;
                 const displayInstructor = inst?.warName || trigram || "—";
