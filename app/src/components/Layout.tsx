@@ -71,15 +71,6 @@ const MENU_ITEMS: MenuItem[] = [
     ],
   },
   {
-    title: "INSTRUÇÃO DE VOO",
-    icon: Plane,
-    roles: ALL_ROLES,
-    submenu: [
-      { title: "Calendário de Voo", path: "/flight-calendar", icon: CalendarIcon },
-      { title: "Dashboard de Voo", path: "/flight-dashboard", icon: BarChart2 },
-    ],
-  },
-  {
     title: "EVENTOS",
     icon: CalendarIcon,
     roles: ALL_ROLES,
@@ -95,6 +86,15 @@ const MENU_ITEMS: MenuItem[] = [
     submenu: [
       { title: "Painel de Disciplinas", path: "/discipline-panel", icon: BookOpen },
       { title: "Gantt de Disciplinas", path: "/discipline-gantt", icon: BarChart2 },
+    ],
+  },
+  {
+    title: "INSTRUÇÃO DE VOO",
+    icon: Plane,
+    roles: ALL_ROLES,
+    submenu: [
+      { title: "Calendário de Voo", path: "/flight-calendar", icon: CalendarIcon },
+      { title: "Dashboard de Voo", path: "/flight-dashboard", icon: BarChart2 },
     ],
   },
   {
