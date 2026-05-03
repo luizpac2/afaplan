@@ -573,6 +573,7 @@ export const Layout = () => {
                                                     <NavLink
                                                       key={lIdx}
                                                       to={leaf.path || "#"}
+                                                      onClick={() => setOpenSections({})}
                                                       className={({
                                                         isActive,
                                                       }) => `
@@ -604,6 +605,7 @@ export const Layout = () => {
                                         <NavLink
                                           key={sIdx}
                                           to={sub.path || "#"}
+                                          onClick={() => setOpenSections({})}
                                           className={({ isActive }) => `
                                                                                         flex items-center gap-2 px-3 py-1.5 rounded-md text-xs transition-all duration-200 relative
                                                                                         ${
@@ -643,9 +645,10 @@ export const Layout = () => {
                             <NavLink
                               key={iIdx}
                               to={item.path || "#"}
+                              onClick={() => setOpenSections({})}
                               className={({
                                 isActive,
-                              }) => `flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-all 
+                              }) => `flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-all
                                                                 ${
                                                                   isActive
                                                                     ? theme ===
