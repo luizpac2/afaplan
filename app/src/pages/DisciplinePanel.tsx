@@ -634,7 +634,8 @@ export const DisciplinePanel = () => {
          .filter(x => x.events.length > 0);
    }, [selectedInstructor, filteredDiscs, allEventsByDisc]);
 
-   const filterSelectCls = `px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200'}`;
+   const filterSelectCls = `px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-800'}`;
+   const selectStyle = { colorScheme: isDark ? 'dark' as const : 'light' as const };
 
    // Deriva turmas de aula reais dos eventos (formato "1A", "2B", "3C" etc.)
    // Filtra fora valores especiais como "Geral", "GLOBAL", "*ESQ"
@@ -655,7 +656,7 @@ export const DisciplinePanel = () => {
       <div className={`w-full min-h-screen ${isDark ? 'bg-slate-950 text-slate-100' : 'bg-gray-50 text-slate-900'}`}>
 
          {/* Header */}
-         <div ref={headerRef} className={`sticky top-0 z-50 px-4 md:px-6 border-b backdrop-blur-md ${isDark ? 'bg-slate-950/95 border-slate-800' : 'bg-white/95 border-slate-200'}`}>
+         <div ref={headerRef} className={`sticky top-0 z-20 px-4 md:px-6 border-b backdrop-blur-md ${isDark ? 'bg-slate-950/95 border-slate-800' : 'bg-white/95 border-slate-200'}`}>
             <div className="flex items-center justify-between gap-4 py-2.5 flex-wrap">
                <div className="flex items-center gap-3">
                   <h1 className="text-lg font-bold tracking-tight">Painel de Disciplinas</h1>
@@ -667,7 +668,8 @@ export const DisciplinePanel = () => {
                      <div className="flex items-center gap-1.5">
                         <Users size={14} className="text-slate-400 shrink-0" />
                         <select value={instrFilter} onChange={e => setInstrFilter(e.target.value)}
-                           className={`pr-7 py-1.5 pl-2 rounded-lg border text-sm outline-none ${instrFilter !== 'ALL' ? (isDark ? 'bg-blue-900/30 text-blue-300 border-blue-700' : 'bg-blue-50 text-blue-700 border-blue-300') : (isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-700')}`}>
+                           className={`pr-7 py-1.5 pl-2 rounded-lg border text-sm outline-none ${instrFilter !== 'ALL' ? (isDark ? 'bg-blue-900/40 text-slate-100 border-blue-600' : 'bg-blue-50 text-blue-900 border-blue-300') : (isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-700')}`}
+                           style={{ colorScheme: isDark ? 'dark' : 'light' }}>
                            <option value="ALL">Todos os docentes</option>
                            {[...instructors].sort((a, b) => a.warName.localeCompare(b.warName)).map(i => (
                               <option key={i.trigram} value={i.trigram}>{i.trigram} — {i.warName}</option>
@@ -698,7 +700,7 @@ export const DisciplinePanel = () => {
          </div>
 
          {/* Toolbar */}
-         <div className={`sticky z-40 px-4 md:px-6 py-3 border-b backdrop-blur-md ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`} style={{ top: headerH }}>
+         <div className={`sticky z-10 px-4 md:px-6 py-3 border-b backdrop-blur-md ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`} style={{ top: headerH }}>
             {/* Search + Turma filter (always visible) */}
             <div className="flex gap-2 items-center mb-2">
                <div className="relative flex-1">
@@ -710,7 +712,8 @@ export const DisciplinePanel = () => {
                </div>
                {/* Turma de aula — sempre visível */}
                <select value={classFilter} onChange={e => setClassFilter(e.target.value)}
-                  className={`shrink-0 py-2 pl-3 pr-8 rounded-lg border text-sm outline-none ${classFilter !== 'ALL' ? (isDark ? 'bg-amber-900/30 text-amber-300 border-amber-700' : 'bg-amber-50 text-amber-700 border-amber-300') : (isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-700')}`}>
+                  className={`shrink-0 py-2 pl-3 pr-8 rounded-lg border text-sm outline-none ${classFilter !== 'ALL' ? (isDark ? 'bg-amber-900/40 text-slate-100 border-amber-600' : 'bg-amber-50 text-amber-900 border-amber-300') : (isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-700')}`}
+                  style={{ colorScheme: isDark ? 'dark' : 'light' }}>
                   <option value="ALL">Todas as turmas</option>
                   {availableClassIds.map(cid => (
                      <option key={cid} value={cid}>{cid[0]}º Esq · Turma {cid[1]}</option>
@@ -723,7 +726,7 @@ export const DisciplinePanel = () => {
                <div className={`rounded-lg border p-3 mb-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 ${isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
                   <div>
                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Campo</label>
-                     <select value={fieldFilter} onChange={e => setFieldFilter(e.target.value)} className={filterSelectCls + ' w-full'}>
+                     <select value={fieldFilter} onChange={e => setFieldFilter(e.target.value)} className={filterSelectCls + ' w-full'} style={selectStyle}>
                         <option value="ALL">Todos</option>
                         <option value="GERAL">Geral</option>
                         <option value="MILITAR">Militar</option>
@@ -733,7 +736,7 @@ export const DisciplinePanel = () => {
                   </div>
                   <div>
                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Curso</label>
-                     <select value={courseFilter} onChange={e => setCourseFilter(e.target.value)} className={filterSelectCls + ' w-full'}>
+                     <select value={courseFilter} onChange={e => setCourseFilter(e.target.value)} className={filterSelectCls + ' w-full'} style={selectStyle}>
                         <option value="ALL">Todos</option>
                         <option value="AVIATION">Aviação</option>
                         <option value="INTENDANCY">Intendência</option>
@@ -742,7 +745,7 @@ export const DisciplinePanel = () => {
                   </div>
                   <div>
                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Ano Letivo</label>
-                     <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className={filterSelectCls + ' w-full'}>
+                     <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className={filterSelectCls + ' w-full'} style={selectStyle}>
                         <option value="ALL">Todos</option>
                         <option value="1">1º Ano</option><option value="2">2º Ano</option>
                         <option value="3">3º Ano</option><option value="4">4º Ano</option>
@@ -750,7 +753,7 @@ export const DisciplinePanel = () => {
                   </div>
                   <div>
                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status</label>
-                     <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={filterSelectCls + ' w-full'}>
+                     <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={filterSelectCls + ' w-full'} style={selectStyle}>
                         <option value="ALL">Todos</option>
                         <option value="HAS_EVENTS">Com aulas</option>
                         <option value="NO_EVENTS">Sem aulas</option>
