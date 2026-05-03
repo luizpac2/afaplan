@@ -80,12 +80,13 @@ Deno.serve(async (req: Request) => {
     const callerName = callerMeta?.nome ?? caller.email ?? caller.id;
 
     const body = await req.json() as {
-      action: "update_role" | "delete" | "update_details";
+      action: "update_role" | "delete" | "update_details" | "update_status";
       userId: string;
       role?: string;
       turmaId?: string | null;
       displayName?: string;
       disciplines?: string[] | null;
+      status?: "ATIVO" | "INATIVO";
     };
 
     const { action, userId } = body;
@@ -239,6 +240,41 @@ Deno.serve(async (req: Request) => {
           callerId:   caller.id,
         });
       }
+
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "update_status") {
+      const { status } = body;
+      if (!status || !["ATIVO", "INATIVO"].includes(status)) {
+        return new Response(JSON.stringify({ error: "status deve ser ATIVO ou INATIVO" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: prevRow } = await adminClient
+        .from("user_roles")
+        .select("status")
+        .eq("user_id", userId)
+        .single();
+
+      const { error } = await adminClient
+        .from("user_roles")
+        .update({ status })
+        .eq("user_id", userId);
+      if (error) throw error;
+
+      await writeLog(adminClient, {
+        action:     "UPDATE",
+        entity:     "USER",
+        entityId:   userId,
+        entityName: targetName,
+        changes:    { before: { status: prevRow?.status ?? "ATIVO" }, after: { status } },
+        callerName,
+        callerId:   caller.id,
+      });
 
       return new Response(JSON.stringify({ ok: true }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },

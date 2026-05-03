@@ -13,6 +13,7 @@ export interface UserProfile {
   displayName: string;
   photoURL?: string;
   role: UserRole;
+  userStatus?: "ATIVO" | "INATIVO";
   createdAt: string; // ISO Date
 
   // Vínculo com instructor (DOCENTE) — preenchido via email match
@@ -179,7 +180,7 @@ export interface InstructorOccurrence {
   classId?: string;
 }
 
-export type EventType = "CLASS" | "EVALUATION" | "ACADEMIC" | "DAY_OFF" | "COMMEMORATIVE" | "SPORTS" | "INFORMATIVE" | "HOLIDAY";
+export type EventType = "CLASS" | "EVALUATION" | "ACADEMIC" | "DAY_OFF" | "COMMEMORATIVE" | "SPORTS" | "INFORMATIVE" | "HOLIDAY" | "MILITARY" | "FLIGHT_INSTRUCTION" | "TRIP";
 
 export type EvaluationType =
   | "PARTIAL"

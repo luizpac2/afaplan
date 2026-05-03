@@ -49,7 +49,7 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(supabaseUrl, serviceKey);
   const { data: roleRow, error: roleErr } = await admin
     .from("user_roles")
-    .select("role")
+    .select("role, status")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -72,12 +72,21 @@ Deno.serve(async (req: Request) => {
     cadete:      "CADETE",
   };
 
+  const userStatus = (roleRow as Record<string, unknown>).status as string ?? "ATIVO";
+
+  if (userStatus === "INATIVO") {
+    return new Response(JSON.stringify({ error: "user_inactive" }), {
+      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   const role = roleMap[roleRow.role as string] ?? "CADETE";
   const profile: Record<string, unknown> = {
     uid: user.id,
     email: user.email,
     displayName: meta.nome ?? user.email,
     role,
+    userStatus,
     status: "APPROVED",
     createdAt: user.created_at,
   };

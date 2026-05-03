@@ -21,6 +21,8 @@ import {
   Copy,
   Check,
   Wifi,
+  UserX,
+  UserCheck2,
 } from "lucide-react";
 import { Badge } from "../../components/common/Badge";
 import type { BadgeVariant } from "../../components/common/Badge";
@@ -209,6 +211,29 @@ export const UserManagement = () => {
       } finally {
         setUpdating(null);
       }
+    }
+  };
+
+  const handleToggleStatus = async (userId: string, currentStatus: string | undefined) => {
+    const newStatus = currentStatus === "INATIVO" ? "ATIVO" : "INATIVO";
+    const confirmMsg = newStatus === "INATIVO"
+      ? "Desativar este usuário? Ele não poderá mais acessar o sistema."
+      : "Reativar este usuário?";
+    if (!window.confirm(confirmMsg)) return;
+    setUpdating(userId);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "update_status", userId, status: newStatus },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      setUsers((prev) =>
+        prev.map((u) => (u.uid === userId ? { ...u, userStatus: newStatus as "ATIVO" | "INATIVO" } : u)),
+      );
+    } catch (error) {
+      alert("Erro ao alterar status: " + (error instanceof Error ? error.message : ""));
+    } finally {
+      setUpdating(null);
     }
   };
 
@@ -661,7 +686,7 @@ export const UserManagement = () => {
                         key={user.uid}
                         className={`transition-colors ${theme === "dark" ? "hover:bg-slate-700/50" : "hover:bg-slate-50"}`}
                       >
-                        <td className="px-4 py-2">
+                        <td className={`px-4 py-2 ${user.userStatus === "INATIVO" ? "opacity-60" : ""}`}>
                           <div className="flex items-center gap-2">
                             {user.photoURL ? (
                               <img src={user.photoURL} alt="" className="w-7 h-7 rounded-full" />
@@ -670,9 +695,14 @@ export const UserManagement = () => {
                                 {user.displayName.charAt(0)}
                               </div>
                             )}
-                            <span className={`text-sm ${theme === "dark" ? "text-slate-100" : "text-slate-900"}`}>
-                              {user.displayName}
-                            </span>
+                            <div className="flex flex-col">
+                              <span className={`text-sm ${theme === "dark" ? "text-slate-100" : "text-slate-900"}`}>
+                                {user.displayName}
+                              </span>
+                              {user.userStatus === "INATIVO" && (
+                                <span className="text-xs text-amber-500 font-medium">INATIVO</span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className={`px-4 py-2 text-sm ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
@@ -751,6 +781,17 @@ export const UserManagement = () => {
                                 className={`p-1 rounded transition-colors ${theme === "dark" ? "text-slate-400 hover:text-amber-400 hover:bg-amber-900/20" : "text-slate-400 hover:text-amber-600 hover:bg-amber-50"}`}
                                 title="Redefinir Senha">
                                 <KeyRound size={15} />
+                              </button>
+                            )}
+                            {canEditAuth && user.uid !== currentUser?.uid && (user.role === "DOCENTE" || user.role === "CADETE") && (
+                              <button onClick={() => void handleToggleStatus(user.uid, user.userStatus)} disabled={updating === user.uid}
+                                className={`p-1 rounded transition-colors ${
+                                  user.userStatus === "INATIVO"
+                                    ? theme === "dark" ? "text-green-400 hover:bg-green-900/20" : "text-green-600 hover:bg-green-50"
+                                    : theme === "dark" ? "text-amber-400 hover:bg-amber-900/20" : "text-amber-500 hover:bg-amber-50"
+                                }`}
+                                title={user.userStatus === "INATIVO" ? "Reativar usuário" : "Desativar usuário"}>
+                                {user.userStatus === "INATIVO" ? <UserCheck2 size={15} /> : <UserX size={15} />}
                               </button>
                             )}
                             {currentUser?.role === "SUPER_ADMIN" && user.uid !== currentUser.uid && (
