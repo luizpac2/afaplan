@@ -271,7 +271,7 @@ export default function LocaisGrid() {
                                   const code     = disc?.code ?? (ev.disciplineId?.includes("-") ? "???" : ev.disciplineId) ?? "";
                                   const color    = disc?.color || ev.color || "#3b82f6";
                                   const cls      = ev.classId ?? "";
-                                  const trigram  = ev.instructorTrigram || disc?.instructorTrigram || "";
+                                  const trigram  = ev.instructorTrigram || disc?.instructorTrigram || (disc as unknown as { data?: Record<string, string> })?.data?.instructor || "";
                                   const inst     = trigram ? instructors.find((i) => i.trigram === trigram) : null;
                                   const instrName = inst?.warName || trigram || "";
                                   const tip      = `${disc?.name ?? code} · ${cls}${instrName ? ` · ${instrName}` : ""}`;
@@ -279,13 +279,13 @@ export default function LocaisGrid() {
                                     <div
                                       key={ev.id}
                                       className="rounded flex flex-col items-center justify-center overflow-hidden gap-px"
-                                      style={{ background: color, border: "1px solid rgba(0,0,0,0.15)", minHeight: 28, padding: "2px 4px" }}
+                                      style={{ background: color, border: "1px solid rgba(0,0,0,0.15)", minHeight: 36, padding: "2px 4px" }}
                                       title={tip}
                                     >
                                       <span className="text-white text-[9px] font-extrabold leading-none w-full text-center">{code}</span>
                                       <span className="text-white/80 text-[8px] leading-none truncate w-full text-center">{cls}</span>
                                       {instrName && (
-                                        <span className="text-white/60 text-[7px] leading-none truncate w-full text-center hidden md:block">{instrName}</span>
+                                        <span className="text-white/60 text-[7px] leading-none truncate w-full text-center">{instrName}</span>
                                       )}
                                     </div>
                                   );
