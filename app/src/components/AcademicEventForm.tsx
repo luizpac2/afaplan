@@ -66,16 +66,17 @@ export const AcademicEventForm = ({
   const muted    = isDark ? "text-gray-400" : "text-gray-500";
 
   type Category = "ACADEMIC" | "EVALUATION" | "DAY_OFF" | "COMMEMORATIVE" | "SPORTS" | "INFORMATIVE" | "HOLIDAY" | "MILITARY" | "FLIGHT_INSTRUCTION" | "TRIP";
+  const rawType = initialData?.type as string | undefined;
   const initCat: Category =
-    initialData?.type === "EVALUATION"         ? "EVALUATION"        :
-    initialData?.type === "DAY_OFF"            ? "DAY_OFF"           :
-    initialData?.type === "COMMEMORATIVE"      ? "COMMEMORATIVE"     :
-    initialData?.type === "SPORTS"             ? "SPORTS"            :
-    initialData?.type === "INFORMATIVE"        ? "INFORMATIVE"       :
-    initialData?.type === "HOLIDAY"            ? "HOLIDAY"           :
-    initialData?.type === "MILITARY"           ? "MILITARY"          :
-    initialData?.type === "FLIGHT_INSTRUCTION" ? "FLIGHT_INSTRUCTION":
-    initialData?.type === "TRIP"               ? "TRIP"              : "ACADEMIC";
+    rawType === "EVALUATION"         ? "EVALUATION"        :
+    rawType === "DAY_OFF"            ? "DAY_OFF"           :
+    rawType === "COMMEMORATIVE"      ? "COMMEMORATIVE"     :
+    rawType === "SPORTS"             ? "SPORTS"            :
+    rawType === "INFORMATIVE"        ? "INFORMATIVE"       :
+    rawType === "HOLIDAY"            ? "HOLIDAY"           :
+    rawType === "MILITARY"           ? "MILITARY"          :
+    rawType === "FLIGHT_INSTRUCTION" ? "FLIGHT_INSTRUCTION":
+    rawType === "TRIP"               ? "TRIP"              : "ACADEMIC";
 
   const [category, setCategory] = useState<Category>(initCat);
   const wasAllDay = !initialData?.startTime || initialData.startTime === "";
@@ -83,7 +84,7 @@ export const AcademicEventForm = ({
   const today = new Date().toISOString().split("T")[0];
 
   const defaultTitle = initCat === "DAY_OFF" ? "Day Off" : "";
-  const [title, setTitle]         = useState(initialData?.type === "EVALUATION" ? "" : (initialData?.description ?? initialData?.location ?? defaultTitle));
+  const [title, setTitle]         = useState(rawType === "EVALUATION" ? "" : (initialData?.description ?? initialData?.location ?? defaultTitle));
   const [notes, setNotes]         = useState(initialData?.notes ?? "");
   const [startDate, setStartDate] = useState(initialData?.date ?? today);
   const [endDate, setEndDate]     = useState(initialData?.endDate ?? initialData?.date ?? today);
