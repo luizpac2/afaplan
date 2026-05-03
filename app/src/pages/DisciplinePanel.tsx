@@ -528,6 +528,32 @@ export const DisciplinePanel = () => {
       [yearEventsCache],
    );
 
+   // classMap is kept for function signatures but lookups use clsLabel(undefined, ev.classId)
+   const classMap: Record<string, CourseClass> = {};
+
+   const instructorByTrigram = useMemo(() => {
+      const m: Record<string, Instructor> = {};
+      for (const i of instructors) m[i.trigram] = i;
+      return m;
+   }, [instructors]);
+
+   // Secondary lookup by warName for disciplines that store instructor name instead of trigram
+   const instructorByWarName = useMemo(() => {
+      const m: Record<string, Instructor> = {};
+      for (const i of instructors) if (i.warName) m[i.warName] = i;
+      return m;
+   }, [instructors]);
+
+   const resolveInstructor = (disc: Discipline): Instructor | undefined =>
+      instructorByTrigram[disc.instructorTrigram || ''] ||
+      instructorByWarName[disc.instructor || ''] ||
+      undefined;
+
+   const myInstructor = useMemo(() => {
+      if (!isDocente || !userProfile) return null;
+      return instructors.find(i => i.email === userProfile.email) || null;
+   }, [isDocente, userProfile, instructors]);
+
    // Events grouped by discipline, filtered by classFilter AND by instructor's assigned classes
    const eventsByDisc = useMemo(() => {
       const map: Record<string, ScheduleEvent[]> = {};
@@ -539,8 +565,6 @@ export const DisciplinePanel = () => {
             if (disc) {
                const defaultTri = disc.instructorTrigram || (instructorByWarName[disc.instructor || '']?.trigram);
                const classOverride = disc.instructorByClass?.[ev.classId];
-               // If this class has an override, only include if override matches filter
-               // If no override, include only if default instructor matches filter
                const effectiveTri = classOverride || defaultTri;
                if (effectiveTri !== filterTrigram) continue;
             }
@@ -572,32 +596,6 @@ export const DisciplinePanel = () => {
       for (const id of Object.keys(map)) map[id].sort((a, b) => a.date.localeCompare(b.date));
       return map;
    }, [allEvents, instrFilter, isDocente, myInstructor, disciplines, instructorByWarName]);
-
-   // classMap is kept for function signatures but lookups use clsLabel(undefined, ev.classId)
-   const classMap: Record<string, CourseClass> = {};
-
-   const instructorByTrigram = useMemo(() => {
-      const m: Record<string, Instructor> = {};
-      for (const i of instructors) m[i.trigram] = i;
-      return m;
-   }, [instructors]);
-
-   // Secondary lookup by warName for disciplines that store instructor name instead of trigram
-   const instructorByWarName = useMemo(() => {
-      const m: Record<string, Instructor> = {};
-      for (const i of instructors) if (i.warName) m[i.warName] = i;
-      return m;
-   }, [instructors]);
-
-   const resolveInstructor = (disc: Discipline): Instructor | undefined =>
-      instructorByTrigram[disc.instructorTrigram || ''] ||
-      instructorByWarName[disc.instructor || ''] ||
-      undefined;
-
-   const myInstructor = useMemo(() => {
-      if (!isDocente || !userProfile) return null;
-      return instructors.find(i => i.email === userProfile.email) || null;
-   }, [isDocente, userProfile, instructors]);
 
    // Auto-set instrFilter for DOCENTE role
    useEffect(() => {
