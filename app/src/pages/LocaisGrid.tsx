@@ -33,7 +33,7 @@ export default function LocaisGrid() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const { locations, locationReservations, yearEventsCache, classes, disciplines, fetchYearlyEvents, addLocationReservation, deleteLocationReservation } = useCourseStore();
+  const { locations, locationReservations, yearEventsCache, classes, disciplines, instructors, appConfigs, fetchYearlyEvents, addLocationReservation, deleteLocationReservation } = useCourseStore();
 
   const currentYear = new Date().getFullYear();
 
@@ -70,11 +70,26 @@ export default function LocaisGrid() {
     [locationReservations, weekStart, weekEnd],
   );
 
-  // Eventos programados da semana com local preenchido
+  // defaultRoomsMap: classId → locationId (from appConfigs)
+  const defaultRoomsMap = useMemo(
+    () => (appConfigs[`default_rooms_${currentYear}`] as Record<string, string>) ?? {},
+    [appConfigs, currentYear],
+  );
+
+  // Eventos da semana (CLASS + outros) — todos, incluindo os sem location explícita
   const weekEvents = useMemo(
-    () => events.filter((e) => e.date >= weekStart && e.date <= weekEnd && !!e.location?.trim()),
+    () => events.filter((e) => e.date >= weekStart && e.date <= weekEnd),
     [events, weekStart, weekEnd],
   );
+
+  // Resolve the effective locationId for an event
+  function resolveLocationId(ev: (typeof events)[number]): string | null {
+    if (ev.location?.trim()) {
+      const match = locations.find((l) => l.name.trim().toLowerCase() === ev.location!.trim().toLowerCase());
+      if (match) return match.id;
+    }
+    return defaultRoomsMap[ev.classId] ?? null;
+  }
 
   // Helpers
   function getDiscipline(disciplineId?: string) {
@@ -221,12 +236,11 @@ export default function LocaisGrid() {
                         const res = locReservations.find(
                           (r) => r.date === dateStr && r.startTime === slot.start
                         );
-                        const locNameLower = loc.name.trim().toLowerCase();
                         const ganttEvents = weekEvents.filter(
                           (e) =>
                             e.date === dateStr &&
                             e.startTime === slot.start &&
-                            e.location!.trim().toLowerCase() === locNameLower
+                            resolveLocationId(e) === loc.id
                         );
 
                         const studentCount = res?.classId ? getStudentCount(res.classId) : null;
@@ -254,22 +268,25 @@ export default function LocaisGrid() {
                               <div className="flex flex-col gap-0.5">
                                 {ganttEvents.map((ev) => {
                                   const disc     = getDiscipline(ev.disciplineId);
-                                  const discName = disc?.name ?? disc?.code ?? ev.disciplineId ?? "";
+                                  const code     = disc?.code ?? (ev.disciplineId?.includes("-") ? "???" : ev.disciplineId) ?? "";
+                                  const color    = disc?.color || ev.color || "#3b82f6";
                                   const cls      = ev.classId ?? "";
-                                  const color    = disc?.color || ev.color || "#10b981";
-                                  const tip      = `${discName} · ${cls}`;
-                                  // Gera bg/border com opacidade a partir da cor hex
-                                  const bg     = `${color}22`;
-                                  const border = `${color}99`;
+                                  const trigram  = ev.instructorTrigram || disc?.instructorTrigram || "";
+                                  const inst     = trigram ? instructors.find((i) => i.trigram === trigram) : null;
+                                  const instrName = inst?.warName || trigram || "";
+                                  const tip      = `${disc?.name ?? code} · ${cls}${instrName ? ` · ${instrName}` : ""}`;
                                   return (
                                     <div
                                       key={ev.id}
-                                      className="rounded px-1.5 py-0.5 flex items-center gap-1 overflow-hidden"
-                                      style={{ background: bg, border: `1px solid ${border}`, minHeight: 20 }}
+                                      className="rounded flex flex-col items-center justify-center overflow-hidden gap-px"
+                                      style={{ background: color, border: "1px solid rgba(0,0,0,0.15)", minHeight: 28, padding: "2px 4px" }}
                                       title={tip}
                                     >
-                                      <span className="font-bold truncate text-[10px] leading-tight" style={{ color }}>{discName}</span>
-                                      <span className={`text-[9px] leading-tight flex-shrink-0 ${muted}`}>{cls}</span>
+                                      <span className="text-white text-[9px] font-extrabold leading-none w-full text-center">{code}</span>
+                                      <span className="text-white/80 text-[8px] leading-none truncate w-full text-center">{cls}</span>
+                                      {instrName && (
+                                        <span className="text-white/60 text-[7px] leading-none truncate w-full text-center hidden md:block">{instrName}</span>
+                                      )}
                                     </div>
                                   );
                                 })}
