@@ -107,11 +107,17 @@ export const SquadronProgramming = () => {
   // Window Query state
   const [squadronEvents, setSquadronEvents] = useState<ScheduleEvent[]>([]);
   const [yearlyEvents, setYearlyEvents] = useState<ScheduleEvent[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const startOfWeek = getStartOfWeek(currentDate);
   const weekDays = getWeekDays(startOfWeek);
   const startDayStr = formatDate(startOfWeek);
   const endDayStr = formatDate(addDays(startOfWeek, 6));
+
+  const forceRefresh = () => {
+    setIsLoading(true);
+    setRefreshKey((k) => k + 1);
+  };
 
   useEffect(() => {
     if (!dataReady) return;
@@ -122,7 +128,8 @@ export const SquadronProgramming = () => {
     });
 
     return () => unsubscribe();
-  }, [startDayStr, endDayStr, dataReady]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDayStr, endDayStr, dataReady, refreshKey]);
 
   // Query all events for the year to calculate continuous counts (Offline via store)
   useEffect(() => {
@@ -338,7 +345,10 @@ export const SquadronProgramming = () => {
   const handleBatchDelete = () => {
     const eventsToDelete = getSelectedEvents();
     const ids = eventsToDelete.map((e) => e.id);
-    if (ids.length) deleteBatchEvents(ids);
+    if (ids.length) {
+      deleteBatchEvents(ids);
+      forceRefresh();
+    }
     setIsDeleteConfirmOpen(false);
     setIsSelectionMode(false);
     setSelectedSlots([]);
@@ -350,38 +360,46 @@ export const SquadronProgramming = () => {
     const ids = filteredEvents
       .filter((e) => weekDates.includes(e.date))
       .map((e) => e.id);
-    if (ids.length) deleteBatchEvents(ids);
+    if (ids.length) {
+      deleteBatchEvents(ids);
+      forceRefresh();
+    }
     setIsClearWeekConfirmOpen(false);
   };
 
-  const handleSave = (data: any) => {
+  const handleSave = async (data: any) => {
     const { classIds, ...eventData } = data;
     if (isSelectionMode) {
-      classIds.forEach((classId: string) => {
-        selectedSlots.forEach((slotKey) => {
-          const [date, startTime] = slotKey.split("|");
-          const slot = TIME_SLOTS.find((s) => s.start === startTime);
-          addEvent({
-            ...eventData,
-            classId,
-            id: crypto.randomUUID(),
-            date,
-            startTime,
-            endTime: slot ? slot.end : startTime,
-          });
-        });
-      });
+      await Promise.allSettled(
+        classIds.flatMap((classId: string) =>
+          selectedSlots.map((slotKey) => {
+            const [date, startTime] = slotKey.split("|");
+            const slot = TIME_SLOTS.find((s) => s.start === startTime);
+            return addEvent({
+              ...eventData,
+              classId,
+              id: crypto.randomUUID(),
+              date,
+              startTime,
+              endTime: slot ? slot.end : startTime,
+            });
+          })
+        )
+      );
       setIsSelectionMode(false);
       setSelectedSlots([]);
     } else if (editingEvent?.id && !editingEvent.id.startsWith("virtual-")) {
       updateEvent(editingEvent.id, { ...eventData, classId: classIds[0] });
     } else {
-      classIds.forEach((classId: string) =>
-        addEvent({ ...eventData, classId, id: crypto.randomUUID() }),
+      await Promise.allSettled(
+        classIds.map((classId: string) =>
+          addEvent({ ...eventData, classId, id: crypto.randomUUID() })
+        )
       );
     }
     setIsEventModalOpen(false);
     setEditingEvent(undefined);
+    forceRefresh();
   };
 
   const handleExport = async (
@@ -827,6 +845,7 @@ export const SquadronProgramming = () => {
             deleteEvent(id);
             setIsEventModalOpen(false);
             setEditingEvent(undefined);
+            forceRefresh();
           }}
           onCancel={() => {
             setIsEventModalOpen(false);
