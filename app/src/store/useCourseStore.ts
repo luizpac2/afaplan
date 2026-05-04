@@ -1248,7 +1248,7 @@ export const useCourseStore = create<CourseState>((set) => ({
         const updates = {
           warName: after.warName,
           name: after.fullName,
-          specialty: after.rank,
+          specialty: after.specialty,
           data: {
             venture: after.venture,
             weeklyLoadLimit: after.weeklyLoadLimit,

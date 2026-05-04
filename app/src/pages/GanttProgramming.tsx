@@ -18,6 +18,7 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import {
   getStartOfWeek, addDays, formatDate, getWeekDays, formatDateForDisplay,
 } from "../utils/dateUtils";
+import { resolveInstructorTrigram } from "../utils/instructorResolver";
 import { TIME_SLOTS } from "../utils/constants";
 import type { ScheduleEvent, CourseYear, SystemNotice } from "../types";
 import { getCohortColorTokens } from "../utils/cohortColors";
@@ -584,10 +585,18 @@ export const GanttProgramming = () => {
       if (e.date !== data.date) return false;
       if (normalizeSlotTime(e.startTime) !== targetSlot) return false;
 
+      const dataDisc = disciplines.find((d) => d.id === data.disciplineId);
+      const eDisc = disciplines.find((d) => d.id === e.disciplineId);
+      const dataTrigram = dataDisc
+        ? resolveInstructorTrigram(dataDisc, { ...data, id: "" })
+        : data.instructorTrigram;
+      const eTrigram = eDisc
+        ? resolveInstructorTrigram(eDisc, e)
+        : e.instructorTrigram;
       const sameInstructor =
-        !!data.instructorTrigram &&
-        !!e.instructorTrigram &&
-        data.instructorTrigram === e.instructorTrigram;
+        !!dataTrigram &&
+        !!eTrigram &&
+        dataTrigram === eTrigram;
       const sameLocation =
         !!data.location &&
         !!e.location &&
@@ -732,10 +741,13 @@ export const GanttProgramming = () => {
 
     const resourceConflict = findResourceConflict(data, currentClassId, editingEvent?.id);
     if (resourceConflict) {
+      const dataDisc = disciplines.find((d) => d.id === data.disciplineId);
+      const conflDisc = disciplines.find((d) => d.id === resourceConflict.disciplineId);
+      const dataTri = dataDisc ? resolveInstructorTrigram(dataDisc, { ...data, id: "" }) : data.instructorTrigram;
+      const conflTri = conflDisc ? resolveInstructorTrigram(conflDisc, resourceConflict) : resourceConflict.instructorTrigram;
       const reason =
-        data.instructorTrigram &&
-        resourceConflict.instructorTrigram === data.instructorTrigram
-          ? `Docente ${data.instructorTrigram}`
+        dataTri && conflTri === dataTri
+          ? `Docente ${dataTri}`
           : `Local ${data.location ?? "informado"}`;
       showToast(
         `${reason} já está alocado em ${resourceConflict.classId} no mesmo horário (${data.date} ${normalizeSlotTime(data.startTime)}).`,

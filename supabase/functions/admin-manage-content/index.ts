@@ -272,12 +272,60 @@ Deno.serve(async (req) => {
     const { data: allDiscs } = await adminClient
       .from("disciplinas").select("id, data, instructorTrigram");
     for (const d of (allDiscs ?? []) as Record<string, any>[]) {
+      const data = d.data as Record<string, any> ?? {};
       const directMatch = d.instructorTrigram === oldTrigram;
-      const jsonbMatch  = (d.data as any)?.instructorTrigram === oldTrigram;
-      if (!directMatch && !jsonbMatch) continue;
+      const jsonbMatch  = data?.instructorTrigram === oldTrigram;
+
+      // Check instructorByClass in jsonb
+      const byClass = data?.instructorByClass as Record<string, string> | undefined;
+      const byClassMatch = byClass && Object.values(byClass).includes(oldTrigram);
+
+      // Check instructorByYear nested fields in jsonb
+      const byYear = data?.instructorByYear as Record<string, any> | undefined;
+      let byYearMatch = false;
+      if (byYear) {
+        for (const yd of Object.values(byYear)) {
+          if (yd?.trigram === oldTrigram) { byYearMatch = true; break; }
+          if (yd?.byClass && Object.values(yd.byClass as Record<string, string>).includes(oldTrigram)) {
+            byYearMatch = true; break;
+          }
+        }
+      }
+
+      if (!directMatch && !jsonbMatch && !byClassMatch && !byYearMatch) continue;
+
       const patch: Record<string, unknown> = {};
       if (directMatch) patch.instructorTrigram = newTrigram;
-      if (jsonbMatch)  patch.data = { ...(d.data || {}), instructorTrigram: newTrigram };
+
+      if (jsonbMatch || byClassMatch || byYearMatch) {
+        const newData = { ...data };
+        if (jsonbMatch) newData.instructorTrigram = newTrigram;
+        if (byClassMatch && newData.instructorByClass) {
+          newData.instructorByClass = Object.fromEntries(
+            Object.entries(newData.instructorByClass as Record<string, string>).map(
+              ([k, v]) => [k, v === oldTrigram ? newTrigram : v]
+            )
+          );
+        }
+        if (byYearMatch && newData.instructorByYear) {
+          const updatedByYear: Record<string, any> = {};
+          for (const [yr, yd] of Object.entries(newData.instructorByYear as Record<string, any>)) {
+            const updYd = { ...yd };
+            if (updYd.trigram === oldTrigram) updYd.trigram = newTrigram;
+            if (updYd.byClass) {
+              updYd.byClass = Object.fromEntries(
+                Object.entries(updYd.byClass as Record<string, string>).map(
+                  ([k, v]) => [k, v === oldTrigram ? newTrigram : v]
+                )
+              );
+            }
+            updatedByYear[yr] = updYd;
+          }
+          newData.instructorByYear = updatedByYear;
+        }
+        patch.data = newData;
+      }
+
       await adminClient.from("disciplinas").update(patch).eq("id", d.id);
     }
 
