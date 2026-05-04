@@ -287,15 +287,7 @@ export const GanttProgramming = () => {
 
     if (!batchAllSquadronsMode) {
       baseEvents.forEach((ev) => addEvent(ev));
-      setWeekEvents((prev) => {
-        const filtered = prev.filter(
-          (e) => !baseEvents.some(
-            (ne) => ne.classId === e.classId && ne.date === e.date && ne.startTime === e.startTime
-              && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC",
-          ),
-        );
-        return [...filtered, ...baseEvents];
-      });
+      setWeekEvents((prev) => [...prev, ...baseEvents]);
       setIsBatchFormOpen(false);
       setIsBatchMode(false);
       setSelectedSlots([]);
@@ -553,18 +545,7 @@ export const GanttProgramming = () => {
         }, 800);
       } else {
         const newEvent: ScheduleEvent = { ...eventData, id: crypto.randomUUID() };
-        setWeekEvents((prev) => {
-          // Remove existing event at same slot (mirrors DB slot-clear)
-          const filtered = prev.filter(
-            (e) =>
-              !(e.classId === newEvent.classId &&
-                e.date === newEvent.date &&
-                e.startTime?.slice(0, 5) === newEvent.startTime?.slice(0, 5) &&
-                e.type !== "ACADEMIC" &&
-                e.disciplineId !== "ACADEMIC"),
-          );
-          return [...filtered, newEvent];
-        });
+        setWeekEvents((prev) => [...prev, newEvent]);
         addEvent(newEvent).catch((err) => {
           console.error("[saveOne] Falha ao salvar evento no banco:", err?.message ?? err);
         });
