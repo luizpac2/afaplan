@@ -357,47 +357,28 @@ export const SquadronProgramming = () => {
   const handleSave = (data: any) => {
     const { classIds, ...eventData } = data;
     if (isSelectionMode) {
-      const newEvents: ScheduleEvent[] = [];
       classIds.forEach((classId: string) => {
         selectedSlots.forEach((slotKey) => {
           const [date, startTime] = slotKey.split("|");
           const slot = TIME_SLOTS.find((s) => s.start === startTime);
-          const ev: ScheduleEvent = {
+          addEvent({
             ...eventData,
             classId,
             id: crypto.randomUUID(),
             date,
             startTime,
             endTime: slot ? slot.end : startTime,
-          };
-          addEvent(ev);
-          newEvents.push(ev);
+          });
         });
       });
-      // Optimistic: add to local view immediately (DB save is async)
-      setSquadronEvents((prev) => [...prev, ...newEvents]);
       setIsSelectionMode(false);
       setSelectedSlots([]);
     } else if (editingEvent?.id && !editingEvent.id.startsWith("virtual-")) {
       updateEvent(editingEvent.id, { ...eventData, classId: classIds[0] });
-      setSquadronEvents((prev) =>
-        prev.map((e) =>
-          e.id === editingEvent.id ? { ...e, ...eventData, classId: classIds[0] } : e,
-        ),
-      );
     } else {
-      const newEvents: ScheduleEvent[] = classIds.map((classId: string) => ({
-        ...eventData,
-        classId,
-        id: crypto.randomUUID(),
-      }));
-      console.log("[handleSave] newEvents:", JSON.stringify(newEvents));
-      newEvents.forEach((ev) => addEvent(ev));
-      // Optimistic: add to local view immediately (DB save is async)
-      setSquadronEvents((prev) => {
-        console.log("[handleSave] squadronEvents antes:", prev.length, "→ depois:", prev.length + newEvents.length);
-        return [...prev, ...newEvents];
-      });
+      classIds.forEach((classId: string) =>
+        addEvent({ ...eventData, classId, id: crypto.randomUUID() }),
+      );
     }
     setIsEventModalOpen(false);
     setEditingEvent(undefined);
