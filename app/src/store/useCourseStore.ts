@@ -31,10 +31,15 @@ import { supabase } from "../config/supabase";
 import { TIME_SLOTS } from "../utils/constants";
 
 // ── Helper: chama admin-manage-content via edge function (service role) ───────
-async function contentFn(action: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+async function contentFn(action: string, payload: Record<string, unknown>, retries = 2): Promise<Record<string, unknown>> {
   const { data, error } = await supabase.functions.invoke("admin-manage-content", {
     body: { action, ...payload },
   });
+  // Retry automático em caso de lock error do GoTrue
+  if (error && retries > 0 && (error.message?.includes("lock") || error.message?.includes("Lock"))) {
+    await new Promise((r) => setTimeout(r, 1000));
+    return contentFn(action, payload, retries - 1);
+  }
   if (error) {
     const context = (error as any).context;
     if (context && typeof context.json === "function") {
@@ -80,7 +85,7 @@ interface CourseState {
   deleteBatchDisciplines: (ids: string[]) => Promise<void>;
   unifyAllDisciplines: () => Promise<{ merged: number; errors: number }> ;
   clearDisciplines: () => void;
-  addEvent: (event: ScheduleEvent) => void;
+  addEvent: (event: ScheduleEvent) => Promise<unknown>;
   addBatchEvents: (events: ScheduleEvent[]) => void;
   updateEvent: (id: string, updates: Partial<ScheduleEvent>) => void;
   swapEvents: (
@@ -706,8 +711,9 @@ export const useCourseStore = create<CourseState>((set) => ({
       instructorId:   event.instructorTrigram || null,
       evaluationType: event.evaluationType ?? null,
     };
-    contentFn("save_event", { event: dbEvent }).catch((err) => {
-      console.error("Failed to save event:", err);
+    return contentFn("save_event", { event: dbEvent }).catch((err) => {
+      console.error("Failed to save event:", err?.message ?? err);
+      throw err;
     });
   },
 

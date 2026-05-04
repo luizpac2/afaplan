@@ -10,7 +10,7 @@ import type { CohortColor, ScheduleEvent } from "../types";
 const SQ_LABELS = ["Todos", "1º ESQ", "2º ESQ", "3º ESQ", "4º ESQ"];
 
 const EVAL_LABELS: Record<string, string> = {
-  PARTIAL: "Parcial", EXAM: "Exame", FINAL: "Prova Final",
+  PARTIAL: "Parcial", EXAM: "Exame", FINAL: "Final",
   SECOND_CHANCE: "2ª Época", REVIEW: "Vista",
 };
 
@@ -18,23 +18,29 @@ const MONTHS_PT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","
 
 // Color per event type — darker, higher-contrast palette
 const TYPE_COLORS: Record<string, string> = {
-  ACADEMIC:      "#4338ca", // indigo-700
-  EVALUATION:    "#c2410c", // orange-700
-  DAY_OFF:       "#b91c1c", // red-700
-  COMMEMORATIVE: "#b45309", // amber-700
-  SPORTS:        "#0f766e", // teal-700
-  INFORMATIVE:   "#0369a1", // sky-700
-  HOLIDAY:       "#be123c", // rose-700
+  ACADEMIC:          "#4338ca", // indigo-700
+  EVALUATION:        "#c2410c", // orange-700
+  DAY_OFF:           "#b91c1c", // red-700
+  COMMEMORATIVE:     "#b45309", // amber-700
+  SPORTS:            "#0f766e", // teal-700
+  INFORMATIVE:       "#0369a1", // sky-700
+  HOLIDAY:           "#be123c", // rose-700
+  MILITARY:          "#15803d", // green-700
+  FLIGHT_INSTRUCTION:"#1d4ed8", // blue-700
+  TRIP:              "#6d28d9", // violet-700
 };
 
 const TYPE_LABELS: Record<string, string> = {
-  ACADEMIC:      "Acadêmico",
-  EVALUATION:    "Avaliação",
-  DAY_OFF:       "Day Off",
-  COMMEMORATIVE: "Comemorativo",
-  SPORTS:        "CDEF",
-  INFORMATIVE:   "Informativo",
-  HOLIDAY:       "Feriado",
+  ACADEMIC:          "Acadêmico",
+  EVALUATION:        "Avaliação",
+  DAY_OFF:           "Day Off",
+  COMMEMORATIVE:     "Comemorativo",
+  SPORTS:            "CDEF",
+  INFORMATIVE:       "Informativo",
+  HOLIDAY:           "Feriado",
+  MILITARY:          "Militar",
+  FLIGHT_INSTRUCTION:"Instrução de Voo",
+  TRIP:              "Viagem",
 };
 
 interface GanttEvent {
@@ -92,7 +98,7 @@ const LABEL_W = 240;
 const ROW_H   = 36;
 const HEAD_H  = 32;
 
-const ALL_TYPES = ["ACADEMIC", "EVALUATION", "DAY_OFF", "COMMEMORATIVE", "SPORTS", "INFORMATIVE", "HOLIDAY"] as const;
+const ALL_TYPES = ["ACADEMIC", "EVALUATION", "DAY_OFF", "COMMEMORATIVE", "SPORTS", "INFORMATIVE", "HOLIDAY", "MILITARY", "FLIGHT_INSTRUCTION", "TRIP"] as const;
 const SQUADRONS = [1, 2, 3, 4] as const;
 
 export const AcademicGantt = () => {
@@ -100,7 +106,7 @@ export const AcademicGantt = () => {
   const isDark = theme === "dark";
   const { userProfile } = useAuth();
   const canEdit = ["SUPER_ADMIN", "ADMIN"].includes(userProfile?.role ?? "");
-  const { fetchYearlyEvents, cohorts, addEvent, updateEvent, deleteEvent } = useCourseStore();
+  const { fetchYearlyEvents, cohorts, addEvent, updateEvent, deleteEvent, disciplines } = useCourseStore();
 
   const currentYear = new Date().getFullYear();
   const [year, setYear]           = useState(currentYear);
@@ -183,19 +189,25 @@ export const AcademicGantt = () => {
 
   // ── Gantt events ─────────────────────────────────────────────────────────
   const ganttEvents = useMemo((): GanttEvent[] => {
-    const SHOW_TYPES = new Set(["ACADEMIC", "EVALUATION", "DAY_OFF", "COMMEMORATIVE", "SPORTS", "INFORMATIVE", "HOLIDAY"]);
+    const SHOW_TYPES = new Set(["ACADEMIC", "EVALUATION", "DAY_OFF", "COMMEMORATIVE", "SPORTS", "INFORMATIVE", "HOLIDAY", "MILITARY", "FLIGHT_INSTRUCTION", "TRIP"]);
+    const discMap = new Map(disciplines.map(d => [d.id, d.code]));
     const raw: GanttEvent[] = events
       .filter(e => SHOW_TYPES.has(e.type ?? "") || e.disciplineId === "ACADEMIC")
       .map(e => {
-        const isDayOff = e.type === "DAY_OFF";
         const sqRaw    = e.targetSquadron;
         const sqNum    = sqRaw != null && sqRaw !== "ALL" ? Number(sqRaw) : null;
         const sqValid  = sqNum !== null && Number.isFinite(sqNum) && sqNum >= 1 && sqNum <= 4;
-        const label    = isDayOff || e.type === "COMMEMORATIVE" || e.type === "SPORTS"
-          ? (e.description || TYPE_LABELS[e.type!] || "Evento")
-          : e.type === "EVALUATION"
-            ? (EVAL_LABELS[e.evaluationType ?? ""] ?? "Avaliação")
-            : (e.description || e.location || "Evento");
+        let label: string;
+        if (e.type === "EVALUATION") {
+          const discCode = e.disciplineId ? (discMap.get(e.disciplineId) ?? "") : "";
+          const evalLabel = EVAL_LABELS[e.evaluationType ?? ""] ?? "";
+          if (discCode && evalLabel) label = `${discCode} – ${evalLabel}`;
+          else if (evalLabel)        label = evalLabel;
+          else if (discCode)         label = discCode;
+          else                       label = "Avaliação";
+        } else {
+          label = e.description || e.location || TYPE_LABELS[e.type!] || "Evento";
+        }
         const start = parseDate(e.date);
         const end   = parseDate((e as any).endDate ?? e.date);
         // Color: squadron-aware only for ACADEMIC
@@ -213,7 +225,7 @@ export const AcademicGantt = () => {
       })
       .sort((a, b) => a.start.getTime() - b.start.getTime());
     return mergeConsecutive(raw);
-  }, [events, selTypes, selSquadrons, cohortTokens]);
+  }, [events, selTypes, selSquadrons, cohortTokens, disciplines]);
 
   // ── Filters toggle helpers ────────────────────────────────────────────────
   const toggleType = (t: string) => setSelTypes(prev => {
@@ -282,10 +294,13 @@ export const AcademicGantt = () => {
     ACADEMIC:      "bg-indigo-700 border-indigo-700 text-white",
     EVALUATION:    "bg-orange-700 border-orange-700 text-white",
     DAY_OFF:       "bg-red-700 border-red-700 text-white",
-    COMMEMORATIVE: "bg-amber-700 border-amber-700 text-white",
-    SPORTS:        "bg-teal-700 border-teal-700 text-white",
-    INFORMATIVE:   "bg-sky-700 border-sky-700 text-white",
-    HOLIDAY:       "bg-rose-700 border-rose-700 text-white",
+    COMMEMORATIVE:      "bg-amber-700 border-amber-700 text-white",
+    SPORTS:             "bg-teal-700 border-teal-700 text-white",
+    INFORMATIVE:        "bg-sky-700 border-sky-700 text-white",
+    HOLIDAY:            "bg-rose-700 border-rose-700 text-white",
+    MILITARY:           "bg-green-700 border-green-700 text-white",
+    FLIGHT_INSTRUCTION: "bg-blue-700 border-blue-700 text-white",
+    TRIP:               "bg-violet-700 border-violet-700 text-white",
   };
 
   const modal = (addingNew || editingEvent) ? (

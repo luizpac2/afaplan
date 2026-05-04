@@ -21,7 +21,7 @@ const NOTICE_STYLES: Record<string, { bg: string; text: string; icon: React.Reac
 };
 
 const EVAL_LABELS: Record<string, string> = {
-  PARTIAL: "Parcial", EXAM: "Exame", FINAL: "Prova Final",
+  PARTIAL: "Parcial", EXAM: "Exame", FINAL: "Final",
   SECOND_CHANCE: "2ª Época", REVIEW: "Vista",
 };
 
@@ -76,7 +76,7 @@ export const PanoramicMirror = () => {
   // Academic events and evaluations for this month
   const monthAcademic = useMemo(() => {
     return events.filter(e => {
-      const SHOW = new Set(["ACADEMIC","EVALUATION","DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY"]);
+      const SHOW = new Set(["ACADEMIC","EVALUATION","DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY","MILITARY","FLIGHT_INSTRUCTION","TRIP"]);
       const isAcad = SHOW.has(e.type ?? "") || e.disciplineId === "ACADEMIC";
       if (!isAcad) return false;
       // multi-day: startDate ≤ day ≤ endDate
@@ -129,6 +129,7 @@ export const PanoramicMirror = () => {
     const TYPE_COLOR_MAP: Record<string, string> = {
       DAY_OFF: "#b91c1c", COMMEMORATIVE: "#b45309", SPORTS: "#0f766e",
       INFORMATIVE: "#0369a1", HOLIDAY: "#be123c", ACADEMIC: "#4338ca",
+      MILITARY: "#15803d", FLIGHT_INSTRUCTION: "#1d4ed8", TRIP: "#6d28d9",
     };
     const monthStart = formatISODate(year, month, 1);
     const monthEnd   = formatISODate(year, month, totalDays);
@@ -321,10 +322,12 @@ export const PanoramicMirror = () => {
             const TYPE_LABEL_MAP: Record<string, string> = {
               DAY_OFF: "Day Off", COMMEMORATIVE: "Comemorativo", SPORTS: "CDEF",
               INFORMATIVE: "Informativo", HOLIDAY: "Feriado",
+              MILITARY: "Militar", FLIGHT_INSTRUCTION: "Instrução de Voo", TRIP: "Viagem",
             };
             const TYPE_COLOR_MAP2: Record<string, string> = {
               DAY_OFF: "#b91c1c", COMMEMORATIVE: "#b45309", SPORTS: "#0f766e",
               INFORMATIVE: "#0369a1", HOLIDAY: "#be123c",
+              MILITARY: "#15803d", FLIGHT_INSTRUCTION: "#1d4ed8", TRIP: "#6d28d9",
             };
 
             // Build week rows: row 0 = grid positions 0..6, row 1 = 7..13, etc.
@@ -400,7 +403,7 @@ export const PanoramicMirror = () => {
                 for (const ev of otherEvts) {
                   const sqN = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
                   const sqV = sqN !== null && Number.isFinite(sqN) && sqN >= 1 && sqN <= 4;
-                  const isSpecial = ["DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY"].includes(ev.type ?? "");
+                  const isSpecial = ["DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY","MILITARY","FLIGHT_INSTRUCTION","TRIP"].includes(ev.type ?? "");
                   const color = isSpecial ? (TYPE_COLOR_MAP2[ev.type!] ?? "#4338ca") : sqV ? sqColor(sqN!) : (ev.color ?? "#4338ca");
                   const label = isSpecial ? (ev.description || TYPE_LABEL_MAP[ev.type!] || "Evento") : (ev.description || ev.location || "Evento");
                   chips.push(
@@ -687,12 +690,15 @@ export const PanoramicMirror = () => {
                 })}
                 {/* Event type colors */}
                 {([
-                  ["DAY_OFF",       "#b91c1c", "Day Off"],
-                  ["EVALUATION",    "#c2410c", "Avaliação"],
-                  ["COMMEMORATIVE", "#b45309", "Comemorativo"],
-                  ["HOLIDAY",       "#be123c", "Feriado"],
-                  ["SPORTS",        "#0f766e", "CDEF"],
-                  ["INFORMATIVE",   "#0369a1", "Informativo"],
+                  ["DAY_OFF",           "#b91c1c", "Day Off"],
+                  ["EVALUATION",        "#c2410c", "Avaliação"],
+                  ["COMMEMORATIVE",     "#b45309", "Comemorativo"],
+                  ["HOLIDAY",           "#be123c", "Feriado"],
+                  ["SPORTS",            "#0f766e", "CDEF"],
+                  ["INFORMATIVE",       "#0369a1", "Informativo"],
+                  ["MILITARY",          "#15803d", "Militar"],
+                  ["FLIGHT_INSTRUCTION","#1d4ed8", "Instrução de Voo"],
+                  ["TRIP",              "#6d28d9", "Viagem"],
                 ] as [string, string, string][]).map(([type, color, label]) => (
                   <div key={type} className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0"

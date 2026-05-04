@@ -86,7 +86,8 @@ export const GanttView = ({
   const textMuted = isDark ? "text-slate-400" : "text-slate-500";
 
   function slotIndex(startTime: string) {
-    return TIME_SLOTS.findIndex((s) => s.start === startTime);
+    const normalized = startTime?.slice(0, 5) ?? "";
+    return TIME_SLOTS.findIndex((s) => s.start === normalized);
   }
 
   return (
@@ -157,7 +158,7 @@ export const GanttView = ({
                   : isEval ? (EVAL_COLORS[evalType] || "#92400e")
                   : (disc?.color || "#3b82f6");
                 const trigram = ev
-                  ? (ev.instructorTrigram || disc?.instructorTrigram || (disc as unknown as { data?: Record<string,string> })?.data?.instructor || "")
+                  ? (ev.instructorTrigram || disc?.instructorByClass?.[ev.classId] || disc?.instructorTrigram || (disc as unknown as { data?: Record<string,string> })?.data?.instructor || "")
                   : "";
                 const inst = trigram ? instructors.find((ins) => ins.trigram === trigram) : null;
                 const displayInstructor = inst?.warName || trigram || "—";
@@ -212,7 +213,6 @@ export const GanttView = ({
                 const handleClick = () => {
                   if (!ev) return;
                   if (hasOverlap && canEdit) {
-                    // Open overlap popover instead of edit modal
                     const key = `${classId}_${i}`;
                     setOverlapPopover(prev => prev?.key === key ? null : { key, evs: overlapEvs! });
                     return;

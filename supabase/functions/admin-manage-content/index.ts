@@ -807,5 +807,107 @@ Deno.serve(async (req) => {
     return ok({ table, columns, sampleRow: data?.[0] ?? null });
   }
 
+  // ── deduplicate_events ────────────────────────────────────────────────────────
+  // Remove aulas duplicadas no mesmo slot (classId + date + startTime), mantendo a mais antiga (menor id lexicográfico).
+  // Se date for passado, filtra apenas esse dia. Retorna quantas foram removidas.
+  if (action === "deduplicate_events") {
+    const { date, startDate, endDate } = body as { date?: string; startDate?: string; endDate?: string };
+
+    // Busca eventos que COBREM o período (incluindo multi-dia com endDate)
+    // Estratégia: busca todos que têm date <= endDate E (endDate >= startDate OU endDate is null)
+    // Para simplificar: busca tudo do ano corrente e filtra no JS
+    const year = (startDate ?? date ?? new Date().toISOString().slice(0,4)).slice(0, 4);
+    const yearStart = `${year}-01-01`;
+    const yearEnd = `${year}-12-31`;
+
+    // Pagina para superar o limite de 1000 linhas do Supabase
+    const PAGE = 1000;
+    let allEventsRaw: any[] = [];
+    let pageIdx = 0;
+    while (true) {
+      const { data: page, error: fetchErr } = await adminClient
+        .from("programacao_aulas")
+        .select("id, classId, date, startTime, endDate, type, disciplineId")
+        .gte("date", yearStart)
+        .lte("date", yearEnd)
+        .range(pageIdx * PAGE, (pageIdx + 1) * PAGE - 1);
+      if (fetchErr) return err(`Falha ao carregar eventos (pág ${pageIdx}): ${fetchErr.message}`, 500);
+      if (!page || page.length === 0) break;
+      allEventsRaw = allEventsRaw.concat(page);
+      if (page.length < PAGE) break;
+      pageIdx++;
+    }
+
+    console.log(`deduplicate_events: ${allEventsRaw.length} eventos encontrados (${pageIdx + 1} páginas)`);
+
+    // Remove eventos com id vazio/nulo do banco (dados inválidos)
+    const invalidIds = (allEventsRaw ?? []).filter((e: any) => !e.id).map((e: any) => e.id);
+    if (invalidIds.length > 0) {
+      console.warn(`deduplicate_events: ${invalidIds.length} eventos com id vazio encontrados — não é possível deletar por id vazio`);
+    }
+
+    // Só deduplica eventos com classId e id válido
+    const SKIP_TYPES = new Set(["DAY_OFF", "ACADEMIC", "COMMEMORATIVE", "HOLIDAY"]);
+    let allEvents = (allEventsRaw ?? []).filter((e: any) =>
+      e.id && e.classId && !SKIP_TYPES.has(e.type ?? "")
+    );
+
+    // Se filtro de período foi fornecido, restringe ao período (considerando eventos multi-dia)
+    if (startDate && endDate) {
+      allEvents = allEvents.filter((e: any) => {
+        const evEnd = e.endDate ?? e.date;
+        return e.date <= endDate && evEnd >= startDate;
+      });
+    } else if (date) {
+      allEvents = allEvents.filter((e: any) => {
+        const evEnd = e.endDate ?? e.date;
+        return e.date <= date && evEnd >= date;
+      });
+    }
+
+    console.log(`deduplicate_events: ${allEvents.length} aulas com classId após filtro`);
+
+    if (allEvents.length === 0) return ok({ deleted: 0, duplicates: [], totalRaw: allEventsRaw?.length ?? 0 });
+
+    // Agrupa por chave de slot — normaliza startTime para HH:MM (remove segundos)
+    const groups: Record<string, any[]> = {};
+    for (const ev of allEvents) {
+      if (!ev.classId || !ev.date || !ev.startTime) continue;
+      const normalizedStart = String(ev.startTime).slice(0, 5);
+      const key = `${ev.classId}|${ev.date}|${normalizedStart}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(ev);
+    }
+
+    // Para cada grupo com duplicatas, mantém o primeiro (menor id) e deleta o restante
+    const toDelete: string[] = [];
+    const duplicateReport: any[] = [];
+    for (const [key, evs] of Object.entries(groups)) {
+      if (evs.length <= 1) continue;
+      evs.sort((a: any, b: any) => a.id.localeCompare(b.id));
+      const kept = evs[0];
+      const extras = evs.slice(1);
+      toDelete.push(...extras.map((e: any) => e.id));
+      duplicateReport.push({ slot: key, kept: kept.id, deleted: extras.map((e: any) => e.id) });
+    }
+
+    if (toDelete.length === 0) return ok({ deleted: 0, duplicates: [], totalSlots: Object.keys(groups).length });
+
+    console.log(`deduplicate_events: ${toDelete.length} duplicatas para deletar`);
+
+    // Deleta em lotes de 100 para evitar timeout
+    const BATCH = 100;
+    for (let i = 0; i < toDelete.length; i += BATCH) {
+      const batch = toDelete.slice(i, i + BATCH);
+      const { error: delErr } = await adminClient
+        .from("programacao_aulas")
+        .delete()
+        .in("id", batch);
+      if (delErr) return err(`Falha ao deletar duplicatas (lote ${i}): ${delErr.message}`, 500);
+    }
+
+    return ok({ deleted: toDelete.length, duplicates: duplicateReport });
+  }
+
   return err("Unknown action");
 });

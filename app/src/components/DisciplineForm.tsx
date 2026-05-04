@@ -1,6 +1,6 @@
 
-import { useState, useEffect, useRef } from 'react';
-import { X, Save, Search } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { X, Save, Search, Users } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCourseStore } from '../store/useCourseStore';
 import type { Discipline, CourseYear } from '../types';
@@ -9,6 +9,129 @@ interface DisciplineFormProps {
     initialData?: Discipline;
     onSubmit: (data: Omit<Discipline, 'id'>) => void;
     onCancel: () => void;
+}
+
+// Mapping: ppcLoad course key → class letter(s)
+const COURSE_LETTERS: Record<string, string[]> = {
+    AVIATION:   ['A', 'B', 'C', 'D'],
+    INTENDANCY: ['E'],
+    INFANTRY:   ['F'],
+};
+const COURSE_LABELS: Record<string, string> = {
+    AVIATION: 'Aviação', INTENDANCY: 'Intendência', INFANTRY: 'Infantaria',
+};
+
+function PerClassInstructorSection({
+    formData,
+    setFormData,
+    instructors,
+    theme,
+}: {
+    formData: Omit<import('../types').Discipline, 'id'>;
+    setFormData: React.Dispatch<React.SetStateAction<Omit<import('../types').Discipline, 'id'>>>;
+    instructors: import('../types').Instructor[];
+    theme: string;
+}) {
+    // Derive enabled classIds from ppcLoads > 0
+    const enabledClassIds = useMemo(() => {
+        const ids: string[] = [];
+        for (const [key, val] of Object.entries(formData.ppcLoads || {})) {
+            if (!val) continue;
+            const [course, year] = key.split('_');
+            const letters = COURSE_LETTERS[course] ?? [];
+            for (const letter of letters) ids.push(`${year}${letter}`);
+        }
+        return [...new Set(ids)].sort();
+    }, [formData.ppcLoads]);
+
+    const hasOverrides = Object.keys(formData.instructorByClass || {}).length > 0;
+    const [expanded, setExpanded] = useState(hasOverrides);
+
+    if (enabledClassIds.length === 0) return null;
+
+    const isDark = theme === 'dark';
+    const inputCls = `w-full px-2 py-1.5 border rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500 ${isDark ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-slate-300 text-slate-800'}`;
+    const mutedCls = isDark ? 'text-slate-400' : 'text-slate-500';
+
+    const setClassInstructor = (classId: string, trigram: string) => {
+        setFormData(prev => {
+            const updated = { ...(prev.instructorByClass || {}) };
+            if (trigram) updated[classId] = trigram;
+            else delete updated[classId];
+            return { ...prev, instructorByClass: updated };
+        });
+    };
+
+    // Group by year for display
+    const byYear: Record<string, string[]> = {};
+    for (const cid of enabledClassIds) {
+        const yr = cid[0];
+        if (!byYear[yr]) byYear[yr] = [];
+        byYear[yr].push(cid);
+    }
+
+    return (
+        <div className={`rounded-lg border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+            <button
+                type="button"
+                onClick={() => setExpanded(v => !v)}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors ${isDark ? 'hover:bg-slate-700/50 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}
+            >
+                <span className="flex items-center gap-2">
+                    <Users size={14} className={hasOverrides ? 'text-amber-500' : mutedCls} />
+                    Docente por Turma (exceção)
+                    {hasOverrides && (
+                        <span className="text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded font-semibold">
+                            {Object.keys(formData.instructorByClass || {}).length} override(s)
+                        </span>
+                    )}
+                </span>
+                <span className={`text-xs ${mutedCls}`}>{expanded ? '▲' : '▼'}</span>
+            </button>
+
+            {expanded && (
+                <div className={`px-3 pb-3 border-t ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+                    <p className={`text-[10px] mt-2 mb-3 ${mutedCls}`}>
+                        Deixe em branco para usar o Docente Titular. Defina aqui apenas as turmas com docente diferente.
+                    </p>
+                    <div className="space-y-3">
+                        {Object.entries(byYear).sort().map(([yr, classIds]) => (
+                            <div key={yr}>
+                                <p className={`text-[10px] font-semibold uppercase mb-1.5 ${mutedCls}`}>{yr}º Esquadrão</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {classIds.map(cid => {
+                                        const course = Object.entries(COURSE_LETTERS).find(([, letters]) => letters.includes(cid[1]))?.[0];
+                                        return (
+                                            <div key={cid}>
+                                                <label className={`text-[10px] font-medium mb-0.5 block ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                                                    Turma {cid} — {course ? COURSE_LABELS[course] : ''}
+                                                </label>
+                                                <select
+                                                    value={formData.instructorByClass?.[cid] ?? ''}
+                                                    onChange={e => setClassInstructor(cid, e.target.value)}
+                                                    className={inputCls}
+                                                >
+                                                    <option value="">— Titular (padrão) —</option>
+                                                    {instructors
+                                                        .slice()
+                                                        .sort((a, b) => a.warName.localeCompare(b.warName))
+                                                        .map(i => (
+                                                            <option key={i.trigram} value={i.trigram}>
+                                                                {i.trigram} — {i.warName}
+                                                            </option>
+                                                        ))}
+                                                </select>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
 
 export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFormProps) => {
@@ -30,6 +153,7 @@ export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFo
         trainingField: 'GERAL',
         instructor: '',
         instructorTrigram: '',
+        instructorByClass: {},
         substituteTrigram: '',
         substituteHours: 0,
         location: 'Sala de Aula',
@@ -49,6 +173,7 @@ export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFo
                 trainingField: initialData.trainingField || 'GERAL',
                 instructor: initialData.instructor || '',
                 instructorTrigram: initialData.instructorTrigram || '',
+                instructorByClass: initialData.instructorByClass || {},
                 substituteTrigram: initialData.substituteTrigram || '',
                 substituteHours: initialData.substituteHours || 0,
                 location: initialData.location || '',
@@ -325,6 +450,13 @@ export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFo
                             />
                         </div>
                     )}
+
+                    <PerClassInstructorSection
+                        formData={formData}
+                        setFormData={setFormData}
+                        instructors={instructors}
+                        theme={theme}
+                    />
 
                     <div>
                         <label className={`block text-sm  mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'}`}>Local da Aula (Opcional)</label>

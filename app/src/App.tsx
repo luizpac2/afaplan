@@ -50,6 +50,8 @@ const GanttProgramming = lazy(() => import("./pages/GanttProgramming").then(m =>
 const AcademicGantt    = lazy(() => import("./pages/AcademicGantt").then(m => ({ default: m.AcademicGantt })));
 const DisciplineGantt  = lazy(() => import("./pages/DisciplineGantt").then(m => ({ default: m.DisciplineGantt })));
 const DisciplinePanel  = lazy(() => import("./pages/DisciplinePanel").then(m => ({ default: m.DisciplinePanel })));
+const FlightCalendar   = lazy(() => import("./pages/FlightCalendar").then(m => ({ default: m.FlightCalendar })));
+const FlightDashboard  = lazy(() => import("./pages/FlightDashboard").then(m => ({ default: m.FlightDashboard })));
 const Locais           = lazy(() => import("./pages/Locais"));
 const LocaisGrid       = lazy(() => import("./pages/LocaisGrid"));
 const SalasPadrao      = lazy(() => import("./pages/SalasPadrao").then(m => ({ default: m.SalasPadrao })));
@@ -131,6 +133,8 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+                  <Route path="flight-calendar" element={<FlightCalendar />} />
+                  <Route path="flight-dashboard" element={<FlightDashboard />} />
                   <Route path="panoramic-view" element={<PanoramicMirror />} />
                   <Route path="academic-gantt" element={<AcademicGantt />} />
                   <Route path="discipline-gantt" element={<DisciplineGantt />} />

@@ -11,6 +11,7 @@ interface AuthContextType {
   loading: boolean;
   profileLoading: boolean;
   mustChangePassword: boolean;
+  isInactive: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   profileLoading: true,
   mustChangePassword: false,
+  isInactive: false,
   signInWithEmail: async () => {},
   logout: async () => {},
 });
@@ -28,21 +30,22 @@ const AuthContext = createContext<AuthContextType>({
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);
 
-const buildProfile = async (_user: NonNullable<SupabaseUser>): Promise<UserProfile | null> => {
+const buildProfile = async (_user: NonNullable<SupabaseUser>): Promise<{ profile: UserProfile | null; inactive: boolean }> => {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
-    if (!token) return null;
+    if (!token) return { profile: null, inactive: false };
 
     const { data, error } = await supabase.functions.invoke("get-my-profile", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    if (error || !data || data.error) return null;
+    if (data?.error === "user_inactive") return { profile: null, inactive: true };
+    if (error || !data || data.error) return { profile: null, inactive: false };
 
-    return data as UserProfile;
+    return { profile: data as UserProfile, inactive: false };
   } catch {
-    return null;
+    return { profile: null, inactive: false };
   }
 };
 
@@ -52,6 +55,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading]                   = useState(true);
   const [profileLoading, setProfileLoading]     = useState(true);
   const [mustChangePassword, setMustChange]     = useState(false);
+  const [isInactive, setIsInactive]             = useState(false);
 
   const handleSession = async (session: SupabaseSession) => {
     if (session?.user) {
@@ -64,13 +68,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const mustChange = freshUser?.user_metadata?.must_change_password === true;
       setMustChange(mustChange);
 
-      const profile = await buildProfile(session.user);
+      const { profile, inactive } = await buildProfile(session.user);
+      setIsInactive(inactive);
       setUserProfile(profile);
       setProfileLoading(false);
     } else {
       setUser(null);
       setUserProfile(null);
       setMustChange(false);
+      setIsInactive(false);
       setLoading(false);
       setProfileLoading(false);
     }
@@ -107,7 +113,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, profileLoading, mustChangePassword, signInWithEmail, logout }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, profileLoading, mustChangePassword, isInactive, signInWithEmail, logout }}>
       {children}
     </AuthContext.Provider>
   );

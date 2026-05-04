@@ -50,14 +50,6 @@ const ALL_ROLES = ["SUPER_ADMIN", "ADMIN", "CADETE", "DOCENTE", "CHEFE_TURMA"];
 
 const MENU_ITEMS: MenuItem[] = [
   {
-    title: "MINHAS AULAS",
-    icon: Star,
-    roles: ALL_ROLES,
-    submenu: [
-      { title: "Minhas Aulas", path: "/my-classes", icon: Star },
-    ],
-  },
-  {
     title: "CHEFE DE TURMA",
     icon: ClipboardList,
     roles: ["CHEFE_TURMA"],
@@ -70,6 +62,7 @@ const MENU_ITEMS: MenuItem[] = [
     icon: GraduationCap,
     roles: ALL_ROLES,
     submenu: [
+      { title: "Minhas Aulas", path: "/my-classes", icon: Star },
       { title: "Aulas de Hoje", path: "/", icon: Home },
       { title: "1º Esquadrão", path: "/gantt/1", icon: BarChart2 },
       { title: "2º Esquadrão", path: "/gantt/2", icon: BarChart2 },
@@ -93,6 +86,15 @@ const MENU_ITEMS: MenuItem[] = [
     submenu: [
       { title: "Painel de Disciplinas", path: "/discipline-panel", icon: BookOpen },
       { title: "Gantt de Disciplinas", path: "/discipline-gantt", icon: BarChart2 },
+    ],
+  },
+  {
+    title: "INSTRUÇÃO DE VOO",
+    icon: Plane,
+    roles: ALL_ROLES,
+    submenu: [
+      { title: "Calendário de Voo", path: "/flight-calendar", icon: CalendarIcon },
+      { title: "Dashboard de Voo", path: "/flight-dashboard", icon: BarChart2 },
     ],
   },
   {
@@ -158,11 +160,9 @@ export const Layout = () => {
 
   const location = useLocation();
   const clearStore = useCourseStore((state) => state.clearStore);
-  const [isSidebarOpen, setSidebarOpen] = useState(true); // Default open on desktop
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    AULAS: true,
-  });
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
 
@@ -209,11 +209,7 @@ export const Layout = () => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      if (mobile) {
-        setSidebarOpen(false);
-      } else {
-        setSidebarOpen(true);
-      }
+      if (mobile) setSidebarOpen(false);
     };
 
     window.addEventListener("resize", handleResize);
@@ -266,41 +262,10 @@ export const Layout = () => {
     }
   };
 
-  // Close mobile menu when route changes
+  // Collapse sidebar and sections when route changes
   useEffect(() => {
-    if (window.innerWidth < 768) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSidebarOpen(false);
-    }
-  }, [location.pathname]);
-
-  // Automatically open sections based on active route - only when path changes
-  useEffect(() => {
-    let changed = false;
-    const newSections = { ...openSections };
-
-    const autoOpen = (items: MenuItem[]) => {
-      items.forEach((item) => {
-        if (item.submenu) {
-          const hasActiveChild = item.submenu.some(
-            (sub) =>
-              sub.path === location.pathname ||
-              (sub.submenu &&
-                sub.submenu.some((s) => s.path === location.pathname)),
-          );
-          if (hasActiveChild && !newSections[item.title]) {
-            newSections[item.title] = true;
-            changed = true;
-            autoOpen(item.submenu);
-          }
-        }
-      });
-    };
-
-    autoOpen(MENU_ITEMS);
-    if (changed) {
-      setOpenSections(newSections);
-    }
+    setSidebarOpen(false);
+    setOpenSections({});
   }, [location.pathname]);
 
   const hasPermission = (item: MenuItem) => {
@@ -611,6 +576,7 @@ export const Layout = () => {
                                                     <NavLink
                                                       key={lIdx}
                                                       to={leaf.path || "#"}
+                                                      onClick={() => { setSidebarOpen(false); setOpenSections({}); }}
                                                       className={({
                                                         isActive,
                                                       }) => `
@@ -642,6 +608,7 @@ export const Layout = () => {
                                         <NavLink
                                           key={sIdx}
                                           to={sub.path || "#"}
+                                          onClick={() => { setSidebarOpen(false); setOpenSections({}); }}
                                           className={({ isActive }) => `
                                                                                         flex items-center gap-2 px-3 py-1.5 rounded-md text-xs transition-all duration-200 relative
                                                                                         ${
@@ -681,9 +648,10 @@ export const Layout = () => {
                             <NavLink
                               key={iIdx}
                               to={item.path || "#"}
+                              onClick={() => { setSidebarOpen(false); setOpenSections({}); }}
                               className={({
                                 isActive,
-                              }) => `flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-all 
+                              }) => `flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-all
                                                                 ${
                                                                   isActive
                                                                     ? theme ===

@@ -200,7 +200,7 @@ export const Instructors = () => {
       <div className={`w-full min-h-screen ${isDark ? 'bg-slate-950 text-slate-100' : 'bg-gray-50 text-slate-900'}`}>
 
          {/* ─── PAGE HEADER ─── */}
-         <div ref={pageHeaderRef} className={`sticky top-0 z-50 px-4 md:px-6 py-3 border-b flex items-center justify-between gap-4 backdrop-blur-md ${isDark ? 'bg-slate-950/95 border-slate-800' : 'bg-white/95 border-slate-200'}`}>
+         <div ref={pageHeaderRef} className={`sticky top-0 z-20 px-4 md:px-6 py-3 border-b flex items-center justify-between gap-4 backdrop-blur-md ${isDark ? 'bg-slate-950/95 border-slate-800' : 'bg-white/95 border-slate-200'}`}>
             <div className="flex items-baseline gap-3">
                <h1 className="text-xl font-bold tracking-tight">Docentes</h1>
                <p className={`hidden sm:block text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Gestão de instrutores, especialidades e turmas.</p>
@@ -223,7 +223,7 @@ export const Instructors = () => {
          {/* ─── BULK EDIT MODE ─── */}
          {canEdit && bulkEditOpen && (
             <div>
-               <div ref={bulkHeaderRef} className={`sticky z-40 px-4 md:px-6 py-3 border-b flex items-center justify-between backdrop-blur-md ${isDark ? 'bg-slate-950/95 border-amber-900/60' : 'bg-amber-50/95 border-amber-200/60'}`} style={{ top: pageHeaderH }}>
+               <div ref={bulkHeaderRef} className={`sticky z-10 px-4 md:px-6 py-3 border-b flex items-center justify-between backdrop-blur-md ${isDark ? 'bg-slate-950/95 border-amber-900/60' : 'bg-amber-50/95 border-amber-200/60'}`} style={{ top: pageHeaderH }}>
                   <div className="flex items-center gap-3">
                      <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center shadow-sm"><PenLine size={16} className="text-white" /></div>
                      <div>
@@ -333,7 +333,7 @@ export const Instructors = () => {
          {/* ─── NORMAL MODE ─── */}
          {!bulkEditOpen && (
             <div className="w-full flex flex-col">
-               <div ref={toolbarRef} className={`sticky z-40 px-4 md:px-6 py-3 border-b space-y-2 shadow-md backdrop-blur-md ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`} style={{ top: toolbarTop }}>
+               <div ref={toolbarRef} className={`sticky z-10 px-4 md:px-6 py-3 border-b space-y-2 shadow-md backdrop-blur-md ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`} style={{ top: toolbarTop }}>
                   <div className="flex flex-row gap-3 items-center">
                      <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />

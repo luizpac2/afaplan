@@ -50,8 +50,8 @@ Deno.serve(async (req: Request) => {
     // Busca todos os roles com cadet_id
     const { data: roles } = await adminClient
       .from("user_roles")
-      .select("user_id, role, turma_id, cadet_id");
-    const rolesMap = new Map((roles ?? []).map((r: { user_id: string; role: string; turma_id?: string; cadet_id?: string }) => [r.user_id, r]));
+      .select("user_id, role, turma_id, cadet_id, status");
+    const rolesMap = new Map((roles ?? []).map((r: { user_id: string; role: string; turma_id?: string; cadet_id?: string; status?: string }) => [r.user_id, r]));
 
     // Busca cadetes para pegar cohort_id via cadet_id
     const cadetIds = (roles ?? [])
@@ -80,7 +80,7 @@ Deno.serve(async (req: Request) => {
     const SUPER_ADMIN_EMAILS = new Set(["pelicano307@gmail.com"]);
 
     const result = users.map((u) => {
-      const roleRow = rolesMap.get(u.id) as { role?: string; turma_id?: string; cadet_id?: string } | undefined;
+      const roleRow = rolesMap.get(u.id) as { role?: string; turma_id?: string; cadet_id?: string; status?: string } | undefined;
       const meta = (u.user_metadata ?? {}) as Record<string, string>;
       const email = (u.email ?? "").trim().toLowerCase();
 
@@ -101,6 +101,7 @@ Deno.serve(async (req: Request) => {
         cadetId,
         createdAt: u.created_at,
         status: roleRow ? "APPROVED" : "NO_ROLE",
+        userStatus: roleRow?.status ?? "ATIVO",
       };
     });
 

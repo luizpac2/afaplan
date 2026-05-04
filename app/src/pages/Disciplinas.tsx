@@ -467,7 +467,7 @@ export const Disciplinas = () => {
             {/* Main Header - Sticky: top-0 pois é o primeiro sticky dentro do scroll container (main) */}
             <div
                 ref={pageHeaderRef}
-                className={`sticky top-0 z-50 px-4 md:px-6 py-3 border-b flex items-center justify-between gap-4 ${theme === 'dark' ? 'bg-slate-950/95 border-slate-800' : 'bg-white/95 border-slate-200'} backdrop-blur-md`}
+                className={`sticky top-0 z-20 px-4 md:px-6 py-3 border-b flex items-center justify-between gap-4 ${theme === 'dark' ? 'bg-slate-950/95 border-slate-800' : 'bg-white/95 border-slate-200'} backdrop-blur-md`}
             >
                 <div className="flex items-baseline gap-3">
                     <h1 className="text-xl font-bold tracking-tight">Disciplinas</h1>
@@ -543,7 +543,7 @@ export const Disciplinas = () => {
                         {/* Bulk Edit Panel Header - Sticky */}
                         <div
                             ref={bulkPanelHeaderRef}
-                            className={`sticky z-40 px-4 md:px-6 py-3 border-b border-amber-200/60 dark:border-amber-800/60 flex items-center justify-between ${theme === 'dark' ? 'bg-slate-950/95' : 'bg-amber-50/95'} backdrop-blur-md`}
+                            className={`sticky z-10 px-4 md:px-6 py-3 border-b border-amber-200/60 dark:border-amber-800/60 flex items-center justify-between ${theme === 'dark' ? 'bg-slate-950/95' : 'bg-amber-50/95'} backdrop-blur-md`}
                             style={{ top: bulkPanelTop }}
                         >
                             <div className="flex items-center gap-3">
@@ -992,7 +992,7 @@ export const Disciplinas = () => {
                         {/* Regular Table Toolbar - Sticky */}
                         <div
                             ref={regularToolbarRef}
-                            className={`sticky z-40 px-4 md:px-6 py-3 border-b space-y-3 shadow-md ${theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'} backdrop-blur-md`}
+                            className={`sticky z-10 px-4 md:px-6 py-3 border-b space-y-3 shadow-md ${theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'} backdrop-blur-md`}
                             style={{ top: regularToolbarTop }}
                         >
                             <div className="flex flex-row gap-4 items-center">
