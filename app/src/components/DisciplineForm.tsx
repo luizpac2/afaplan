@@ -58,7 +58,6 @@ function InstructorByYearSection({
     const yearData = formData.instructorByYear?.[yearKey];
 
     // Effective values: year-specific falls back to default
-    const effectiveTitular = yearData?.trigram ?? formData.instructorTrigram ?? '';
     const hasYearOverride = !!yearData;
     const totalYears = Object.keys(formData.instructorByYear || {}).length;
 
