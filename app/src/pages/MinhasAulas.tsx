@@ -13,6 +13,7 @@ import {
   getStartOfWeek, addDays, formatDate, getWeekDays, formatDateForDisplay,
 } from "../utils/dateUtils";
 import type { ScheduleEvent, Discipline } from "../types";
+import { resolveInstructorTrigram, disciplineHasInstructor } from "../utils/instructorResolver";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -257,28 +258,34 @@ export const MinhasAulas = () => {
 
   const myInstructor = useMemo(() => instructors.find((i) => i.trigram === docenteFilter), [instructors, docenteFilter]);
 
+  const weekStartStr = useMemo(() => formatDate(weekStartDate), [weekStartDate]);
+  const weekEndStr   = useMemo(() => formatDate(weekEndDate),   [weekEndDate]);
+
+  const isDocenteEvent = useCallback((e: ScheduleEvent) => {
+    if (e.type === "ACADEMIC" || e.disciplineId === "ACADEMIC") return false;
+    if (e.instructorTrigram === docenteFilter) return true;
+    const disc = disciplines.find((d) => d.id === e.disciplineId);
+    if (!disc) return false;
+    return resolveInstructorTrigram(disc, e) === docenteFilter;
+  }, [docenteFilter, disciplines]);
+
+  // Usa yearlyEvents como fonte única para evitar inconsistência com weekEvents
   const docenteWeekEvents = useMemo(
-    () => weekEvents.filter((e) =>
-      (e.instructorTrigram === docenteFilter || disciplines.find((d) => d.id === e.disciplineId)?.instructorTrigram === docenteFilter) &&
-      e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC"
-    ),
-    [weekEvents, docenteFilter, disciplines]
+    () => yearlyEvents.filter((e) => e.date >= weekStartStr && e.date <= weekEndStr && isDocenteEvent(e)),
+    [yearlyEvents, weekStartStr, weekEndStr, isDocenteEvent]
   );
 
   const docenteYearly = useMemo(
     () => yearlyEvents
-      .filter((e) =>
-        (e.instructorTrigram === docenteFilter || disciplines.find((d) => d.id === e.disciplineId)?.instructorTrigram === docenteFilter) &&
-        e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC"
-      )
+      .filter(isDocenteEvent)
       .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`)),
-    [yearlyEvents, docenteFilter, disciplines]
+    [yearlyEvents, isDocenteEvent]
   );
 
   const docenteUpcoming = docenteYearly.filter((e) => e.date >= todayStr);
   const docentePast     = [...docenteYearly].filter((e) => e.date < todayStr).reverse();
   const docenteClassIds = useMemo(() => [...new Set(docenteWeekEvents.map((e) => e.classId))].sort(), [docenteWeekEvents]);
-  const myDisciplines   = useMemo(() => disciplines.filter((d) => d.instructorTrigram === docenteFilter), [disciplines, docenteFilter]);
+  const myDisciplines   = useMemo(() => disciplines.filter((d) => disciplineHasInstructor(d, docenteFilter)), [disciplines, docenteFilter]);
 
   const currentMonth        = todayStr.slice(0, 7);
   const monthEvents         = docenteYearly.filter((e) => e.date.startsWith(currentMonth));
