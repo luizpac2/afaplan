@@ -113,7 +113,7 @@ export const Dashboard = () => {
       (n.targetSquadron == null || Number(n.targetSquadron) === sq)
     );
 
-  const ACADEMIC_TYPES = new Set(["ACADEMIC", "EVALUATION", "COMMEMORATIVE", "SPORTS", "INFORMATIVE", "HOLIDAY"]);
+  const ACADEMIC_TYPES = new Set(["ACADEMIC", "EVALUATION", "COMMEMORATIVE", "SPORTS", "INFORMATIVE", "HOLIDAY", "MILITARY", "FLIGHT_INSTRUCTION", "TRIP"]);
   const squadronAcademic = (sq: number) =>
     todayEvents.filter((e) => {
       if (!ACADEMIC_TYPES.has(e.type ?? "") && e.disciplineId !== "ACADEMIC") return false;

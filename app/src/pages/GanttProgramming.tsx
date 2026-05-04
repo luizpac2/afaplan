@@ -35,6 +35,7 @@ const NOTICE_STYLES: Record<string, { bg: string; text: string; icon: React.Reac
 };
 
 export const GanttProgramming = () => {
+  type ToastState = { type: "success" | "error" | "info"; message: string } | null;
   const { squadronId } = useParams<{ squadronId: string }>();
   const [searchParams] = useSearchParams();
   const { theme } = useTheme();
@@ -125,6 +126,25 @@ export const GanttProgramming = () => {
   const [editingNotice, setEditingNotice]         = useState<SystemNotice | null>(null);
   const [academicFormDate, setAcademicFormDate]   = useState<string | null>(null);
   const [editingAcademic, setEditingAcademic]     = useState<ScheduleEvent | null>(null);
+  const [toast, setToast] = useState<ToastState>(null);
+  const toastTimerRef = useRef<number | null>(null);
+
+  const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
+    setToast({ type, message });
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 4000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   const startOfWeek = getStartOfWeek(currentDate);
   const weekDays    = getWeekDays(startOfWeek);
@@ -270,6 +290,7 @@ export const GanttProgramming = () => {
         ));
     toSave.forEach((ev) => addEvent(ev));
     setWeekEvents((prev) => [...prev, ...toSave]);
+    if (toSave.length > 0) showToast(`${toSave.length} aula(s) salva(s) com sucesso.`, "success");
     setIsBatchFormOpen(false);
     setIsBatchMode(false);
     setSelectedSlots([]);
@@ -288,6 +309,7 @@ export const GanttProgramming = () => {
     if (!batchAllSquadronsMode) {
       baseEvents.forEach((ev) => addEvent(ev));
       setWeekEvents((prev) => [...prev, ...baseEvents]);
+      if (baseEvents.length > 0) showToast(`${baseEvents.length} aula(s) salva(s) com sucesso.`, "success");
       setIsBatchFormOpen(false);
       setIsBatchMode(false);
       setSelectedSlots([]);
@@ -444,7 +466,11 @@ export const GanttProgramming = () => {
       color:          data.color ?? null,
     };
     saveDocument("programacao_aulas", id, dbPayload)
-      .catch((err) => console.error("[AcademicSave] DB error:", err));
+      .then(() => showToast("Evento acadêmico salvo com sucesso.", "success"))
+      .catch((err) => {
+        console.error("[AcademicSave] DB error:", err);
+        showToast("Falha ao salvar evento acadêmico.", "error");
+      });
 
     setAcademicFormDate(null);
   };
@@ -502,7 +528,7 @@ export const GanttProgramming = () => {
       return true;
     });
 
-  const ACADEMIC_TYPES = new Set(["ACADEMIC", "EVALUATION", "COMMEMORATIVE", "SPORTS", "INFORMATIVE", "HOLIDAY"]);
+  const ACADEMIC_TYPES = new Set(["ACADEMIC", "EVALUATION", "COMMEMORATIVE", "SPORTS", "INFORMATIVE", "HOLIDAY", "MILITARY", "FLIGHT_INSTRUCTION", "TRIP"]);
   const dayAcademic = (dateStr: string) =>
     weekEvents.filter((e) => {
       if (!ACADEMIC_TYPES.has(e.type ?? "") && e.disciplineId !== "ACADEMIC") return false;
@@ -530,11 +556,86 @@ export const GanttProgramming = () => {
       return true;
     });
 
+  const normalizeSlotTime = (time?: string | null) => (time ?? "").slice(0, 5);
+
+  const formatConflictMessage = (rawMessage: string, eventData: Omit<ScheduleEvent, "id">) => {
+    const slotLabel = `${eventData.date} ${normalizeSlotTime(eventData.startTime)}`;
+    const msg = rawMessage.toLowerCase();
+    if (msg.includes("uniq_docente_horario")) {
+      const trigram = eventData.instructorTrigram || "docente";
+      return `Conflito de docente: ${trigram} já possui aula no horário ${slotLabel}.`;
+    }
+    if (msg.includes("uniq_local_horario")) {
+      const location = eventData.location || "local informado";
+      return `Conflito de local: ${location} já está ocupado no horário ${slotLabel}.`;
+    }
+    return `Não foi possível salvar a aula: ${rawMessage}`;
+  };
+
+  const findResourceConflict = (
+    data: Omit<ScheduleEvent, "id">,
+    targetClassId: string,
+    ignoreEventId?: string,
+  ) => {
+    const targetSlot = normalizeSlotTime(data.startTime);
+    return weekEvents.find((e) => {
+      if (e.id === ignoreEventId) return false;
+      if (e.type === "ACADEMIC" || e.disciplineId === "ACADEMIC") return false;
+      if (e.date !== data.date) return false;
+      if (normalizeSlotTime(e.startTime) !== targetSlot) return false;
+
+      const sameInstructor =
+        !!data.instructorTrigram &&
+        !!e.instructorTrigram &&
+        data.instructorTrigram === e.instructorTrigram;
+      const sameLocation =
+        !!data.location &&
+        !!e.location &&
+        data.location === e.location;
+      const sameSlotClass = e.classId === targetClassId;
+      return sameInstructor || sameLocation || sameSlotClass;
+    });
+  };
+
+  const getDbSlotConflict = async (
+    classId: string,
+    date: string,
+    startTime?: string | null,
+    ignoreEventId?: string,
+  ) => {
+    const targetTime = normalizeSlotTime(startTime);
+    if (!classId || !date || !targetTime) return null;
+
+    const { data, error } = await supabase
+      .from("programacao_aulas")
+      .select("id,classId,date,startTime,type,disciplineId")
+      .eq("classId", classId)
+      .eq("date", date)
+      .limit(50);
+
+    if (error) {
+      console.warn("[getDbSlotConflict] erro ao consultar slot:", error.message);
+      return null;
+    }
+
+    const conflict = (data ?? []).find((row: any) => {
+      if (row.id === ignoreEventId) return false;
+      if (normalizeSlotTime(row.startTime) !== targetTime) return false;
+      if (row.type === "ACADEMIC" || row.disciplineId === "ACADEMIC") return false;
+      return true;
+    });
+    return conflict ?? null;
+  };
+
   // Salva o evento no esquadrão atual + replica para os outros 3 se allSquadronsMode
-  const doSaveEvent = (data: Omit<ScheduleEvent, "id">, overwriteConflicts: boolean) => {
+  const doSaveEvent = async (data: Omit<ScheduleEvent, "id">, overwriteConflicts: boolean) => {
     const otherSquadrons = ([1, 2, 3, 4] as CourseYear[]).filter((s) => s !== currentSquadron);
 
-    const saveOne = (eventData: Omit<ScheduleEvent, "id">, existingId?: string) => {
+    const saveOne = async (
+      eventData: Omit<ScheduleEvent, "id">,
+      classId: string,
+      existingId?: string,
+    ) => {
       if (existingId) {
         updateEvent(existingId, eventData);
         setWeekEvents((prev) => prev.map((e) => e.id === existingId ? { ...e, ...eventData } : e));
@@ -546,27 +647,34 @@ export const GanttProgramming = () => {
       } else {
         const newEvent: ScheduleEvent = { ...eventData, id: crypto.randomUUID() };
         setWeekEvents((prev) => [...prev, newEvent]);
-        addEvent(newEvent).catch((err) => {
-          console.error("[saveOne] Falha ao salvar evento no banco:", err?.message ?? err);
-        });
+        try {
+          await addEvent(newEvent);
+          showToast("Aula salva com sucesso.", "success");
+        } catch (err: any) {
+          const errorMessage = err?.message ?? String(err);
+          console.error("[saveOne] Falha ao salvar evento no banco:", errorMessage);
+          setWeekEvents((prev) => prev.filter((e) => e.id !== newEvent.id));
+          showToast(formatConflictMessage(errorMessage, { ...eventData, classId }), "error");
+          throw err;
+        }
       }
     };
 
     // Salva o evento principal (esquadrão atual)
     if (editingEvent?.id) {
-      saveOne(data, editingEvent.id);
+      await saveOne(data, data.classId ?? "", editingEvent.id);
     } else {
       // Verifica se já existe evento no banco nesse slot (pode ter startTime com formato diferente)
       const slotExisting = weekEvents.find((e) =>
         e.classId === data.classId && e.date === data.date &&
-        e.startTime?.slice(0, 5) === data.startTime?.slice(0, 5) &&
+        normalizeSlotTime(e.startTime) === normalizeSlotTime(data.startTime) &&
         e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC"
       );
       if (slotExisting?.id) {
         console.log("[doSaveEvent] slot já ocupado no banco, fazendo update em:", slotExisting.id);
-        saveOne(data, slotExisting.id);
+        await saveOne(data, data.classId ?? "", slotExisting.id);
       } else {
-        saveOne(data);
+        await saveOne(data, data.classId ?? "");
       }
     }
 
@@ -596,11 +704,19 @@ export const GanttProgramming = () => {
         }
 
         const existingInSlot = weekEvents.find(
-          (e) => e.classId === targetClassId && e.date === data.date && e.startTime === data.startTime && e.id
+          (e) =>
+            e.classId === targetClassId &&
+            e.date === data.date &&
+            normalizeSlotTime(e.startTime) === normalizeSlotTime(data.startTime) &&
+            e.id,
         );
         if (existingInSlot && !overwriteConflicts) return; // pula se não deve sobrescrever
 
-        saveOne(replicaData, overwriteConflicts && existingInSlot ? existingInSlot.id : undefined);
+        void saveOne(
+          replicaData,
+          targetClassId,
+          overwriteConflicts && existingInSlot ? existingInSlot.id : undefined,
+        );
       });
     }
 
@@ -611,10 +727,61 @@ export const GanttProgramming = () => {
     setConflictEvents([]);
   };
 
-  const handleEventSubmit = (data: Omit<ScheduleEvent, "id">) => {
+  const handleEventSubmit = async (data: Omit<ScheduleEvent, "id">) => {
+    const currentClassId = data.classId ?? "";
+
+    const resourceConflict = findResourceConflict(data, currentClassId, editingEvent?.id);
+    if (resourceConflict) {
+      const reason =
+        data.instructorTrigram &&
+        resourceConflict.instructorTrigram === data.instructorTrigram
+          ? `Docente ${data.instructorTrigram}`
+          : `Local ${data.location ?? "informado"}`;
+      showToast(
+        `${reason} já está alocado em ${resourceConflict.classId} no mesmo horário (${data.date} ${normalizeSlotTime(data.startTime)}).`,
+        "error",
+      );
+      return;
+    }
+
+    // Valida no banco para evitar "inserção fantasma" quando há duplicata oculta
+    const dbSelfConflict = await getDbSlotConflict(
+      currentClassId,
+      data.date,
+      data.startTime,
+      editingEvent?.id,
+    );
+    if (dbSelfConflict) {
+      const { data: fixData, error: fixErr } = await supabase.functions.invoke("admin-manage-content", {
+        body: {
+          action: "fix_slot_conflict",
+          classId: currentClassId,
+          date: data.date,
+          startTime: data.startTime,
+          updates: data,
+          keepId: dbSelfConflict.id,
+        },
+      });
+      if (fixErr) {
+        showToast(`Falha ao normalizar slot: ${fixErr.message}`, "error");
+        return;
+      }
+      const canonicalId = (fixData as any)?.canonicalId || dbSelfConflict.id;
+      updateEvent(canonicalId, data);
+      setWeekEvents((prev) => {
+        const deletedIds = new Set<string>((fixData as any)?.deletedIds ?? []);
+        const cleaned = prev.filter((e) => !deletedIds.has(e.id));
+        const idx = cleaned.findIndex((e) => e.id === canonicalId);
+        if (idx >= 0) return cleaned.map((e) => (e.id === canonicalId ? { ...e, ...data } : e));
+        return [...cleaned, { ...data, id: canonicalId }];
+      });
+      showToast(`Slot ${currentClassId} normalizado e salvo com sucesso.`, "success");
+      return;
+    }
+
     // Sempre verifica conflito no esquadrão atual (exceto ao editar o próprio evento)
     const selfConflict = weekEvents.find(
-      (e) => e.classId === data.classId && e.date === data.date && e.startTime === data.startTime
+      (e) => e.classId === data.classId && e.date === data.date && normalizeSlotTime(e.startTime) === normalizeSlotTime(data.startTime)
         && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC"
         && e.id !== editingEvent?.id
     );
@@ -625,7 +792,7 @@ export const GanttProgramming = () => {
         setConflictEvents([selfConflict]);
         setIsConflictDialogOpen(true);
       } else {
-        doSaveEvent(data, false);
+        await doSaveEvent(data, false);
       }
       return;
     }
@@ -633,12 +800,26 @@ export const GanttProgramming = () => {
     // Verifica conflitos no esquadrão atual + outros esquadrões
     const conflicts: ScheduleEvent[] = selfConflict ? [selfConflict] : [];
     const otherSquadrons = ([1, 2, 3, 4] as CourseYear[]).filter((s) => s !== currentSquadron);
+    for (const sq of otherSquadrons) {
+      const origClass = data.classId || "";
+      const suffix = origClass.replace(String(currentSquadron), "");
+      const targetClassId = `${sq}${suffix}`;
+      const dbConflict = await getDbSlotConflict(targetClassId, data.date, data.startTime);
+      if (dbConflict) {
+        showToast(
+          `Conflito no banco para ${targetClassId} em ${data.date} ${normalizeSlotTime(data.startTime)}.`,
+          "error",
+        );
+        return;
+      }
+    }
+
     otherSquadrons.forEach((sq) => {
       const origClass = data.classId || "";
       const suffix = origClass.replace(String(currentSquadron), "");
       const targetClassId = `${sq}${suffix}`;
       const conflict = weekEvents.find(
-        (e) => e.classId === targetClassId && e.date === data.date && e.startTime === data.startTime
+        (e) => e.classId === targetClassId && e.date === data.date && normalizeSlotTime(e.startTime) === normalizeSlotTime(data.startTime)
           && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC"
       );
       if (conflict) conflicts.push(conflict);
@@ -649,7 +830,7 @@ export const GanttProgramming = () => {
       setConflictEvents(conflicts);
       setIsConflictDialogOpen(true);
     } else {
-      doSaveEvent(data, false);
+      await doSaveEvent(data, false);
     }
   };
 
@@ -705,19 +886,19 @@ export const GanttProgramming = () => {
       const { data, error } = await supabase.functions.invoke("admin-manage-content", {
         body: { action: "deduplicate_events", startDate: startDayStr, endDate: endDayStr },
       });
-      if (error) { alert(`Erro: ${error.message}`); return; }
+      if (error) { showToast(`Erro: ${error.message}`, "error"); return; }
       console.log("deduplicate_events result:", data);
       if (data?.deleted > 0) {
-        alert(`✅ ${data.deleted} aula(s) duplicada(s) removida(s) da semana.`);
+        showToast(`${data.deleted} aula(s) duplicada(s) removida(s) da semana.`, "success");
         // Invalida cache e recarrega
         invalidateEventsWeekCache();
         subscribeToEventsByDateRange(startDayStr, endDayStr, (evs) => setWeekEvents(evs as ScheduleEvent[]));
       } else {
         const detail = data?.totalRaw != null ? ` (${data.totalRaw} eventos no banco, nenhum duplicado por slot)` : "";
-        alert(`Nenhuma duplicata encontrada nesta semana.${detail}`);
+        showToast(`Nenhuma duplicata encontrada nesta semana.${detail}`, "info");
       }
     } catch (e) {
-      alert("Erro ao limpar duplicatas.");
+      showToast("Erro ao limpar duplicatas.", "error");
     } finally {
       setDeduplicating(false);
     }
@@ -729,9 +910,35 @@ export const GanttProgramming = () => {
   const muted  = isDark ? "text-slate-400" : "text-slate-500";
   const border = isDark ? "border-slate-700" : "border-slate-200";
   const sidebarBg = isDark ? "bg-slate-900/60" : "bg-slate-50/80";
+  const toastStyle =
+    toast?.type === "success"
+      ? isDark
+        ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-200"
+        : "bg-emerald-50 border-emerald-300 text-emerald-800"
+      : toast?.type === "error"
+        ? isDark
+          ? "bg-red-500/20 border-red-400/50 text-red-200"
+          : "bg-red-50 border-red-300 text-red-800"
+        : isDark
+          ? "bg-blue-500/20 border-blue-400/50 text-blue-200"
+          : "bg-blue-50 border-blue-300 text-blue-800";
 
   return (
     <div className="flex flex-col max-w-[1600px] mx-auto">
+      {toast && (
+        <div className="fixed right-4 top-4 z-[120] animate-in slide-in-from-top-3 fade-in duration-200">
+          <div className={`max-w-md px-4 py-3 rounded-lg border shadow-lg backdrop-blur-sm flex items-start gap-3 ${toastStyle}`}>
+            <span className="text-sm leading-5">{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              className="mt-0.5 opacity-70 hover:opacity-100 transition-opacity"
+              aria-label="Fechar aviso"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Sticky Toolbar ────────────────────────────────────────────────── */}
       <div className={`sticky top-0 z-30 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 md:px-6 py-3 border-b shadow-sm ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"}`}>
@@ -1441,12 +1648,12 @@ export const GanttProgramming = () => {
             </div>
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => { setIsConflictDialogOpen(false); doSaveEvent(pendingSubmitData, false); }}
+                onClick={() => { setIsConflictDialogOpen(false); void doSaveEvent(pendingSubmitData, false); }}
                 className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-slate-400 ${muted}`}>
                 Ignorar conflitos
               </button>
               <button
-                onClick={() => { setIsConflictDialogOpen(false); doSaveEvent(pendingSubmitData, true); }}
+                onClick={() => { setIsConflictDialogOpen(false); void doSaveEvent(pendingSubmitData, true); }}
                 className="px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors bg-amber-500 border-amber-500 text-white hover:bg-amber-600">
                 Sobrescrever
               </button>

@@ -25,10 +25,14 @@ const EVAL_LABELS: Record<string, string> = {
 
 const EVAL_TYPES = ["PARTIAL", "EXAM", "FINAL", "SECOND_CHANCE", "REVIEW"] as const;
 
-const SESSION_KEY_CADET   = "minhas_aulas_date";
-const SESSION_KEY_DOCENTE = "minhas_aulas_docente_date";
-const LS_KEY_CADET_CLASS  = "minhas_aulas_turma";
-const LS_KEY_DOCENTE      = "minhas_aulas_docente_filter";
+const SESSION_KEY_CADET       = "minhas_aulas_date";
+const SESSION_KEY_DOCENTE     = "minhas_aulas_docente_date";
+const LS_KEY_CADET_CLASS      = "minhas_aulas_turma";
+const LS_KEY_DOCENTE          = "minhas_aulas_docente_filter";
+const SESSION_KEY_PAGE_VIEW   = "minhas_aulas_page_view";
+const SESSION_KEY_CADET_TAB   = "minhas_aulas_cadet_tab";
+const SESSION_KEY_DOCENTE_TAB = "minhas_aulas_docente_tab";
+const SESSION_KEY_EVAL_FILTER = "minhas_aulas_eval_filter";
 
 function isoToday(): string {
   const d = new Date();
@@ -50,14 +54,34 @@ export const MinhasAulas = () => {
   const isDocente = ["DOCENTE", "SUPER_ADMIN", "ADMIN"].includes(role);
   const isCadet   = ["CADETE", "CHEFE_TURMA"].includes(role);
 
-  // ── Date navigation ─────────────────────────────────────────────────────────
-  const sessionKey = isDocente ? SESSION_KEY_DOCENTE : SESSION_KEY_CADET;
-
-  const [currentDateStr, setCurrentDateStr] = useState<string>(
-    () => sessionStorage.getItem(sessionKey) ?? isoToday()
+  // ── Page view: Cadete | Docente ──────────────────────────────────────────────
+  const [pageView, setPageView] = useState<"cadete" | "docente">(
+    () => (sessionStorage.getItem(SESSION_KEY_PAGE_VIEW) as "cadete" | "docente" | null) ?? "cadete"
   );
+  // Default: DOCENTE/ADMIN sem preferência salva → abre na view docente
+  useEffect(() => {
+    if (!sessionStorage.getItem(SESSION_KEY_PAGE_VIEW) && isDocente && !isCadet) {
+      setPageView("docente");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDocente]);
+  useEffect(() => { sessionStorage.setItem(SESSION_KEY_PAGE_VIEW, pageView); }, [pageView]);
 
-  useEffect(() => { sessionStorage.setItem(sessionKey, currentDateStr); }, [currentDateStr, sessionKey]);
+  // ── Date navigation — um estado por view ────────────────────────────────────
+  const [cadetDateStr,   setCadetDateStr]   = useState<string>(
+    () => sessionStorage.getItem(SESSION_KEY_CADET)   ?? isoToday()
+  );
+  const [docenteDateStr, setDocenteDateStr] = useState<string>(
+    () => sessionStorage.getItem(SESSION_KEY_DOCENTE) ?? isoToday()
+  );
+  useEffect(() => { sessionStorage.setItem(SESSION_KEY_CADET,   cadetDateStr);   }, [cadetDateStr]);
+  useEffect(() => { sessionStorage.setItem(SESSION_KEY_DOCENTE, docenteDateStr); }, [docenteDateStr]);
+
+  const currentDateStr = pageView === "docente" ? docenteDateStr : cadetDateStr;
+  const setActiveDateStr = useCallback(
+    (d: string) => { if (pageView === "docente") setDocenteDateStr(d); else setCadetDateStr(d); },
+    [pageView]
+  );
 
   const weekStartDate = useMemo(() => getStartOfWeek(new Date(currentDateStr + "T12:00:00")), [currentDateStr]);
   const weekDayStrs   = useMemo(() => getWeekDays(weekStartDate).map(formatDate), [weekStartDate]);
@@ -81,8 +105,8 @@ export const MinhasAulas = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, [isDatePickerOpen]);
 
-  const goToPrevWeek = () => setCurrentDateStr(formatDate(addDays(weekStartDate, -7)));
-  const goToNextWeek = () => setCurrentDateStr(formatDate(addDays(weekStartDate,  7)));
+  const goToPrevWeek = () => setActiveDateStr(formatDate(addDays(weekStartDate, -7)));
+  const goToNextWeek = () => setActiveDateStr(formatDate(addDays(weekStartDate,  7)));
 
   // ── Events ──────────────────────────────────────────────────────────────────
   const [weekEvents,   setWeekEvents]   = useState<ScheduleEvent[]>([]);
@@ -156,8 +180,14 @@ export const MinhasAulas = () => {
   // CADET STATE
   // ═══════════════════════════════════════════════════════════════════════════
 
-  const [activeTab, setActiveTab] = useState<"aulas" | "avaliacoes">("aulas");
-  const [evalTypeFilter, setEvalTypeFilter] = useState<string>("ALL");
+  const [activeTab, setActiveTab] = useState<"aulas" | "avaliacoes">(
+    () => (sessionStorage.getItem(SESSION_KEY_CADET_TAB) as "aulas" | "avaliacoes" | null) ?? "aulas"
+  );
+  const [evalTypeFilter, setEvalTypeFilter] = useState<string>(
+    () => sessionStorage.getItem(SESSION_KEY_EVAL_FILTER) ?? "ALL"
+  );
+  useEffect(() => { sessionStorage.setItem(SESSION_KEY_CADET_TAB,   activeTab);      }, [activeTab]);
+  useEffect(() => { sessionStorage.setItem(SESSION_KEY_EVAL_FILTER, evalTypeFilter); }, [evalTypeFilter]);
 
   const defaultCadetClass = useMemo(() => {
     const cadetId = userProfile?.cadetId ?? "";
@@ -213,7 +243,10 @@ export const MinhasAulas = () => {
   // DOCENTE STATE
   // ═══════════════════════════════════════════════════════════════════════════
 
-  const [docenteTab, setDocenteTab] = useState<"proximas" | "anteriores" | "avaliacoes">("proximas");
+  const [docenteTab, setDocenteTab] = useState<"proximas" | "anteriores" | "avaliacoes">(
+    () => (sessionStorage.getItem(SESSION_KEY_DOCENTE_TAB) as "proximas" | "anteriores" | "avaliacoes" | null) ?? "proximas"
+  );
+  useEffect(() => { sessionStorage.setItem(SESSION_KEY_DOCENTE_TAB, docenteTab); }, [docenteTab]);
 
   const [docenteFilter, setDocenteFilter] = useState<string>(
     () => localStorage.getItem(LS_KEY_DOCENTE) ?? (userProfile?.instructorTrigram ?? "")
@@ -287,7 +320,7 @@ export const MinhasAulas = () => {
                 const isSel = formatDate(getStartOfWeek(new Date(currentDateStr + "T12:00:00"))) === formatDate(getStartOfWeek(date));
                 cells.push(
                   <button key={d}
-                    onClick={() => { setCurrentDateStr(ds); setIsDatePickerOpen(false); }}
+                    onClick={() => { setActiveDateStr(ds); setIsDatePickerOpen(false); }}
                     className={`text-[11px] h-7 w-full rounded transition-colors font-medium ${isT ? "bg-blue-500 text-white" : isSel ? (isDark ? "bg-slate-600 text-slate-100" : "bg-slate-200 text-slate-800") : `hover:bg-blue-500/15 ${text}`}`}
                   >{d}</button>
                 );
@@ -296,7 +329,7 @@ export const MinhasAulas = () => {
             })()}
           </div>
           <button
-            onClick={() => { setCurrentDateStr(isoToday()); setIsDatePickerOpen(false); }}
+            onClick={() => { setActiveDateStr(isoToday()); setIsDatePickerOpen(false); }}
             className="mt-2 w-full text-[11px] py-1 rounded-lg border border-blue-400/50 text-blue-500 hover:bg-blue-500/10 transition-colors font-medium"
           >Ir para hoje</button>
         </div>
@@ -308,12 +341,29 @@ export const MinhasAulas = () => {
   return (
     <div className="flex flex-col gap-3 p-3">
 
+      {/* ── Seletor de página: Cadete / Docente ─────────────────────────────── */}
+      <div className={`flex rounded-xl border p-0.5 self-start ${isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-slate-100 border-slate-200"}`}>
+        {(["cadete", "docente"] as const).map((view) => (
+          <button
+            key={view}
+            onClick={() => setPageView(view)}
+            className={`flex items-center gap-1.5 px-4 py-1.5 text-[11px] font-semibold rounded-lg transition-colors ${
+              pageView === view
+                ? isDark ? "bg-blue-600 text-white" : "bg-white text-blue-600 shadow-sm"
+                : `${muted} hover:text-blue-500`
+            }`}
+          >
+            {view === "cadete" ? <><Star size={11} /> Cadete</> : <><GraduationCap size={11} /> Docente</>}
+          </button>
+        ))}
+      </div>
+
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className={`flex items-center justify-between rounded-xl border px-3 py-2 ${card}`}>
         <div className="flex items-center gap-2 min-w-0">
-          {isDocente ? <GraduationCap size={16} className="text-blue-500 shrink-0" /> : <Star size={16} className="text-blue-500 shrink-0" />}
+          {pageView === "docente" ? <GraduationCap size={16} className="text-blue-500 shrink-0" /> : <Star size={16} className="text-blue-500 shrink-0" />}
           <span className={`font-bold text-sm truncate ${text}`}>
-            {isDocente
+            {pageView === "docente"
               ? myInstructor ? `${myInstructor.rank ? myInstructor.rank + " " : ""}${myInstructor.warName}` : "Minhas Aulas"
               : `Minhas Aulas${selectedClass ? ` — Turma ${selectedClass}` : ""}`}
           </span>
@@ -329,7 +379,7 @@ export const MinhasAulas = () => {
       </div>
 
       {/* ══════════════════ CADET VIEW ═══════════════════════════════════════ */}
-      {isCadet && (
+      {pageView === "cadete" && (
         <>
           {/* Controls row */}
           <div className="flex items-center gap-2 flex-wrap">
@@ -383,7 +433,7 @@ export const MinhasAulas = () => {
                 const isToday     = dateStr === todayStr;
                 const dow         = new Date(dateStr + "T12:00:00").getDay();
                 const dayNotices  = notices.filter((n) => dateStr >= n.startDate && dateStr <= n.endDate);
-                const ACADEMIC_TYPES = new Set(["ACADEMIC","EVALUATION","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY"]);
+                const ACADEMIC_TYPES = new Set(["ACADEMIC","EVALUATION","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY","MILITARY","FLIGHT_INSTRUCTION","TRIP"]);
                 const academic_   = weekEvents.filter((e) => {
                   if (!ACADEMIC_TYPES.has(e.type ?? "") && e.disciplineId !== "ACADEMIC") return false;
                   const end = (e as any).endDate ?? e.date;
@@ -523,7 +573,7 @@ export const MinhasAulas = () => {
       )}
 
       {/* ══════════════════ DOCENTE VIEW ═════════════════════════════════════ */}
-      {isDocente && (
+      {pageView === "docente" && (
         <>
           {/* Instructor selector + chips */}
           <div className="flex items-center gap-2 flex-wrap">

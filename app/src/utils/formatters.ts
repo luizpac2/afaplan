@@ -100,6 +100,20 @@ export const formatEventType = (type?: string): string => {
          return 'Férias';
       case 'HOLIDAY':
          return 'Feriado';
+      case 'COMMEMORATIVE':
+         return 'Comemorativo';
+      case 'SPORTS':
+         return 'CDEF';
+      case 'INFORMATIVE':
+         return 'Informativo';
+      case 'DAY_OFF':
+         return 'Day Off';
+      case 'MILITARY':
+         return 'Militar';
+      case 'FLIGHT_INSTRUCTION':
+         return 'Instrução de Voo';
+      case 'TRIP':
+         return 'Viagem';
       case 'EXAM':
          return 'Exame';
       case 'PARADE':

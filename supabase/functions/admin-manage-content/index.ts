@@ -909,5 +909,90 @@ Deno.serve(async (req) => {
     return ok({ deleted: toDelete.length, duplicates: duplicateReport });
   }
 
+  // ── fix_slot_conflict ─────────────────────────────────────────────────────────
+  // Normaliza um slot específico (classId + date + startTime), mantendo apenas 1
+  // registro canônico e aplicando updates nesse registro.
+  if (action === "fix_slot_conflict") {
+    const { classId, date, startTime, updates, keepId } = body as {
+      classId?: string;
+      date?: string;
+      startTime?: string;
+      updates?: Record<string, unknown>;
+      keepId?: string;
+    };
+
+    if (!classId || !date || !startTime) {
+      return err("classId, date and startTime required");
+    }
+
+    const normalizedStart = String(startTime).slice(0, 5);
+    const { data: rows, error: rowsErr } = await adminClient
+      .from("programacao_aulas")
+      .select("id,classId,date,startTime,type,disciplineId")
+      .eq("classId", classId)
+      .eq("date", date)
+      .limit(200);
+    if (rowsErr) return err(`slot fetch error: ${rowsErr.message}`, 500);
+
+    const slotRows = (rows ?? []).filter((r: any) =>
+      String(r.startTime ?? "").slice(0, 5) === normalizedStart &&
+      r.type !== "ACADEMIC" &&
+      r.disciplineId !== "ACADEMIC"
+    );
+    if (slotRows.length === 0) return err("slot not found", 404);
+
+    slotRows.sort((a: any, b: any) => String(a.id).localeCompare(String(b.id)));
+    const canonicalId =
+      (keepId && slotRows.find((r: any) => r.id === keepId)?.id) ||
+      slotRows[0].id;
+
+    const toDelete = slotRows
+      .map((r: any) => r.id)
+      .filter((id: string) => id !== canonicalId);
+
+    if (toDelete.length > 0) {
+      const { error: delErr } = await adminClient
+        .from("programacao_aulas")
+        .delete()
+        .in("id", toDelete);
+      if (delErr) return err(`slot cleanup error: ${delErr.message}`, 500);
+    }
+
+    if (updates && Object.keys(updates).length > 0) {
+      const u = updates as any;
+      const safeUpdates: Record<string, unknown> = {};
+      if (u.date             !== undefined) safeUpdates.date             = u.date;
+      if (u.startTime        !== undefined) safeUpdates.startTime        = u.startTime;
+      if (u.endTime          !== undefined) safeUpdates.endTime          = u.endTime;
+      if (u.classId          !== undefined) safeUpdates.classId          = u.classId;
+      if (u.disciplineId     !== undefined) safeUpdates.disciplineId     = u.disciplineId;
+      if (u.location         !== undefined) safeUpdates.location         = u.location;
+      if (u.instructorTrigram !== undefined) safeUpdates.instructorId    = u.instructorTrigram || null;
+      if (u.changeRequestId   !== undefined) safeUpdates.changeRequestId = u.changeRequestId;
+      if (u.type              !== undefined) safeUpdates.type            = u.type;
+      if (u.evaluationType    !== undefined) safeUpdates.evaluationType  = u.evaluationType;
+      if (u.color             !== undefined) safeUpdates.color           = u.color;
+      if (u.targetSquadron    !== undefined) safeUpdates.targetSquadron  = u.targetSquadron;
+      if (u.targetCourse      !== undefined) safeUpdates.targetCourse    = u.targetCourse;
+      if (u.targetClass       !== undefined) safeUpdates.targetClass     = u.targetClass;
+      if (u.description       !== undefined) safeUpdates.description     = u.description;
+      if (u.notes             !== undefined) safeUpdates.notes           = u.notes;
+      if (u.endDate           !== undefined) safeUpdates.endDate         = u.endDate;
+
+      const { error: upErr } = await adminClient
+        .from("programacao_aulas")
+        .update(safeUpdates)
+        .eq("id", canonicalId);
+      if (upErr) return err(`slot update error: ${upErr.message}`, 500);
+    }
+
+    return ok({
+      success: true,
+      canonicalId,
+      deleted: toDelete.length,
+      deletedIds: toDelete,
+    });
+  }
+
   return err("Unknown action");
 });

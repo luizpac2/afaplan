@@ -4,6 +4,7 @@ import { useCourseStore } from "../store/useCourseStore";
 import { useDefaultRoomsMap } from "../hooks/useDefaultRoom";
 import type { ScheduleEvent, Discipline } from "../types";
 import { TIME_SLOTS } from "../utils/constants";
+import { resolveInstructorTrigram } from "../utils/instructorResolver";
 
 interface Props {
   date: string;
@@ -157,9 +158,9 @@ export const GanttView = ({
                 const bgColor = hasOverlap ? "#b91c1c"
                   : isEval ? (EVAL_COLORS[evalType] || "#92400e")
                   : (disc?.color || "#3b82f6");
-                const trigram = ev
-                  ? (ev.instructorTrigram || disc?.instructorByClass?.[ev.classId] || disc?.instructorTrigram || (disc as unknown as { data?: Record<string,string> })?.data?.instructor || "")
-                  : "";
+                const trigram = ev && disc
+                  ? (resolveInstructorTrigram(disc, ev) || (disc as unknown as { data?: Record<string,string> })?.data?.instructor || "")
+                  : ev ? (ev.instructorTrigram || "") : "";
                 const inst = trigram ? instructors.find((ins) => ins.trigram === trigram) : null;
                 const displayInstructor = inst?.warName || trigram || "—";
                 const rawLocation = ev ? (ev.location || disc?.location || "") : "";

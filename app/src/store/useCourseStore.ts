@@ -31,14 +31,15 @@ import { supabase } from "../config/supabase";
 import { TIME_SLOTS } from "../utils/constants";
 
 // ── Helper: chama admin-manage-content via edge function (service role) ───────
-async function contentFn(action: string, payload: Record<string, unknown>, retries = 2): Promise<Record<string, unknown>> {
+async function contentFn(action: string, payload: Record<string, unknown>, retries = 3, attempt = 0): Promise<Record<string, unknown>> {
   const { data, error } = await supabase.functions.invoke("admin-manage-content", {
     body: { action, ...payload },
   });
-  // Retry automático em caso de lock error do GoTrue
+  // Retry automático com backoff progressivo em lock errors do GoTrue
   if (error && retries > 0 && (error.message?.includes("lock") || error.message?.includes("Lock"))) {
-    await new Promise((r) => setTimeout(r, 1000));
-    return contentFn(action, payload, retries - 1);
+    const delay = 800 * (attempt + 1); // 800ms, 1600ms, 2400ms
+    await new Promise((r) => setTimeout(r, delay));
+    return contentFn(action, payload, retries - 1, attempt + 1);
   }
   if (error) {
     const context = (error as any).context;

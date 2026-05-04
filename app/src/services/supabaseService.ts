@@ -150,29 +150,64 @@ export const subscribeToEventsByDateRange = (
     return () => {};
   }
 
+  const PAGE_SIZE = 1000;
+
+  const fetchPagedPrimaryRows = async () => {
+    let page = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows: any[] = [];
+    while (true) {
+      const { data, error } = await supabase
+        .from("programacao_aulas")
+        .select(EVENTS_SELECT)
+        .gte("date", startDate)
+        .lte("date", endDate)
+        .order("date", { ascending: true })
+        .order("startTime", { ascending: true })
+        .order("id", { ascending: true })
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      if (error) throw error;
+      const pageRows = data ?? [];
+      rows.push(...pageRows);
+      if (pageRows.length < PAGE_SIZE) break;
+      page++;
+    }
+    return rows;
+  };
+
+  const fetchPagedRangeRows = async () => {
+    let page = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows: any[] = [];
+    while (true) {
+      const { data, error } = await supabase
+        .from("programacao_aulas")
+        .select(EVENTS_SELECT)
+        .not("endDate", "is", null)
+        .lte("date", endDate)
+        .gte("endDate", startDate)
+        .lt("date", startDate) // evita duplicatas (já buscados acima)
+        .order("date", { ascending: true })
+        .order("startTime", { ascending: true })
+        .order("id", { ascending: true })
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      if (error) throw error;
+      const pageRows = data ?? [];
+      rows.push(...pageRows);
+      if (pageRows.length < PAGE_SIZE) break;
+      page++;
+    }
+    return rows;
+  };
+
   // Busca eventos normais (date dentro da semana) + eventos acadêmicos multi-dia que
   // se sobrepõem à semana (date <= weekEnd e endDate >= weekStart)
   Promise.all([
-    supabase
-      .from("programacao_aulas")
-      .select(EVENTS_SELECT)
-      .gte("date", startDate)
-      .lte("date", endDate),
-    supabase
-      .from("programacao_aulas")
-      .select(EVENTS_SELECT)
-      .not("endDate", "is", null)
-      .lte("date", endDate)
-      .gte("endDate", startDate)
-      .lt("date", startDate), // evita duplicatas (já buscados acima)
-  ]).then(([r1, r2]) => {
-    if (r1.error) {
-      console.error("[subscribeToEventsByDateRange] Erro r1:", r1.error);
-      callback([]);
-      return;
-    }
+    fetchPagedPrimaryRows(),
+    fetchPagedRangeRows(),
+  ]).then(([rows1, rows2]) => {
     const seen = new Set<string>();
-    const rows = [...(r1.data ?? []), ...(r2.data ?? [])].filter((r) => {
+    const rows = [...rows1, ...rows2].filter((r) => {
       if (!r.id) { console.warn("[subscribeToEventsByDateRange] evento sem id ignorado:", r); return false; }
       if (seen.has(r.id)) return false;
       seen.add(r.id);
@@ -197,6 +232,9 @@ export const subscribeToEventsByDateRange = (
     const normalized = deduped.map(normalizeEvent);
     eventsWeekCache.set(cacheKey, { data: normalized, ts: Date.now() });
     callback(normalized);
+  }).catch((err) => {
+    console.error("[subscribeToEventsByDateRange] erro ao carregar eventos:", err);
+    callback([]);
   });
   return () => {};
 };

@@ -21,7 +21,10 @@ const COURSE_LABELS: Record<string, string> = {
     AVIATION: 'Aviação', INTENDANCY: 'Intendência', INFANTRY: 'Infantaria',
 };
 
-function PerClassInstructorSection({
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = [CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1, CURRENT_YEAR + 2];
+
+function InstructorByYearSection({
     formData,
     setFormData,
     instructors,
@@ -32,42 +35,92 @@ function PerClassInstructorSection({
     instructors: import('../types').Instructor[];
     theme: string;
 }) {
-    // Derive enabled classIds from ppcLoads > 0
-    const enabledClassIds = useMemo(() => {
-        const ids: string[] = [];
-        for (const [key, val] of Object.entries(formData.ppcLoads || {})) {
-            if (!val) continue;
-            const [course, year] = key.split('_');
-            const letters = COURSE_LETTERS[course] ?? [];
-            for (const letter of letters) ids.push(`${year}${letter}`);
-        }
-        return [...new Set(ids)].sort();
-    }, [formData.ppcLoads]);
-
-    const hasOverrides = Object.keys(formData.instructorByClass || {}).length > 0;
-    const [expanded, setExpanded] = useState(hasOverrides);
-
-    if (enabledClassIds.length === 0) return null;
+    const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
+    const [expanded, setExpanded] = useState(false);
 
     const isDark = theme === 'dark';
     const inputCls = `w-full px-2 py-1.5 border rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500 ${isDark ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-slate-300 text-slate-800'}`;
     const mutedCls = isDark ? 'text-slate-400' : 'text-slate-500';
 
-    const setClassInstructor = (classId: string, trigram: string) => {
+    // Derive enabled classIds from ppcLoads > 0
+    const enabledClassIds = useMemo(() => {
+        const ids: string[] = [];
+        for (const [key, val] of Object.entries(formData.ppcLoads || {})) {
+            if (!val) continue;
+            const [course, yr] = key.split('_');
+            const letters = COURSE_LETTERS[course] ?? [];
+            for (const letter of letters) ids.push(`${yr}${letter}`);
+        }
+        return [...new Set(ids)].sort();
+    }, [formData.ppcLoads]);
+
+    const yearKey = String(selectedYear);
+    const yearData = formData.instructorByYear?.[yearKey];
+
+    // Effective values: year-specific falls back to default
+    const effectiveTitular = yearData?.trigram ?? formData.instructorTrigram ?? '';
+    const hasYearOverride = !!yearData;
+    const totalYears = Object.keys(formData.instructorByYear || {}).length;
+
+    const sortedInstructors = useMemo(
+        () => [...instructors].sort((a, b) => a.warName.localeCompare(b.warName)),
+        [instructors],
+    );
+
+    const setYearTrigram = (trigram: string) => {
         setFormData(prev => {
-            const updated = { ...(prev.instructorByClass || {}) };
-            if (trigram) updated[classId] = trigram;
-            else delete updated[classId];
-            return { ...prev, instructorByClass: updated };
+            const byYear = { ...(prev.instructorByYear || {}) };
+            byYear[yearKey] = { ...(byYear[yearKey] || {}), trigram: trigram || undefined };
+            if (!byYear[yearKey].trigram && !byYear[yearKey].byClass) delete byYear[yearKey];
+            return { ...prev, instructorByYear: byYear };
         });
     };
 
-    // Group by year for display
-    const byYear: Record<string, string[]> = {};
+    const setYearClassTrigram = (classId: string, trigram: string) => {
+        setFormData(prev => {
+            const byYear = { ...(prev.instructorByYear || {}) };
+            const entry = { ...(byYear[yearKey] || {}) };
+            const byClass = { ...(entry.byClass || {}) };
+            if (trigram) byClass[classId] = trigram;
+            else delete byClass[classId];
+            entry.byClass = Object.keys(byClass).length > 0 ? byClass : undefined;
+            if (!entry.trigram && !entry.byClass) delete byYear[yearKey];
+            else byYear[yearKey] = entry;
+            return { ...prev, instructorByYear: byYear };
+        });
+    };
+
+    const copyFromPrevYear = () => {
+        const prevKey = String(selectedYear - 1);
+        const prevData = formData.instructorByYear?.[prevKey];
+        const sourceTrigram = prevData?.trigram ?? formData.instructorTrigram;
+        const sourceByClass = prevData?.byClass ?? formData.instructorByClass;
+        setFormData(prev => {
+            const byYear = { ...(prev.instructorByYear || {}) };
+            if (sourceTrigram || (sourceByClass && Object.keys(sourceByClass).length > 0)) {
+                byYear[yearKey] = {
+                    trigram: sourceTrigram || undefined,
+                    byClass: sourceByClass && Object.keys(sourceByClass).length > 0 ? { ...sourceByClass } : undefined,
+                };
+            }
+            return { ...prev, instructorByYear: byYear };
+        });
+    };
+
+    const clearYear = () => {
+        setFormData(prev => {
+            const byYear = { ...(prev.instructorByYear || {}) };
+            delete byYear[yearKey];
+            return { ...prev, instructorByYear: byYear };
+        });
+    };
+
+    // Group classIds by course year
+    const byClassYear: Record<string, string[]> = {};
     for (const cid of enabledClassIds) {
         const yr = cid[0];
-        if (!byYear[yr]) byYear[yr] = [];
-        byYear[yr].push(cid);
+        if (!byClassYear[yr]) byClassYear[yr] = [];
+        byClassYear[yr].push(cid);
     }
 
     return (
@@ -78,11 +131,11 @@ function PerClassInstructorSection({
                 className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors ${isDark ? 'hover:bg-slate-700/50 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}
             >
                 <span className="flex items-center gap-2">
-                    <Users size={14} className={hasOverrides ? 'text-amber-500' : mutedCls} />
-                    Docente por Turma (exceção)
-                    {hasOverrides && (
+                    <Users size={14} className={totalYears > 0 ? 'text-amber-500' : mutedCls} />
+                    Docente por Ano Letivo
+                    {totalYears > 0 && (
                         <span className="text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded font-semibold">
-                            {Object.keys(formData.instructorByClass || {}).length} override(s)
+                            {totalYears} ano(s) configurado(s)
                         </span>
                     )}
                 </span>
@@ -92,46 +145,149 @@ function PerClassInstructorSection({
             {expanded && (
                 <div className={`px-3 pb-3 border-t ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
                     <p className={`text-[10px] mt-2 mb-3 ${mutedCls}`}>
-                        Deixe em branco para usar o Docente Titular. Defina aqui apenas as turmas com docente diferente.
+                        Configure o docente para um ano letivo específico. Sem configuração, usa o Docente Titular padrão.
                     </p>
-                    <div className="space-y-3">
-                        {Object.entries(byYear).sort().map(([yr, classIds]) => (
-                            <div key={yr}>
-                                <p className={`text-[10px] font-semibold uppercase mb-1.5 ${mutedCls}`}>{yr}º Esquadrão</p>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {classIds.map(cid => {
-                                        const course = Object.entries(COURSE_LETTERS).find(([, letters]) => letters.includes(cid[1]))?.[0];
-                                        return (
-                                            <div key={cid}>
-                                                <label className={`text-[10px] font-medium mb-0.5 block ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                                                    Turma {cid} — {course ? COURSE_LABELS[course] : ''}
-                                                </label>
-                                                <select
-                                                    value={formData.instructorByClass?.[cid] ?? ''}
-                                                    onChange={e => setClassInstructor(cid, e.target.value)}
-                                                    className={inputCls}
-                                                >
-                                                    <option value="">— Titular (padrão) —</option>
-                                                    {instructors
-                                                        .slice()
-                                                        .sort((a, b) => a.warName.localeCompare(b.warName))
-                                                        .map(i => (
-                                                            <option key={i.trigram} value={i.trigram}>
-                                                                {i.trigram} — {i.warName}
-                                                            </option>
-                                                        ))}
-                                                </select>
+
+                    {/* Year tabs */}
+                    <div className="flex gap-1 mb-3 flex-wrap">
+                        {YEAR_OPTIONS.map(yr => {
+                            const hasConfig = !!formData.instructorByYear?.[String(yr)];
+                            const isCurrent = yr === selectedYear;
+                            return (
+                                <button
+                                    key={yr}
+                                    type="button"
+                                    onClick={() => setSelectedYear(yr)}
+                                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors relative ${
+                                        isCurrent
+                                            ? isDark ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
+                                            : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                    }`}
+                                >
+                                    {yr}
+                                    {hasConfig && (
+                                        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400" />
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Year config panel */}
+                    <div className={`rounded-lg p-3 space-y-3 ${isDark ? 'bg-slate-700/30' : 'bg-slate-50'}`}>
+                        <div className="flex items-center justify-between">
+                            <span className={`text-xs font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                                Configuração de {selectedYear}
+                            </span>
+                            <div className="flex gap-1.5">
+                                <button
+                                    type="button"
+                                    onClick={copyFromPrevYear}
+                                    className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${isDark ? 'border-slate-600 text-slate-400 hover:border-blue-500 hover:text-blue-400' : 'border-slate-300 text-slate-500 hover:border-blue-400 hover:text-blue-600'}`}
+                                    title={`Copiar configuração de ${selectedYear - 1}`}
+                                >
+                                    ← Copiar de {selectedYear - 1}
+                                </button>
+                                {hasYearOverride && (
+                                    <button
+                                        type="button"
+                                        onClick={clearYear}
+                                        className="text-[10px] px-2 py-0.5 rounded border border-red-300 text-red-500 hover:bg-red-50 dark:border-red-800 dark:text-red-400 transition-colors"
+                                    >
+                                        Limpar
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {!hasYearOverride && (
+                            <p className={`text-[10px] italic ${mutedCls}`}>
+                                Sem configuração específica — usa o Docente Titular padrão{formData.instructorTrigram ? ` (${formData.instructorTrigram})` : ''}.
+                            </p>
+                        )}
+
+                        {/* Titular for this year */}
+                        <div>
+                            <label className={`text-[10px] font-semibold block mb-1 ${mutedCls}`}>
+                                Docente Titular em {selectedYear}
+                            </label>
+                            <select
+                                value={yearData?.trigram ?? ''}
+                                onChange={e => setYearTitular(e.target.value)}
+                                className={inputCls}
+                            >
+                                <option value="">— Usar padrão{formData.instructorTrigram ? ` (${formData.instructorTrigram})` : ''} —</option>
+                                {sortedInstructors.map(i => (
+                                    <option key={i.trigram} value={i.trigram}>{i.trigram} — {i.warName}</option>
+                                ))}
+                            </select>
+                            {hasYearOverride && yearData?.trigram && (
+                                <p className={`text-[10px] mt-0.5 text-blue-500`}>✓ {yearData.trigram} — titular para {selectedYear}</p>
+                            )}
+                        </div>
+
+                        {/* Per-class overrides for this year */}
+                        {enabledClassIds.length > 0 && (
+                            <div>
+                                <label className={`text-[10px] font-semibold block mb-1.5 ${mutedCls}`}>
+                                    Exceções por Turma em {selectedYear}
+                                </label>
+                                <div className="space-y-2">
+                                    {Object.entries(byClassYear).sort().map(([yr, classIds]) => (
+                                        <div key={yr}>
+                                            <p className={`text-[10px] uppercase mb-1 ${mutedCls}`}>{yr}º Esquadrão</p>
+                                            <div className="grid grid-cols-2 gap-1.5">
+                                                {classIds.map(cid => {
+                                                    const course = Object.entries(COURSE_LETTERS).find(([, ls]) => ls.includes(cid[1]))?.[0];
+                                                    const val = yearData?.byClass?.[cid] ?? '';
+                                                    return (
+                                                        <div key={cid}>
+                                                            <label className={`text-[9px] font-medium mb-0.5 block ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                                                                {cid} — {course ? COURSE_LABELS[course] : ''}
+                                                            </label>
+                                                            <select
+                                                                value={val}
+                                                                onChange={e => setYearClassTrigram(cid, e.target.value)}
+                                                                className={inputCls}
+                                                            >
+                                                                <option value="">— Titular do ano —</option>
+                                                                {sortedInstructors.map(i => (
+                                                                    <option key={i.trigram} value={i.trigram}>{i.trigram} — {i.warName}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
-                                        );
-                                    })}
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                        ))}
+                        )}
                     </div>
+
+                    {/* Summary of configured years */}
+                    {totalYears > 0 && (
+                        <div className={`mt-3 rounded p-2 text-[10px] ${isDark ? 'bg-slate-800' : 'bg-white border border-slate-200'}`}>
+                            <p className={`font-semibold mb-1 ${mutedCls}`}>Anos configurados:</p>
+                            {Object.entries(formData.instructorByYear || {}).sort().map(([yr, yd]) => (
+                                <div key={yr} className={`flex items-center gap-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                    <span className="font-mono font-bold text-blue-500">{yr}</span>
+                                    <span>→</span>
+                                    <span>{yd.trigram || `padrão`}</span>
+                                    {yd.byClass && Object.keys(yd.byClass).length > 0 && (
+                                        <span className={mutedCls}>+ {Object.keys(yd.byClass).length} exceção(ões)</span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
     );
+
+    function setYearTitular(trigram: string) { setYearTrigram(trigram); }
 }
 
 export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFormProps) => {
@@ -154,6 +310,7 @@ export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFo
         instructor: '',
         instructorTrigram: '',
         instructorByClass: {},
+        instructorByYear: {},
         substituteTrigram: '',
         substituteHours: 0,
         location: 'Sala de Aula',
@@ -174,6 +331,7 @@ export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFo
                 instructor: initialData.instructor || '',
                 instructorTrigram: initialData.instructorTrigram || '',
                 instructorByClass: initialData.instructorByClass || {},
+                instructorByYear: initialData.instructorByYear || {},
                 substituteTrigram: initialData.substituteTrigram || '',
                 substituteHours: initialData.substituteHours || 0,
                 location: initialData.location || '',
@@ -451,7 +609,7 @@ export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFo
                         </div>
                     )}
 
-                    <PerClassInstructorSection
+                    <InstructorByYearSection
                         formData={formData}
                         setFormData={setFormData}
                         instructors={instructors}

@@ -10,6 +10,7 @@ import { useCourseStore } from '../store/useCourseStore';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import type { Instructor, Discipline, ScheduleEvent, CourseClass } from '../types';
+import { resolveInstructorTrigram, disciplineHasInstructor } from '../utils/instructorResolver';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const FIELD_LABELS: Record<string, string> = {
@@ -554,7 +555,7 @@ export const DisciplinePanel = () => {
       return instructors.find(i => i.email === userProfile.email) || null;
    }, [isDocente, userProfile, instructors]);
 
-   // Events grouped by discipline, filtered by classFilter AND by instructor's assigned classes
+   // Events grouped by discipline, filtered by classFilter AND by instructor's assigned classes (year-aware)
    const eventsByDisc = useMemo(() => {
       const map: Record<string, ScheduleEvent[]> = {};
       const filterTrigram = instrFilter !== 'ALL' ? instrFilter : (isDocente && myInstructor ? myInstructor.trigram : null);
@@ -563,9 +564,7 @@ export const DisciplinePanel = () => {
          if (filterTrigram) {
             const disc = disciplines.find(d => d.id === ev.disciplineId);
             if (disc) {
-               const defaultTri = disc.instructorTrigram || (instructorByWarName[disc.instructor || '']?.trigram);
-               const classOverride = disc.instructorByClass?.[ev.classId];
-               const effectiveTri = classOverride || defaultTri;
+               const effectiveTri = resolveInstructorTrigram(disc, ev) || disc.instructorTrigram || (instructorByWarName[disc.instructor || '']?.trigram);
                if (effectiveTri !== filterTrigram) continue;
             }
          }
@@ -576,7 +575,7 @@ export const DisciplinePanel = () => {
       return map;
    }, [allEvents, classFilter, instrFilter, isDocente, myInstructor, disciplines, instructorByWarName]);
 
-   // Full events by disc filtered only by instructor's assigned classes (for modal & bulk download)
+   // Full events by disc filtered only by instructor's assigned classes (year-aware, for modal & bulk download)
    const allEventsByDisc = useMemo(() => {
       const map: Record<string, ScheduleEvent[]> = {};
       const filterTrigram = instrFilter !== 'ALL' ? instrFilter : (isDocente && myInstructor ? myInstructor.trigram : null);
@@ -584,9 +583,7 @@ export const DisciplinePanel = () => {
          if (filterTrigram) {
             const disc = disciplines.find(d => d.id === ev.disciplineId);
             if (disc) {
-               const defaultTri = disc.instructorTrigram || (instructorByWarName[disc.instructor || '']?.trigram);
-               const classOverride = disc.instructorByClass?.[ev.classId];
-               const effectiveTri = classOverride || defaultTri;
+               const effectiveTri = resolveInstructorTrigram(disc, ev) || disc.instructorTrigram || (instructorByWarName[disc.instructor || '']?.trigram);
                if (effectiveTri !== filterTrigram) continue;
             }
          }
@@ -609,16 +606,10 @@ export const DisciplinePanel = () => {
       return [...disciplines].filter(d => {
          // Docente role: only show disciplines they are assigned to
          if (isDocente && myInstructor) {
-            const defaultTri = d.instructorTrigram || (instructorByWarName[d.instructor || '']?.trigram);
-            const isDefault = defaultTri === myInstructor.trigram;
-            const isOverride = Object.values(d.instructorByClass || {}).includes(myInstructor.trigram);
-            if (!isDefault && !isOverride) return false;
+            if (!disciplineHasInstructor(d, myInstructor.trigram)) return false;
          }
          if (instrFilter !== 'ALL') {
-            const defaultTri = d.instructorTrigram || (instructorByWarName[d.instructor || '']?.trigram);
-            const isDefault = defaultTri === instrFilter;
-            const isOverride = Object.values(d.instructorByClass || {}).includes(instrFilter);
-            if (!isDefault && !isOverride) return false;
+            if (!disciplineHasInstructor(d, instrFilter)) return false;
          }
          if (fieldFilter !== 'ALL' && d.trainingField !== fieldFilter) return false;
          if (courseFilter !== 'ALL' && !d.enabledCourses?.includes(courseFilter as any)) return false;
