@@ -47,6 +47,7 @@ const ChefeTurmaLancamento = lazy(() => import("./pages/ChefeTurmaLancamento").t
 const FaltasReport = lazy(() => import("./pages/FaltasReport").then(m => ({ default: m.FaltasReport })));
 const DisciplineDashboard = lazy(() => import("./pages/DisciplineDashboard").then(m => ({ default: m.DisciplineDashboard })));
 const GanttProgramming = lazy(() => import("./pages/GanttProgramming").then(m => ({ default: m.GanttProgramming })));
+const AulasDashboard   = lazy(() => import("./pages/AulasDashboard").then(m => ({ default: m.AulasDashboard })));
 const AcademicGantt    = lazy(() => import("./pages/AcademicGantt").then(m => ({ default: m.AcademicGantt })));
 const DisciplineGantt  = lazy(() => import("./pages/DisciplineGantt").then(m => ({ default: m.DisciplineGantt })));
 const DisciplinePanel  = lazy(() => import("./pages/DisciplinePanel").then(m => ({ default: m.DisciplinePanel })));
@@ -139,6 +140,7 @@ function App() {
                   <Route path="academic-gantt" element={<AcademicGantt />} />
                   <Route path="discipline-gantt" element={<DisciplineGantt />} />
                   <Route path="discipline-panel" element={<DisciplinePanel />} />
+                  <Route path="aulas-dashboard" element={<AulasDashboard />} />
                   <Route path="inbox" element={<Inbox />} />
                   <Route path="profile" element={<Profile />} />
 

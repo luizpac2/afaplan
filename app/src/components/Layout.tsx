@@ -62,6 +62,7 @@ const MENU_ITEMS: MenuItem[] = [
     icon: GraduationCap,
     roles: ALL_ROLES,
     submenu: [
+      { title: "Painel Acadêmico", path: "/aulas-dashboard", icon: Layers },
       { title: "Minhas Aulas", path: "/my-classes", icon: Star },
       { title: "Aulas de Hoje", path: "/", icon: Home },
       { title: "1º Esquadrão", path: "/gantt/1", icon: BarChart2 },
