@@ -34,7 +34,8 @@ function countWeekdaysInYear(year: number): number {
   let count = 0;
   const d = new Date(year, 0, 1);
   while (d.getFullYear() === year) {
-    if (d.getDay() !== 0) count++; // 0 = domingo
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) count++; // exclui domingo (0) e sábado (6)
     d.setDate(d.getDate() + 1);
   }
   return count;
@@ -171,7 +172,7 @@ export const AulasDashboard = () => {
             icon: <CalendarDays size={20} className="text-blue-400" />,
             label: "Dias Letivos",
             value: diasLetivos,
-            sub: `Seg–Sáb em ${calendarYear}`,
+            sub: `Seg–Sex em ${calendarYear}`,
           },
           {
             icon: <BookOpen size={20} className="text-purple-400" />,
