@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BookOpen, Users, CalendarDays, GraduationCap, Layers, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
@@ -41,16 +41,52 @@ function countWeekdaysInYear(year: number): number {
   return count;
 }
 
+const DAY_OFF_TYPES = new Set(["DAY_OFF", "HOLIDAY"]);
+
+// Expande eventos multi-dia e retorna Set de "YYYY-MM-DD" que são dia-off (Seg-Sex)
+function calcDayOffWeekdays(events: import("../types").ScheduleEvent[], year: number): number {
+  const offDates = new Set<string>();
+  const yearStart = `${year}-01-01`;
+  const yearEnd   = `${year}-12-31`;
+  for (const ev of events) {
+    if (!DAY_OFF_TYPES.has(ev.type ?? "")) continue;
+    const start = ev.date > yearStart ? ev.date : yearStart;
+    const end   = ((ev as any).endDate ?? ev.date) < yearEnd
+      ? ((ev as any).endDate ?? ev.date)
+      : yearEnd;
+    const d = new Date(start + "T12:00:00");
+    const endDate = new Date(end + "T12:00:00");
+    while (d <= endDate) {
+      const day = d.getDay();
+      if (day !== 0 && day !== 6) {
+        offDates.add(d.toISOString().slice(0, 10));
+      }
+      d.setDate(d.getDate() + 1);
+    }
+  }
+  return offDates.size;
+}
+
 export const AulasDashboard = () => {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const { disciplines, instructors, classes, cohorts } = useCourseStore();
+  const { disciplines, instructors, classes, cohorts, fetchYearlyEvents, dataReady } = useCourseStore();
 
   const currentYear = new Date().getFullYear();
   const [calendarYear, setCalendarYear] = useState(currentYear);
+  const [yearlyEvents, setYearlyEvents] = useState<import("../types").ScheduleEvent[]>([]);
 
-  // ── Dias letivos ──────────────────────────────────────────────────────────
-  const diasLetivos = useMemo(() => countWeekdaysInYear(calendarYear), [calendarYear]);
+  useEffect(() => {
+    if (!dataReady) return;
+    fetchYearlyEvents(calendarYear).then(setYearlyEvents);
+  }, [dataReady, calendarYear, fetchYearlyEvents]);
+
+  // ── Dias letivos = dias úteis (Seg-Sex) − day-off/férias ─────────────────
+  const diasLetivos = useMemo(() => {
+    const total = countWeekdaysInYear(calendarYear);
+    const off   = calcDayOffWeekdays(yearlyEvents, calendarYear);
+    return total - off;
+  }, [calendarYear, yearlyEvents]);
 
   // ── Disciplinas ativa = tem enabledYears ou enabledCourses preenchidos ───
   const activeDisciplines = useMemo(
@@ -197,7 +233,7 @@ export const AulasDashboard = () => {
             icon: <CalendarDays size={20} className="text-blue-400" />,
             label: "Dias Letivos",
             value: diasLetivos,
-            sub: `Seg–Sex em ${calendarYear}`,
+            sub: `Seg–Sex · descontados day-off e férias`,
           },
           {
             icon: <BookOpen size={20} className="text-purple-400" />,
