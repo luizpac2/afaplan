@@ -42,29 +42,47 @@ function countWeekdaysInYear(year: number): number {
 }
 
 const DAY_OFF_TYPES = new Set(["DAY_OFF", "HOLIDAY"]);
+const FULL_DAY_BLOCK_KEYWORDS = ["INTERAFA", "NAVAMAER"];
 
-// Expande eventos multi-dia e retorna Set de "YYYY-MM-DD" que são dia-off (Seg-Sex)
-function calcDayOffWeekdays(events: import("../types").ScheduleEvent[], year: number): number {
-  const offDates = new Set<string>();
+type SEvent = import("../types").ScheduleEvent;
+
+// Expande evento multi-dia e adiciona seus dias úteis (Seg-Sex) ao Set
+function expandWeekdays(ev: SEvent, year: number, out: Set<string>) {
   const yearStart = `${year}-01-01`;
   const yearEnd   = `${year}-12-31`;
+  const start = ev.date >= yearStart ? ev.date : yearStart;
+  const rawEnd = (ev as any).endDate ?? ev.date;
+  const end   = rawEnd <= yearEnd ? rawEnd : yearEnd;
+  const d = new Date(start + "T12:00:00");
+  const endDate = new Date(end + "T12:00:00");
+  while (d <= endDate) {
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) out.add(d.toISOString().slice(0, 10));
+    d.setDate(d.getDate() + 1);
+  }
+}
+
+// Retorna dias úteis excluídos e breakdown por motivo
+function calcExcludedDays(events: SEvent[], year: number) {
+  const offDates      = new Set<string>(); // DAY_OFF / HOLIDAY
+  const blockedDates  = new Set<string>(); // INTERAFA / NAVAMAER
+
   for (const ev of events) {
-    if (!DAY_OFF_TYPES.has(ev.type ?? "")) continue;
-    const start = ev.date > yearStart ? ev.date : yearStart;
-    const end   = ((ev as any).endDate ?? ev.date) < yearEnd
-      ? ((ev as any).endDate ?? ev.date)
-      : yearEnd;
-    const d = new Date(start + "T12:00:00");
-    const endDate = new Date(end + "T12:00:00");
-    while (d <= endDate) {
-      const day = d.getDay();
-      if (day !== 0 && day !== 6) {
-        offDates.add(d.toISOString().slice(0, 10));
-      }
-      d.setDate(d.getDate() + 1);
+    if (DAY_OFF_TYPES.has(ev.type ?? "")) {
+      expandWeekdays(ev, year, offDates);
+      continue;
+    }
+    // Bloqueio total por evento acadêmico (INTERAFA / NAVAMAER)
+    const isBlocking = (ev as any).isBlocking !== false;
+    const loc = ((ev.location ?? "") + " " + (ev.description ?? "")).toUpperCase();
+    if (isBlocking && FULL_DAY_BLOCK_KEYWORDS.some((kw) => loc.includes(kw))) {
+      expandWeekdays(ev, year, blockedDates);
     }
   }
-  return offDates.size;
+
+  // União sem dupla contagem
+  const all = new Set([...offDates, ...blockedDates]);
+  return { total: all.size, dayOff: offDates.size, blocked: blockedDates.size };
 }
 
 export const AulasDashboard = () => {
@@ -81,11 +99,11 @@ export const AulasDashboard = () => {
     fetchYearlyEvents(calendarYear).then(setYearlyEvents);
   }, [dataReady, calendarYear, fetchYearlyEvents]);
 
-  // ── Dias letivos = dias úteis (Seg-Sex) − day-off/férias ─────────────────
-  const diasLetivos = useMemo(() => {
-    const total = countWeekdaysInYear(calendarYear);
-    const off   = calcDayOffWeekdays(yearlyEvents, calendarYear);
-    return total - off;
+  // ── Dias letivos = dias úteis (Seg-Sex) − exclusões ─────────────────────
+  const { diasLetivos, totalWeekdays, excluded } = useMemo(() => {
+    const totalWeekdays = countWeekdaysInYear(calendarYear);
+    const excl = calcExcludedDays(yearlyEvents, calendarYear);
+    return { diasLetivos: totalWeekdays - excl.total, totalWeekdays, excluded: excl };
   }, [calendarYear, yearlyEvents]);
 
   // ── Disciplinas ativa = tem enabledYears ou enabledCourses preenchidos ───
@@ -429,6 +447,62 @@ export const AulasDashboard = () => {
             );
           })}
         </div>
+      </div>
+
+      {/* ── Legenda: critérios para dia letivo ────────────────────────────── */}
+      <div className={`rounded-xl border p-4 ${card}`}>
+        <p className={`text-xs font-semibold uppercase tracking-wide mb-3 ${muted}`}>
+          Como é calculado o total de dias letivos
+        </p>
+        <ol className={`flex flex-col gap-2 text-sm ${muted}`}>
+          <li className="flex gap-2">
+            <span className={`font-bold shrink-0 ${text}`}>1.</span>
+            <span>
+              Conta-se todos os dias <strong className={text}>segunda a sexta-feira</strong> do
+              ano letivo selecionado ({totalWeekdays} dias em {calendarYear}).
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span className={`font-bold shrink-0 ${text}`}>2.</span>
+            <span>
+              São subtraídos os dias classificados como{" "}
+              <strong className={text}>Day-off</strong> ou{" "}
+              <strong className={text}>Feriado</strong> (tipo{" "}
+              <code className="text-[11px] bg-slate-200 dark:bg-slate-700 px-1 rounded">DAY_OFF</code> ou{" "}
+              <code className="text-[11px] bg-slate-200 dark:bg-slate-700 px-1 rounded">HOLIDAY</code>)
+              cadastrados no calendário acadêmico
+              {excluded.dayOff > 0 && (
+                <span className="ml-1 text-amber-500 font-semibold">
+                  (−{excluded.dayOff} dia{excluded.dayOff !== 1 ? "s" : ""} em {calendarYear})
+                </span>
+              )}.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span className={`font-bold shrink-0 ${text}`}>3.</span>
+            <span>
+              São subtraídos dias cujo evento acadêmico bloqueante é{" "}
+              <strong className={text}>INTERAFA</strong> ou{" "}
+              <strong className={text}>NAVAMAER</strong> — eventos que ocupam
+              integralmente o dia, impedindo a alocação de aulas regulares
+              {excluded.blocked > 0 && (
+                <span className="ml-1 text-amber-500 font-semibold">
+                  (−{excluded.blocked} dia{excluded.blocked !== 1 ? "s" : ""} em {calendarYear})
+                </span>
+              )}.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span className={`font-bold shrink-0 ${text}`}>4.</span>
+            <span>
+              Sábados e domingos são sempre excluídos, independentemente de qualquer alocação.
+            </span>
+          </li>
+        </ol>
+        <p className={`mt-3 text-xs font-semibold ${text}`}>
+          Resultado: {totalWeekdays} dias úteis − {excluded.total} excluído{excluded.total !== 1 ? "s" : ""} ={" "}
+          <span className="text-blue-400">{diasLetivos} dias letivos</span>
+        </p>
       </div>
     </div>
   );
