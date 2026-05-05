@@ -42,7 +42,7 @@ function countWeekdaysInYear(year: number): number {
 }
 
 const DAY_OFF_TYPES = new Set(["DAY_OFF", "HOLIDAY"]);
-const FULL_DAY_BLOCK_KEYWORDS = ["INTERAFA", "NAVAMAER"];
+const FULL_DAY_BLOCK_KEYWORDS = ["INTERAFA", "NAVAMAER", "ESPADIM", "ASPIRANTADO"];
 
 type SEvent = import("../types").ScheduleEvent;
 
@@ -62,17 +62,24 @@ function expandWeekdays(ev: SEvent, year: number, out: Set<string>) {
   }
 }
 
-// Retorna dias úteis excluídos e breakdown por motivo
-function calcExcludedDays(events: SEvent[], year: number) {
-  const offDates      = new Set<string>(); // DAY_OFF / HOLIDAY
-  const blockedDates  = new Set<string>(); // INTERAFA / NAVAMAER
+// Verifica se evento se aplica ao esquadrão (null/ALL = global)
+function appliesToSquadron(ev: SEvent, squadronId: number): boolean {
+  const ts = (ev as any).targetSquadron;
+  return ts === null || ts === undefined || ts === "ALL" || Number(ts) === squadronId;
+}
+
+// Retorna breakdown de exclusões para um esquadrão específico
+function calcExcludedDays(events: SEvent[], year: number, squadronId: number) {
+  const offDates     = new Set<string>();
+  const blockedDates = new Set<string>();
 
   for (const ev of events) {
+    if (!appliesToSquadron(ev, squadronId)) continue;
+
     if (DAY_OFF_TYPES.has(ev.type ?? "")) {
       expandWeekdays(ev, year, offDates);
       continue;
     }
-    // Bloqueio total por evento acadêmico (INTERAFA / NAVAMAER)
     const isBlocking = (ev as any).isBlocking !== false;
     const loc = ((ev.location ?? "") + " " + (ev.description ?? "")).toUpperCase();
     if (isBlocking && FULL_DAY_BLOCK_KEYWORDS.some((kw) => loc.includes(kw))) {
@@ -80,7 +87,6 @@ function calcExcludedDays(events: SEvent[], year: number) {
     }
   }
 
-  // União sem dupla contagem
   const all = new Set([...offDates, ...blockedDates]);
   return { total: all.size, dayOff: offDates.size, blocked: blockedDates.size };
 }
@@ -99,12 +105,39 @@ export const AulasDashboard = () => {
     fetchYearlyEvents(calendarYear).then(setYearlyEvents);
   }, [dataReady, calendarYear, fetchYearlyEvents]);
 
-  // ── Dias letivos = dias úteis (Seg-Sex) − exclusões ─────────────────────
-  const { diasLetivos, totalWeekdays, excluded } = useMemo(() => {
-    const totalWeekdays = countWeekdaysInYear(calendarYear);
-    const excl = calcExcludedDays(yearlyEvents, calendarYear);
-    return { diasLetivos: totalWeekdays - excl.total, totalWeekdays, excluded: excl };
-  }, [calendarYear, yearlyEvents]);
+  // ── Dias letivos por esquadrão ────────────────────────────────────────────
+  const totalWeekdays = useMemo(() => countWeekdaysInYear(calendarYear), [calendarYear]);
+
+  const diasLetivosBySquadron = useMemo(() => {
+    return YEARS.map((sq) => {
+      const excl = calcExcludedDays(yearlyEvents, calendarYear, sq);
+      return { sq, dias: totalWeekdays - excl.total, excl };
+    });
+  }, [yearlyEvents, calendarYear, totalWeekdays]);
+
+  // Mínimo entre esquadrões para o card de resumo
+  const diasLetivos = useMemo(
+    () => Math.min(...diasLetivosBySquadron.map((d) => d.dias)),
+    [diasLetivosBySquadron],
+  );
+
+  // Breakdown global (union de todos os esquadrões) para a legenda
+  const excludedGlobal = useMemo(() => {
+    const off = new Set<string>();
+    const blocked = new Set<string>();
+    for (const sq of YEARS) {
+      for (const ev of yearlyEvents) {
+        if (!appliesToSquadron(ev, sq)) continue;
+        if (DAY_OFF_TYPES.has(ev.type ?? "")) { expandWeekdays(ev, calendarYear, off); continue; }
+        const isBlocking = (ev as any).isBlocking !== false;
+        const loc = ((ev.location ?? "") + " " + (ev.description ?? "")).toUpperCase();
+        if (isBlocking && FULL_DAY_BLOCK_KEYWORDS.some((kw) => loc.includes(kw)))
+          expandWeekdays(ev, calendarYear, blocked);
+      }
+    }
+    const all = new Set([...off, ...blocked]);
+    return { total: all.size, dayOff: off.size, blocked: blocked.size };
+  }, [yearlyEvents, calendarYear]);
 
   // ── Disciplinas ativa = tem enabledYears ou enabledCourses preenchidos ───
   const activeDisciplines = useMemo(
@@ -251,7 +284,9 @@ export const AulasDashboard = () => {
             icon: <CalendarDays size={20} className="text-blue-400" />,
             label: "Dias Letivos",
             value: diasLetivos,
-            sub: `Seg–Sex · descontados day-off e férias`,
+            sub: diasLetivosBySquadron.every((d) => d.dias === diasLetivos)
+              ? `igual para todos os esquadrões`
+              : `mín. entre esquadrões`,
           },
           {
             icon: <BookOpen size={20} className="text-purple-400" />,
@@ -283,6 +318,44 @@ export const AulasDashboard = () => {
             <span className={`text-[11px] leading-tight ${muted}`}>{sub}</span>
           </div>
         ))}
+      </div>
+
+      {/* ── Dias letivos por esquadrão ───────────────────────────────────── */}
+      <div className={`rounded-xl border overflow-hidden ${card}`}>
+        <div className={`px-4 py-3 border-b flex items-center gap-2 ${cardHeader}`}>
+          <CalendarDays size={15} className="text-blue-400" />
+          <span className={`text-sm font-semibold ${text}`}>Dias Letivos por Esquadrão</span>
+          <span className={`ml-auto text-[11px] ${muted}`}>{calendarYear}</span>
+        </div>
+        <div className={`divide-y ${divider}`}>
+          {diasLetivosBySquadron.map(({ sq, dias, excl }) => {
+            const tokens = squadronColor(sq);
+            const pct = totalWeekdays > 0 ? Math.round((dias / totalWeekdays) * 100) : 0;
+            return (
+              <div key={sq} className={`px-4 py-3 flex items-center gap-3 ${rowHover}`}>
+                <div className="flex items-center gap-2 w-40 shrink-0">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: tokens.primary }}
+                  />
+                  <span className={`text-sm font-medium ${text}`}>{sq}º Esquadrão</span>
+                </div>
+                <div className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full transition-all"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <span className={`text-sm font-bold w-10 text-right ${text}`}>{dias}</span>
+                <span className={`text-[11px] w-28 text-right ${muted}`}>
+                  {excl.total > 0
+                    ? `−${excl.total} excluído${excl.total !== 1 ? "s" : ""}`
+                    : "sem exclusões"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* ── Disciplinas por Esquadrão × Curso ────────────────────────────── */}
@@ -471,9 +544,9 @@ export const AulasDashboard = () => {
               <code className="text-[11px] bg-slate-200 dark:bg-slate-700 px-1 rounded">DAY_OFF</code> ou{" "}
               <code className="text-[11px] bg-slate-200 dark:bg-slate-700 px-1 rounded">HOLIDAY</code>)
               cadastrados no calendário acadêmico
-              {excluded.dayOff > 0 && (
+              {excludedGlobal.dayOff > 0 && (
                 <span className="ml-1 text-amber-500 font-semibold">
-                  (−{excluded.dayOff} dia{excluded.dayOff !== 1 ? "s" : ""} em {calendarYear})
+                  (−{excludedGlobal.dayOff} dia{excludedGlobal.dayOff !== 1 ? "s" : ""} em {calendarYear})
                 </span>
               )}.
             </span>
@@ -482,12 +555,14 @@ export const AulasDashboard = () => {
             <span className={`font-bold shrink-0 ${text}`}>3.</span>
             <span>
               São subtraídos dias cujo evento acadêmico bloqueante é{" "}
-              <strong className={text}>INTERAFA</strong> ou{" "}
-              <strong className={text}>NAVAMAER</strong> — eventos que ocupam
+              <strong className={text}>INTERAFA</strong>,{" "}
+              <strong className={text}>NAVAMAER</strong>,{" "}
+              <strong className={text}>ESPADIM</strong> ou{" "}
+              <strong className={text}>ASPIRANTADO</strong> — eventos que ocupam
               integralmente o dia, impedindo a alocação de aulas regulares
-              {excluded.blocked > 0 && (
+              {excludedGlobal.blocked > 0 && (
                 <span className="ml-1 text-amber-500 font-semibold">
-                  (−{excluded.blocked} dia{excluded.blocked !== 1 ? "s" : ""} em {calendarYear})
+                  (−{excludedGlobal.blocked} dia{excludedGlobal.blocked !== 1 ? "s" : ""} em {calendarYear})
                 </span>
               )}.
             </span>
@@ -500,8 +575,8 @@ export const AulasDashboard = () => {
           </li>
         </ol>
         <p className={`mt-3 text-xs font-semibold ${text}`}>
-          Resultado: {totalWeekdays} dias úteis − {excluded.total} excluído{excluded.total !== 1 ? "s" : ""} ={" "}
-          <span className="text-blue-400">{diasLetivos} dias letivos</span>
+          Base: {totalWeekdays} dias úteis (Seg–Sex) em {calendarYear}. O total por esquadrão
+          varia conforme os eventos acima se apliquem a cada um individualmente.
         </p>
       </div>
     </div>
