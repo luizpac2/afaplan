@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { BookOpen, Users, CalendarDays, GraduationCap, Layers } from "lucide-react";
+import { useMemo, useState } from "react";
+import { BookOpen, Users, CalendarDays, GraduationCap, Layers, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { getCohortColorTokens } from "../utils/cohortColors";
@@ -46,7 +46,8 @@ export const AulasDashboard = () => {
   const isDark = theme === "dark";
   const { disciplines, instructors, classes, cohorts } = useCourseStore();
 
-  const calendarYear = new Date().getFullYear();
+  const currentYear = new Date().getFullYear();
+  const [calendarYear, setCalendarYear] = useState(currentYear);
 
   // ── Dias letivos ──────────────────────────────────────────────────────────
   const diasLetivos = useMemo(() => countWeekdaysInYear(calendarYear), [calendarYear]);
@@ -157,12 +158,36 @@ export const AulasDashboard = () => {
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto flex flex-col gap-6">
 
-      {/* ── Título ────────────────────────────────────────────────────────── */}
-      <div>
-        <h1 className={`text-2xl font-bold ${text}`}>Painel Acadêmico</h1>
-        <p className={`text-sm mt-0.5 ${muted}`}>
-          Ano letivo {calendarYear} — visão consolidada de disciplinas, docentes e carga horária
-        </p>
+      {/* ── Título + navegação de ano ─────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className={`text-2xl font-bold ${text}`}>Painel Acadêmico</h1>
+          <p className={`text-sm mt-0.5 ${muted}`}>
+            Visão consolidada de disciplinas, docentes e carga horária
+          </p>
+        </div>
+        <div className={`flex items-center gap-1 rounded-xl border p-1 ${isDark ? "bg-slate-900 border-slate-700" : "bg-slate-50 border-slate-200"}`}>
+          <button
+            onClick={() => setCalendarYear((y) => y - 1)}
+            className={`p-1.5 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600"}`}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span className={`px-3 text-sm font-bold min-w-[60px] text-center ${text}`}>
+            {calendarYear}
+          </span>
+          <button
+            onClick={() => setCalendarYear((y) => y + 1)}
+            disabled={calendarYear >= currentYear}
+            className={`p-1.5 rounded-lg transition-colors ${
+              calendarYear >= currentYear
+                ? "opacity-30 cursor-not-allowed"
+                : isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600"
+            }`}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
       </div>
 
       {/* ── Cards de resumo ───────────────────────────────────────────────── */}
