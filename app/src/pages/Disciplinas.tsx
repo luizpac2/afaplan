@@ -227,7 +227,14 @@ export const Disciplinas = () => {
             if (debouncedSearch.startsWith('!')) {
                 const target = debouncedSearch.substring(1).toLowerCase();
                 let isSmartMatch = true;
-                if (target === 'instructor') isSmartMatch = !d.instructor && !d.noSpecificInstructor;
+                if (target === 'instructor') {
+                    const hasAny = !!d.instructorTrigram ||
+                        (d.instructorByClass && Object.keys(d.instructorByClass).length > 0) ||
+                        (d.instructorByYear && Object.values(d.instructorByYear).some(
+                            (y: any) => y.trigram || (y.byClass && Object.keys(y.byClass).length > 0)
+                        ));
+                    isSmartMatch = !hasAny && !d.noSpecificInstructor;
+                }
                 else if (target === 'location') isSmartMatch = !d.location;
                 else isSmartMatch = false; // Unknown smart filter
 
