@@ -341,6 +341,82 @@ Deno.serve(async (req) => {
     return ok({ success: true });
   }
 
+  // ── clean_discipline_instructors ────────────────────────────────────────────
+  // Remove trigrams órfãos (instrutores inexistentes) de todas as disciplinas e
+  // sincroniza a coluna instructorTrigram com data.instructorTrigram.
+  if (action === "clean_discipline_instructors") {
+    const { data: instrRows, error: instrErr } = await adminClient
+      .from("instructors").select("trigram");
+    if (instrErr) return err(instrErr.message, 500);
+    const validTrigrams = new Set((instrRows ?? []).map((r: any) => r.trigram as string));
+
+    const { data: allDiscs, error: discErr } = await adminClient
+      .from("disciplinas").select("id, instructorTrigram, data");
+    if (discErr) return err(discErr.message, 500);
+
+    let cleaned = 0;
+    for (const d of (allDiscs ?? []) as Record<string, any>[]) {
+      const colTri: string | null = d.instructorTrigram ?? null;
+      const rawData: Record<string, any> = d.data ?? {};
+      let changed = false;
+
+      // Novo estado calculado
+      const newData = { ...rawData };
+
+      // 1. data.instructorTrigram — remove se órfão
+      if (newData.instructorTrigram && !validTrigrams.has(newData.instructorTrigram)) {
+        newData.instructorTrigram = null;
+        changed = true;
+      }
+
+      // 2. data.instructorByClass — remove entradas órfãs
+      if (newData.instructorByClass && typeof newData.instructorByClass === "object") {
+        const cleaned2: Record<string, string> = {};
+        for (const [k, v] of Object.entries(newData.instructorByClass as Record<string, string>)) {
+          if (validTrigrams.has(v)) cleaned2[k] = v;
+          else changed = true;
+        }
+        newData.instructorByClass = Object.keys(cleaned2).length ? cleaned2 : null;
+      }
+
+      // 3. data.instructorByYear — remove entradas órfãs
+      if (newData.instructorByYear && typeof newData.instructorByYear === "object") {
+        const newByYear: Record<string, any> = {};
+        for (const [yr, yd] of Object.entries(newData.instructorByYear as Record<string, any>)) {
+          const updYd: Record<string, any> = { ...yd };
+          if (updYd.trigram && !validTrigrams.has(updYd.trigram)) {
+            updYd.trigram = null; changed = true;
+          }
+          if (updYd.byClass && typeof updYd.byClass === "object") {
+            const cleanedByClass: Record<string, string> = {};
+            for (const [k, v] of Object.entries(updYd.byClass as Record<string, string>)) {
+              if (validTrigrams.has(v)) cleanedByClass[k] = v;
+              else changed = true;
+            }
+            updYd.byClass = Object.keys(cleanedByClass).length ? cleanedByClass : null;
+          }
+          // Mantém o ano mesmo que vazio, para preservar histórico
+          newByYear[yr] = updYd;
+        }
+        newData.instructorByYear = newByYear;
+      }
+
+      // 4. Coluna instructorTrigram: sincroniza com data.instructorTrigram
+      const canonicalTrigram = newData.instructorTrigram ?? null;
+      if (colTri !== canonicalTrigram) changed = true;
+
+      if (changed) {
+        await adminClient.from("disciplinas").update({
+          instructorTrigram: canonicalTrigram,
+          data: newData,
+        }).eq("id", d.id);
+        cleaned++;
+      }
+    }
+
+    return ok({ success: true, disciplinesCleaned: cleaned });
+  }
+
   // ── save_event ──────────────────────────────────────────────────────────────
   if (action === "save_event") {
     const { event } = body;

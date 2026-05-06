@@ -127,7 +127,7 @@ export const subscribeToCollection = (
  * Busca eventos por intervalo de datas — sem Realtime.
  */
 // Campos mínimos de programacao_aulas usados pelo frontend — evita baixar colunas desnecessárias
-const EVENTS_SELECT = "id,disciplineId,classId,date,startTime,endTime,location,type,evaluationType,isBlocking,targetSquadron,targetCourse,targetClass,description,notes,endDate,instructorTrigram,changeRequestId";
+const EVENTS_SELECT = "id,disciplineId,classId,date,startTime,endTime,location,type,evaluationType,isBlocking,targetSquadron,targetCourse,targetClass,description,notes,endDate,instructorId,changeRequestId";
 
 /** Cache de eventos por semana: chave "startDate|endDate" → { data, ts } */
 const eventsWeekCache = new Map<string, { data: unknown[]; ts: number }>();

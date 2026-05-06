@@ -117,6 +117,27 @@ export const UserManagement = () => {
   const [passwordResult, setPasswordResult] = useState<{ name: string; email: string; password: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Data maintenance
+  const [isCleaningData, setIsCleaningData] = useState(false);
+  const [cleanResult, setCleanResult] = useState<string | null>(null);
+
+  const handleCleanDisciplineInstructors = async () => {
+    setIsCleaningData(true);
+    setCleanResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-manage-content", {
+        body: { action: "clean_discipline_instructors" },
+      });
+      if (error) throw error;
+      const count = (data as any)?.disciplinesCleaned ?? 0;
+      setCleanResult(`Limpeza concluída: ${count} disciplina(s) normalizadas.`);
+    } catch (e: any) {
+      setCleanResult(`Erro: ${e.message}`);
+    } finally {
+      setIsCleaningData(false);
+    }
+  };
+
   // Reset Password Modal
   const [resetTarget, setResetTarget] = useState<UserProfile | null>(null);
   const [resetCustomPwd, setResetCustomPwd] = useState("");
@@ -1248,6 +1269,33 @@ export const UserManagement = () => {
           </div>
         </div>
       )}
+
+      {/* Manutenção de Dados */}
+      <div className={`rounded-xl border p-5 ${theme === "dark" ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
+        <h2 className={`text-base font-semibold mb-1 ${theme === "dark" ? "text-slate-100" : "text-slate-800"}`}>
+          Manutenção de Dados
+        </h2>
+        <p className={`text-xs mb-4 ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+          Operações de limpeza e normalização do banco de dados.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => void handleCleanDisciplineInstructors()}
+            disabled={isCleaningData}
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            {isCleaningData ? "Limpando..." : "Normalizar docentes das disciplinas"}
+          </button>
+          {cleanResult && (
+            <span className={`text-sm ${cleanResult.startsWith("Erro") ? "text-red-500" : "text-green-500"}`}>
+              {cleanResult}
+            </span>
+          )}
+        </div>
+        <p className={`text-xs mt-2 ${theme === "dark" ? "text-slate-500" : "text-slate-400"}`}>
+          Remove trigramas inválidos (instrutores excluídos) de todas as disciplinas e sincroniza os campos de docente.
+        </p>
+      </div>
     </div>
   );
 };

@@ -648,11 +648,7 @@ export const GanttProgramming = () => {
       if (existingId) {
         updateEvent(existingId, eventData);
         setWeekEvents((prev) => prev.map((e) => e.id === existingId ? { ...e, ...eventData } : e));
-        // Recarrega do banco após um breve delay para garantir consistência visual
-        setTimeout(() => {
-          invalidateEventsWeekCache();
-          subscribeToEventsByDateRange(startDayStr, endDayStr, (evs) => setWeekEvents(evs as ScheduleEvent[]));
-        }, 800);
+        invalidateEventsWeekCache();
       } else {
         const newEvent: ScheduleEvent = { ...eventData, id: crypto.randomUUID() };
         setWeekEvents((prev) => [...prev, newEvent]);

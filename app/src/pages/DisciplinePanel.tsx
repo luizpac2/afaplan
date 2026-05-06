@@ -608,7 +608,14 @@ export const DisciplinePanel = () => {
          if (isDocente && myInstructor) {
             if (!disciplineHasInstructor(d, myInstructor.trigram)) return false;
          }
-         if (instrFilter !== 'ALL') {
+         if (instrFilter === 'NO_INSTRUCTOR') {
+            const hasAny = !!d.instructorTrigram ||
+               (d.instructorByClass && Object.keys(d.instructorByClass).length > 0) ||
+               (d.instructorByYear && Object.values(d.instructorByYear).some(
+                  y => y.trigram || (y.byClass && Object.keys(y.byClass).length > 0)
+               ));
+            if (hasAny) return false;
+         } else if (instrFilter !== 'ALL') {
             if (!disciplineHasInstructor(d, instrFilter)) return false;
          }
          if (fieldFilter !== 'ALL' && d.trainingField !== fieldFilter) return false;
@@ -638,7 +645,7 @@ export const DisciplinePanel = () => {
       return s + Math.round(evs.filter(e => e.date < today).length / uCls);
    }, 0), [filteredDiscs, eventsByDisc, today]);
    const totalPPC       = useMemo(() => filteredDiscs.reduce((s, d) => s + getTotalPPC(d), 0), [filteredDiscs]);
-   const hasActiveFilters = fieldFilter !== 'ALL' || courseFilter !== 'ALL' || yearFilter !== 'ALL' || instrFilter !== 'ALL' || classFilter !== 'ALL' || statusFilter !== 'ALL';
+   const hasActiveFilters = fieldFilter !== 'ALL' || courseFilter !== 'ALL' || yearFilter !== 'ALL' || (instrFilter !== 'ALL') || classFilter !== 'ALL' || statusFilter !== 'ALL';
 
    // Selected instructor (for bulk download)
    const selectedInstructor = instrFilter !== 'ALL' ? instructorByTrigram[instrFilter] : undefined;
@@ -686,6 +693,7 @@ export const DisciplinePanel = () => {
                            className={`pr-7 py-1.5 pl-2 rounded-lg border text-sm outline-none ${instrFilter !== 'ALL' ? (isDark ? 'bg-blue-900/40 text-slate-100 border-blue-600' : 'bg-blue-50 text-blue-900 border-blue-300') : (isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-700')}`}
                            style={{ colorScheme: isDark ? 'dark' : 'light' }}>
                            <option value="ALL">Todos os docentes</option>
+                           <option value="NO_INSTRUCTOR">Sem docente</option>
                            {[...instructors].sort((a, b) => a.warName.localeCompare(b.warName)).map(i => (
                               <option key={i.trigram} value={i.trigram}>{i.trigram} — {i.warName}</option>
                            ))}
