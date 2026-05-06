@@ -46,6 +46,7 @@ const TYPE_LABELS: Record<string, string> = {
 interface GanttEvent {
   id: string;           // id do primeiro evento fundido (chave React)
   mergedIds: string[];  // todos os ids fundidos nesta barra
+  classIds: string[];   // classIds dos eventos fundidos (para avaliações)
   label: string;
   start: Date;
   end: Date;
@@ -87,8 +88,9 @@ function mergeConsecutive(events: GanttEvent[]): GanttEvent[] {
     if (last && diffDays(last.end, ev.start) <= 1) {
       if (ev.end > last.end) last.end = ev.end;
       last.mergedIds.push(...ev.mergedIds);
+      for (const c of ev.classIds) { if (!last.classIds.includes(c)) last.classIds.push(c); }
     } else {
-      merged.push({ ...ev, mergedIds: [...ev.mergedIds] });
+      merged.push({ ...ev, mergedIds: [...ev.mergedIds], classIds: [...ev.classIds] });
     }
   }
   return merged;
@@ -220,7 +222,7 @@ export const AcademicGantt = () => {
         const color = (e.type === "ACADEMIC" || e.disciplineId === "ACADEMIC") && sqValid
           ? sqColor(sqNum!)
           : (TYPE_COLORS[e.type ?? ""] ?? TYPE_COLORS.ACADEMIC);
-        return { id: e.id, mergedIds: [e.id], label, start, end, color, squadron: sqValid ? sqNum : null, type: e.type ?? "ACADEMIC" };
+        return { id: e.id, mergedIds: [e.id], classIds: e.classId ? [e.classId] : [], label, start, end, color, squadron: sqValid ? sqNum : null, type: e.type ?? "ACADEMIC" };
       })
       .filter(e => {
         // Type filter (multi-select, empty = all)
@@ -450,10 +452,27 @@ export const AcademicGantt = () => {
                         title={canEdit ? "Clique para editar" : undefined}
                       >
                         <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
-                        <span className={`text-[10px] leading-tight truncate ${isDark ? "text-slate-200" : "text-slate-700"}`}>
-                          {ev.label}
-                        </span>
-                        {ev.squadron !== null && (
+                        <div className="flex-1 min-w-0">
+                          <span className={`text-[10px] leading-tight truncate block ${isDark ? "text-slate-200" : "text-slate-700"}`}>
+                            {ev.label}
+                          </span>
+                          {ev.type === "EVALUATION" && (() => {
+                            const ids = [...ev.classIds].sort();
+                            let audience = "";
+                            if (ev.squadron === null) { audience = "Todos"; }
+                            else if (ids.length === 0) { audience = ev.squadron ? `${ev.squadron}º Esq` : ""; }
+                            else if (ids.every(c => c.endsWith("ESQ"))) { audience = ids.map(c => `${c.replace("ESQ","")}º Esq`).join(", "); }
+                            else {
+                              const letters = [...new Set(ids.map(c => c.slice(1)))].sort();
+                              if (letters.length >= 4 && letters.every(l => ["A","B","C","D"].includes(l))) audience = "Aviação";
+                              else if (letters.every(l => l === "E")) audience = "Intendência";
+                              else if (letters.every(l => l === "F")) audience = "Infantaria";
+                              else audience = ids.join("/");
+                            }
+                            return audience ? <span className="text-[9px] text-orange-500/80 truncate block">{audience}</span> : null;
+                          })()}
+                        </div>
+                        {ev.squadron !== null && ev.type !== "EVALUATION" && (
                           <span className="text-[9px] ml-auto flex-shrink-0 font-semibold" style={{ color: ev.color }}>{ev.squadron}º</span>
                         )}
                       </div>

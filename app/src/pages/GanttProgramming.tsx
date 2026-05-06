@@ -1321,14 +1321,16 @@ export const GanttProgramming = () => {
                       <div className="flex flex-col gap-1">
                         {/* Agrupa avaliações por disciplina+tipo, demais eventos aparecem normalmente */}
                         {(() => {
-                          const evalMap = new Map<string, { ev: typeof academic_[0]; turmas: string[] }>();
+                          const evalMap = new Map<string, { ev: typeof academic_[0]; classIds: string[]; targetSquadron: string | number | null }>();
                           const others: typeof academic_ = [];
                           for (const ev of academic_) {
                             if (ev.type === "EVALUATION") {
                               const key = `${ev.disciplineId}|${ev.evaluationType || ""}`;
-                              if (!evalMap.has(key)) evalMap.set(key, { ev, turmas: [] });
-                              if (ev.classId && !evalMap.get(key)!.turmas.includes(ev.classId))
-                                evalMap.get(key)!.turmas.push(ev.classId);
+                              if (!evalMap.has(key)) evalMap.set(key, { ev, classIds: [], targetSquadron: (ev as any).targetSquadron ?? null });
+                              const entry = evalMap.get(key)!;
+                              if (ev.classId && !entry.classIds.includes(ev.classId))
+                                entry.classIds.push(ev.classId);
+                              if ((ev as any).targetSquadron === "ALL") entry.targetSquadron = "ALL";
                             } else {
                               others.push(ev);
                             }
@@ -1337,13 +1339,24 @@ export const GanttProgramming = () => {
                             PARTIAL: "Av. Parcial", EXAM: "Exame", FINAL: "Av. Final",
                             SECOND_CHANCE: "2ª Chamada", REVIEW: "Vista",
                           };
+                          const formatAudience = (classIds: string[], targetSquadron: string | number | null): string => {
+                            if (targetSquadron === "ALL") return "Todos";
+                            const ids = [...classIds].sort();
+                            if (ids.length === 0) return "";
+                            if (ids.every(c => c.endsWith("ESQ"))) return ids.map(c => `${c.replace("ESQ","")}º Esq`).join(", ");
+                            const letters = [...new Set(ids.map(c => c.slice(1)))].filter(Boolean).sort();
+                            if (letters.length >= 4 && letters.every(l => ["A","B","C","D"].includes(l))) return "Aviação";
+                            if (letters.every(l => l === "E")) return "Intendência";
+                            if (letters.every(l => l === "F")) return "Infantaria";
+                            return ids.join("/");
+                          };
                           return (
                             <>
-                              {[...evalMap.values()].map(({ ev, turmas }) => {
+                              {[...evalMap.values()].map(({ ev, classIds, targetSquadron }) => {
                                 const disc = disciplines.find((d) => d.id === ev.disciplineId);
                                 const code = disc?.code || ev.disciplineId;
                                 const evalLabel = EVAL_LABELS[ev.evaluationType || ""] || "Avaliação";
-                                turmas.sort();
+                                const audience = formatAudience(classIds, targetSquadron);
                                 return (
                                   <div
                                     key={`eval-${ev.disciplineId}-${ev.evaluationType}`}
@@ -1352,13 +1365,11 @@ export const GanttProgramming = () => {
                                     <p className="text-[10px] font-bold leading-tight text-orange-500">
                                       {code} — {evalLabel}
                                     </p>
-                                    <div className="flex flex-wrap gap-[3px] mt-1">
-                                      {turmas.map((t) => (
-                                        <span key={t} className="text-[8px] font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded px-1">
-                                          {t}
-                                        </span>
-                                      ))}
-                                    </div>
+                                    {audience && (
+                                      <span className="inline-block mt-1 text-[8px] font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded px-1">
+                                        {audience}
+                                      </span>
+                                    )}
                                   </div>
                                 );
                               })}
