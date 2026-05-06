@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useCourseStore } from "../store/useCourseStore";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { InstructorCombobox } from "./InstructorCombobox";
 import { useTheme } from "../contexts/ThemeContext";
 import { CLASSES, TIME_SLOTS } from "../utils/constants";
 import type { ScheduleEvent, EventType, EvaluationType } from "../types";
@@ -674,35 +675,19 @@ export const EventForm = ({
                         return null;
                       })()}
                     </div>
-                    <select
+                    <InstructorCombobox
+                      instructors={instructors.filter((inst) =>
+                        isInstructorEnabledForDiscipline(inst, formData.disciplineId) &&
+                        formData.classIds.every((cid) => isInstructorEnabledForClass(inst, cid))
+                      )}
                       value={formData.instructorTrigram || ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          instructorTrigram: e.target.value,
-                        })
-                      }
-                      className={`w-full px-3 py-2.5 rounded-xl border focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all  ${theme === "dark" ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}
-                    >
-                      <option value="">
-                        {disciplines.find((d) => d.id === formData.disciplineId)
-                          ?.noSpecificInstructor
+                      onChange={(v) => setFormData({ ...formData, instructorTrigram: v })}
+                      emptyLabel={
+                        disciplines.find((d) => d.id === formData.disciplineId)?.noSpecificInstructor
                           ? "Sem Instrutor (Setor)"
-                          : "Docente da Disciplina"}
-                      </option>
-                      {instructors
-                        .filter((inst) => {
-                          return (
-                            isInstructorEnabledForDiscipline(inst, formData.disciplineId) &&
-                            formData.classIds.every((cid) => isInstructorEnabledForClass(inst, cid))
-                          );
-                        })
-                        .map((inst) => (
-                          <option key={inst.trigram} value={inst.trigram}>
-                            {inst.trigram} - {inst.warName}
-                          </option>
-                        ))}
-                    </select>
+                          : "Docente da Disciplina"
+                      }
+                    />
                     {(() => {
                       const trigram =
                         formData.instructorTrigram ||
