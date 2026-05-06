@@ -76,6 +76,7 @@ export const EventForm = ({
     type: "CLASS" as EventType,
     evaluationType: "PARTIAL" as EvaluationType,
     instructorTrigram: "",
+    targetSquadron: null as number | "ALL" | null,
   });
 
   // Locais ativos da Gestão de Locais
@@ -141,6 +142,7 @@ export const EventForm = ({
         type: initialData.type || "CLASS",
         evaluationType: initialData.evaluationType || "PARTIAL",
         instructorTrigram: initialData.instructorTrigram || "",
+        targetSquadron: (initialData as any).targetSquadron ?? null,
       }));
 
       // For editing, we usually have a single classId. Ensure it's in classIds.
@@ -174,8 +176,7 @@ export const EventForm = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // If there are multiple classIds, we create an event for each one.
-    // We pass classIds specifically in the submission.
+    if (formData.type === "EVALUATION" && formData.targetSquadron == null) return;
     (onSubmit as any)({ ...formData, classIds: formData.classIds });
   };
 
@@ -412,6 +413,38 @@ export const EventForm = ({
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Esquadrão da Avaliação — obrigatório quando EVALUATION */}
+            {formData.type === "EVALUATION" && (
+              <div className="animate-in fade-in slide-in-from-left-2">
+                <label className={`block text-xs uppercase tracking-wider mb-1.5 ${formData.targetSquadron == null ? "text-red-500" : theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                  Esquadrão da Avaliação {formData.targetSquadron == null && <span className="text-red-500">*</span>}
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {([1, 2, 3, 4] as const).map((sq) => (
+                    <button key={sq} type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, targetSquadron: sq }))}
+                      className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${formData.targetSquadron === sq
+                        ? "bg-orange-600 border-orange-600 text-white shadow-sm"
+                        : theme === "dark" ? "bg-slate-800 border-slate-700 text-slate-300 hover:border-orange-500" : "bg-white border-gray-200 text-gray-600 hover:border-orange-400"}`}
+                    >
+                      {sq}º Esq
+                    </button>
+                  ))}
+                  <button type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, targetSquadron: "ALL" }))}
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${formData.targetSquadron === "ALL"
+                      ? "bg-orange-600 border-orange-600 text-white shadow-sm"
+                      : theme === "dark" ? "bg-slate-800 border-slate-700 text-slate-300 hover:border-orange-500" : "bg-white border-gray-200 text-gray-600 hover:border-orange-400"}`}
+                  >
+                    Todos
+                  </button>
+                </div>
+                {formData.targetSquadron == null && (
+                  <p className="text-[10px] text-red-500 mt-1">Selecione o esquadrão destino da avaliação.</p>
+                )}
               </div>
             )}
           </div>
