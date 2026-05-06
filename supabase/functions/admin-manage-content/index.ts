@@ -270,10 +270,10 @@ Deno.serve(async (req) => {
 
     // 3. Atualiza disciplinas — busca todas e filtra em JS
     const { data: allDiscs } = await adminClient
-      .from("disciplinas").select("id, data, instructorTrigram");
+      .from("disciplinas").select("id, data");
     for (const d of (allDiscs ?? []) as Record<string, any>[]) {
       const data = d.data as Record<string, any> ?? {};
-      const directMatch = d.instructorTrigram === oldTrigram;
+      const directMatch = false; // instructorTrigram não é coluna direta
       const jsonbMatch  = data?.instructorTrigram === oldTrigram;
 
       // Check instructorByClass in jsonb
@@ -295,7 +295,6 @@ Deno.serve(async (req) => {
       if (!directMatch && !jsonbMatch && !byClassMatch && !byYearMatch) continue;
 
       const patch: Record<string, unknown> = {};
-      if (directMatch) patch.instructorTrigram = newTrigram;
 
       if (jsonbMatch || byClassMatch || byYearMatch) {
         const newData = { ...data };
@@ -351,16 +350,13 @@ Deno.serve(async (req) => {
     const validTrigrams = new Set((instrRows ?? []).map((r: any) => r.trigram as string));
 
     const { data: allDiscs, error: discErr } = await adminClient
-      .from("disciplinas").select("id, instructorTrigram, data");
+      .from("disciplinas").select("id, data");
     if (discErr) return err(discErr.message, 500);
 
     let cleaned = 0;
     for (const d of (allDiscs ?? []) as Record<string, any>[]) {
-      const colTri: string | null = d.instructorTrigram ?? null;
       const rawData: Record<string, any> = d.data ?? {};
       let changed = false;
-
-      // Novo estado calculado
       const newData = { ...rawData };
 
       // 1. data.instructorTrigram — remove se órfão
@@ -371,12 +367,12 @@ Deno.serve(async (req) => {
 
       // 2. data.instructorByClass — remove entradas órfãs
       if (newData.instructorByClass && typeof newData.instructorByClass === "object") {
-        const cleaned2: Record<string, string> = {};
+        const cleanedByClass: Record<string, string> = {};
         for (const [k, v] of Object.entries(newData.instructorByClass as Record<string, string>)) {
-          if (validTrigrams.has(v)) cleaned2[k] = v;
+          if (validTrigrams.has(v)) cleanedByClass[k] = v;
           else changed = true;
         }
-        newData.instructorByClass = Object.keys(cleaned2).length ? cleaned2 : null;
+        newData.instructorByClass = Object.keys(cleanedByClass).length ? cleanedByClass : null;
       }
 
       // 3. data.instructorByYear — remove entradas órfãs
@@ -388,29 +384,23 @@ Deno.serve(async (req) => {
             updYd.trigram = null; changed = true;
           }
           if (updYd.byClass && typeof updYd.byClass === "object") {
-            const cleanedByClass: Record<string, string> = {};
+            const cleanedYdClass: Record<string, string> = {};
             for (const [k, v] of Object.entries(updYd.byClass as Record<string, string>)) {
-              if (validTrigrams.has(v)) cleanedByClass[k] = v;
+              if (validTrigrams.has(v)) cleanedYdClass[k] = v;
               else changed = true;
             }
-            updYd.byClass = Object.keys(cleanedByClass).length ? cleanedByClass : null;
+            updYd.byClass = Object.keys(cleanedYdClass).length ? cleanedYdClass : null;
           }
-          // Mantém o ano mesmo que vazio, para preservar histórico
           newByYear[yr] = updYd;
         }
         newData.instructorByYear = newByYear;
       }
 
-      // 4. Coluna instructorTrigram: sincroniza com data.instructorTrigram
-      const canonicalTrigram = newData.instructorTrigram ?? null;
-      if (colTri !== canonicalTrigram) changed = true;
-
       if (changed) {
-        await adminClient.from("disciplinas").update({
-          instructorTrigram: canonicalTrigram,
-          data: newData,
-        }).eq("id", d.id);
-        cleaned++;
+        const { error: updErr } = await adminClient.from("disciplinas")
+          .update({ data: newData }).eq("id", d.id);
+        if (updErr) console.error("clean_discipline_instructors update error:", d.id, updErr.message);
+        else cleaned++;
       }
     }
 
