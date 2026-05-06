@@ -1,9 +1,10 @@
-
+﻿
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { X, Save, Search, Users } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCourseStore } from '../store/useCourseStore';
 import type { Discipline, CourseYear } from '../types';
+import { InstructorCombobox } from './InstructorCombobox';
 
 interface DisciplineFormProps {
     initialData?: Discipline;
@@ -210,16 +211,13 @@ function InstructorByYearSection({
                             <label className={`text-[10px] font-semibold block mb-1 ${mutedCls}`}>
                                 Docente Titular em {selectedYear}
                             </label>
-                            <select
+                            <InstructorCombobox
+                                instructors={sortedInstructors}
                                 value={yearData?.trigram ?? ''}
-                                onChange={e => setYearTitular(e.target.value)}
-                                className={inputCls}
-                            >
-                                <option value="">— Usar padrão{formData.instructorTrigram ? ` (${formData.instructorTrigram})` : ''} —</option>
-                                {sortedInstructors.map(i => (
-                                    <option key={i.trigram} value={i.trigram}>{i.trigram} — {i.warName}</option>
-                                ))}
-                            </select>
+                                onChange={setYearTitular}
+                                emptyLabel={`— Usar padrão${formData.instructorTrigram ? ` (${formData.instructorTrigram})` : ''} —`}
+                                size="sm"
+                            />
                             {hasYearOverride && yearData?.trigram && (
                                 <p className={`text-[10px] mt-0.5 text-blue-500`}>✓ {yearData.trigram} — titular para {selectedYear}</p>
                             )}
@@ -244,16 +242,13 @@ function InstructorByYearSection({
                                                             <label className={`text-[9px] font-medium mb-0.5 block ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                                                                 {cid} — {course ? COURSE_LABELS[course] : ''}
                                                             </label>
-                                                            <select
+                                                            <InstructorCombobox
+                                                                instructors={sortedInstructors}
                                                                 value={val}
-                                                                onChange={e => setYearClassTrigram(cid, e.target.value)}
-                                                                className={inputCls}
-                                                            >
-                                                                <option value="">— Titular do ano —</option>
-                                                                {sortedInstructors.map(i => (
-                                                                    <option key={i.trigram} value={i.trigram}>{i.trigram} — {i.warName}</option>
-                                                                ))}
-                                                            </select>
+                                                                onChange={v => setYearClassTrigram(cid, v)}
+                                                                emptyLabel="— Titular do ano —"
+                                                                size="sm"
+                                                            />
                                                         </div>
                                                     );
                                                 })}
@@ -291,7 +286,7 @@ function InstructorByYearSection({
 
 export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFormProps) => {
     const { theme } = useTheme();
-    const { instructors, locations } = useCourseStore();
+    const { instructors, locations, disciplineAreas } = useCourseStore();
     const [titularSearch, setTitularSearch] = useState('');
     const [substituteSearch, setSubstituteSearch] = useState('');
     const [showTitularDropdown, setShowTitularDropdown] = useState(false);
@@ -314,7 +309,8 @@ export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFo
         substituteHours: 0,
         location: 'Sala de Aula',
         color: '#3b82f6',
-        noSpecificInstructor: false
+        noSpecificInstructor: false,
+        areaId: undefined,
     });
 
     useEffect(() => {
@@ -335,7 +331,8 @@ export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFo
                 substituteHours: initialData.substituteHours || 0,
                 location: initialData.location || '',
                 color: initialData.color,
-                noSpecificInstructor: initialData.noSpecificInstructor || false
+                noSpecificInstructor: initialData.noSpecificInstructor || false,
+                areaId: initialData.areaId,
             });
             // Pré-preenche os campos de busca com o nome do instrutor atual
             const titular = instructors.find(i => i.trigram === initialData.instructorTrigram);
@@ -477,19 +474,34 @@ export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFo
                         </div>
                     </div>
 
-                    <div>
-                        <label className={`block text-sm  mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'}`}>Campo de Formação</label>
-                        <select
-                            value={formData.trainingField}
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            onChange={e => setFormData({ ...formData, trainingField: e.target.value as any })}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-slate-100' : 'border-gray-300'}`}
-                        >
-                            <option value="ATIVIDADES_COMPLEMENTARES">Atividades Complementares</option>
-                            <option value="GERAL">Geral</option>
-                            <option value="MILITAR">Militar</option>
-                            <option value="PROFISSIONAL">Profissional</option>
-                        </select>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className={`block text-sm  mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'}`}>Campo de Formação</label>
+                            <select
+                                value={formData.trainingField}
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                onChange={e => setFormData({ ...formData, trainingField: e.target.value as any })}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-slate-100' : 'border-gray-300'}`}
+                            >
+                                <option value="ATIVIDADES_COMPLEMENTARES">Ativ. Complementares</option>
+                                <option value="GERAL">Geral</option>
+                                <option value="MILITAR">Militar</option>
+                                <option value="PROFISSIONAL">Profissional</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className={`block text-sm mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'}`}>Área Acadêmica</label>
+                            <select
+                                value={formData.areaId ?? ''}
+                                onChange={e => setFormData({ ...formData, areaId: e.target.value || undefined })}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-slate-100' : 'border-gray-300'}`}
+                            >
+                                <option value="">— Nenhuma —</option>
+                                {[...disciplineAreas].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')).map(area => (
+                                    <option key={area.id} value={area.id}>{area.code ? `[${area.code}] ` : ''}{area.name}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

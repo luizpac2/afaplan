@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+﻿import { useState, useMemo, useEffect, useRef } from 'react';
 import {
    Search, CheckCircle2, BookOpen, Clock, GraduationCap,
    X, TrendingUp, Calendar, ChevronDown, FileText, CalendarCheck,
@@ -11,6 +11,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import type { Instructor, Discipline, ScheduleEvent, CourseClass } from '../types';
 import { resolveInstructorTrigram, disciplineHasInstructor } from '../utils/instructorResolver';
+import { InstructorCombobox } from '../components/InstructorCombobox';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const FIELD_LABELS: Record<string, string> = {
@@ -687,17 +688,21 @@ export const DisciplinePanel = () => {
                <div className="flex items-center gap-2">
                   {/* Docente quick selector */}
                   {!isDocente && (
-                     <div className="flex items-center gap-1.5">
+                     <div className="flex items-center gap-1.5 flex-wrap">
                         <Users size={14} className="text-slate-400 shrink-0" />
-                        <select value={instrFilter} onChange={e => setInstrFilter(e.target.value)}
-                           className={`pr-7 py-1.5 pl-2 rounded-lg border text-sm outline-none ${instrFilter !== 'ALL' ? (isDark ? 'bg-blue-900/40 text-slate-100 border-blue-600' : 'bg-blue-50 text-blue-900 border-blue-300') : (isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-700')}`}
-                           style={{ colorScheme: isDark ? 'dark' : 'light' }}>
-                           <option value="ALL">Todos os docentes</option>
-                           <option value="NO_INSTRUCTOR">Sem docente</option>
-                           {[...instructors].sort((a, b) => a.warName.localeCompare(b.warName)).map(i => (
-                              <option key={i.trigram} value={i.trigram}>{i.trigram} — {i.warName}</option>
-                           ))}
-                        </select>
+                        <button onClick={() => setInstrFilter('ALL')}
+                           className={"px-2 py-1 rounded text-xs border transition-colors " + (instrFilter === 'ALL' ? (isDark ? 'bg-blue-700 text-white border-blue-600' : 'bg-blue-600 text-white border-blue-700') : (isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-blue-500' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400'))}>Todos</button>
+                        <button onClick={() => setInstrFilter('NO_INSTRUCTOR')}
+                           className={"px-2 py-1 rounded text-xs border transition-colors " + (instrFilter === 'NO_INSTRUCTOR' ? (isDark ? 'bg-amber-700 text-white border-amber-600' : 'bg-amber-500 text-white border-amber-600') : (isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-amber-500' : 'bg-white text-slate-600 border-slate-200 hover:border-amber-400'))}>Sem docente</button>
+                        <div className="w-48">
+                           <InstructorCombobox
+                              instructors={instructors}
+                              value={instrFilter === 'ALL' || instrFilter === 'NO_INSTRUCTOR' ? '' : instrFilter}
+                              onChange={v => setInstrFilter(v || 'ALL')}
+                              emptyLabel="Filtrar por docente..."
+                              size="sm"
+                           />
+                        </div>
                      </div>
                   )}
                   {/* Bulk download when instructor selected */}

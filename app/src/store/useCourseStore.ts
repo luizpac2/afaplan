@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type {
   Discipline,
+  DisciplineArea,
   ScheduleEvent,
   CourseClass,
   Cohort,
@@ -69,6 +70,7 @@ interface CourseState {
   notices: SystemNotice[];
   visualConfigs: VisualConfig[];
   instructors: Instructor[];
+  disciplineAreas: DisciplineArea[];
   occurrences: InstructorOccurrence[];
   semesterConfigs: SemesterConfig[];
   changeRequests: ScheduleChangeRequest[];
@@ -128,6 +130,10 @@ interface CourseState {
   appConfigs: Record<string, unknown>;
   setAppConfig: (key: string, value: unknown) => Promise<void>;
   loadAppConfigs: (configs: Record<string, unknown>) => void;
+
+  setDisciplineAreas: (areas: DisciplineArea[]) => void;
+  upsertDisciplineArea: (area: DisciplineArea) => void;
+  deleteDisciplineArea: (id: string) => void;
 
   // Instructor actions
   setInstructors: (instructors: Instructor[]) => void;
@@ -224,6 +230,7 @@ export const useCourseStore = create<CourseState>((set) => ({
   notices: [],
   visualConfigs: [],
   instructors: [],
+  disciplineAreas: [],
   occurrences: [],
   semesterConfigs: [],
   changeRequests: [],
@@ -479,6 +486,7 @@ export const useCourseStore = create<CourseState>((set) => ({
           trainingField: discipline.trainingField !== "GERAL" ? discipline.trainingField : undefined,
           instructor: discipline.instructor,
           instructorTrigram: discipline.instructorTrigram,
+          areaId: discipline.areaId ?? null,
         },
       };
       await contentFn("upsert_discipline", { code: discipline.code, data: dbDiscipline });
@@ -537,6 +545,7 @@ export const useCourseStore = create<CourseState>((set) => ({
             enabledCourses: after.enabledCourses ?? null,
             enabledYears: after.enabledYears ?? null,
             ppcLoads: after.ppcLoads ?? null,
+            areaId: after.areaId ?? null,
           },
         };
         await contentFn("update_discipline", { code: after.code, updates: dbUpdates });
@@ -1181,6 +1190,16 @@ export const useCourseStore = create<CourseState>((set) => ({
       invalidateStaticCache("visual_configs");
     }
   },
+
+  setDisciplineAreas: (areas) => set({ disciplineAreas: areas }),
+  upsertDisciplineArea: (area) =>
+    set((s) => ({
+      disciplineAreas: s.disciplineAreas.some((a) => a.id === area.id)
+        ? s.disciplineAreas.map((a) => (a.id === area.id ? area : a))
+        : [...s.disciplineAreas, area],
+    })),
+  deleteDisciplineArea: (id) =>
+    set((s) => ({ disciplineAreas: s.disciplineAreas.filter((a) => a.id !== id) })),
 
   // Instructor Implementations
   setInstructors: (instructors) => set({ instructors }),

@@ -114,11 +114,22 @@ export interface SemesterConfig {
   s2End: string;
 }
 
+export interface DisciplineArea {
+  id: string;
+  name: string;
+  code?: string;
+  trainingField?: TrainingField;
+  coordinatorName?: string;
+  coordinatorEmail?: string;
+  coordinatorUserId?: string;
+}
+
 export interface Discipline {
   id: string;
   code: string;
   name: string;
   trainingField: TrainingField;
+  areaId?: string;
   instructor?: string; // Still here for legacy, but will map to trigram
   instructorTrigram?: string; // Link to Instructor.trigram (default, all years)
   instructorByClass?: Record<string, string>; // classId → trigram (default per-class overrides, all years)

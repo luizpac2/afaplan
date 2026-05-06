@@ -45,6 +45,7 @@ const ChangeRequestsPage = lazy(() => import("./pages/admin/ChangeRequestsPage")
 const ChefeTurmaAdmin = lazy(() => import("./pages/admin/ChefeTurmaAdmin").then(m => ({ default: m.ChefeTurmaAdmin })));
 const ChefeTurmaLancamento = lazy(() => import("./pages/ChefeTurmaLancamento").then(m => ({ default: m.ChefeTurmaLancamento })));
 const FaltasReport = lazy(() => import("./pages/FaltasReport").then(m => ({ default: m.FaltasReport })));
+const DisciplineAreaManager = lazy(() => import("./pages/admin/DisciplineAreaManager").then(m => ({ default: m.DisciplineAreaManager })));
 const DisciplineDashboard = lazy(() => import("./pages/DisciplineDashboard").then(m => ({ default: m.DisciplineDashboard })));
 const GanttProgramming = lazy(() => import("./pages/GanttProgramming").then(m => ({ default: m.GanttProgramming })));
 const AulasDashboard   = lazy(() => import("./pages/AulasDashboard").then(m => ({ default: m.AulasDashboard })));
@@ -393,6 +394,16 @@ function App() {
                     element={
                       <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
                         <SalasPadrao />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* ÁREAS ACADÊMICAS */}
+                  <Route
+                    path="discipline-areas"
+                    element={
+                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                        <DisciplineAreaManager />
                       </ProtectedRoute>
                     }
                   />

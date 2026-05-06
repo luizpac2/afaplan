@@ -1108,5 +1108,22 @@ Deno.serve(async (req) => {
     });
   }
 
+  // ── discipline_areas CRUD ───────────────────────────────────────────────────
+  if (action === "upsert_area") {
+    const { area } = body;
+    if (!area?.id) return err("area.id required");
+    const { error: e } = await adminClient.from("discipline_areas").upsert(area, { onConflict: "id" });
+    if (e) return err(e.message, 500);
+    return ok({ success: true });
+  }
+
+  if (action === "delete_area") {
+    const { id } = body;
+    if (!id) return err("id required");
+    const { error: e } = await adminClient.from("discipline_areas").delete().eq("id", id);
+    if (e) return err(e.message, 500);
+    return ok({ success: true });
+  }
+
   return err("Unknown action");
 });

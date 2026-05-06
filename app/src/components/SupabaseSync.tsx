@@ -8,6 +8,7 @@ import {
 import { supabase } from "../config/supabase";
 import type {
   Discipline,
+  DisciplineArea,
   CourseClass,
   Cohort,
   SystemNotice,
@@ -36,6 +37,7 @@ export const SupabaseSync = () => {
     setNotices,
     setVisualConfigs,
     setInstructors,
+    setDisciplineAreas,
     setOccurrences,
     setSemesterConfigs,
     setChangeRequests,
@@ -59,6 +61,7 @@ export const SupabaseSync = () => {
           fetchCollectionCached("occurrences"),
           fetchCollectionCached("semester_configs"),
           fetchCollectionCached("schedule_change_requests"),
+          fetchCollectionCached("discipline_areas", 24),
         ]);
 
         const [
@@ -69,6 +72,7 @@ export const SupabaseSync = () => {
           occurrences,
           semesterConfigs,
           changeRequests,
+          areasResult,
         ] = results;
 
         if (disciplines.status === "fulfilled") {
@@ -88,6 +92,18 @@ export const SupabaseSync = () => {
           }));
           setDisciplines(expanded as Discipline[]);
         } else console.warn("⚠️ Falha ao carregar disciplinas:", disciplines.reason);
+
+        if (areasResult.status === "fulfilled") {
+          setDisciplineAreas((areasResult.value as any[]).map((a) => ({
+            id: a.id,
+            name: a.name,
+            code: a.code ?? undefined,
+            trainingField: a.trainingField ?? undefined,
+            coordinatorName: a.coordinatorName ?? undefined,
+            coordinatorEmail: a.coordinatorEmail ?? undefined,
+            coordinatorUserId: a.coordinatorUserId ?? undefined,
+          })) as DisciplineArea[]);
+        }
 
         // Deriva classes (CourseClass) a partir das turmas/cohorts
         if (cohorts.status === "fulfilled") {

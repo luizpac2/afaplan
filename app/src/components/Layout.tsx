@@ -120,6 +120,7 @@ const MENU_ITEMS: MenuItem[] = [
         submenu: [
           { title: "Dashboard", path: "/discipline-dashboard" },
           { title: "Gerenciar", path: "/disciplinas" },
+          { title: "Áreas Acadêmicas", path: "/discipline-areas" },
           { title: "PPC", path: "/cursos" },
           { title: "Critérios", path: "/ficha-informativa" },
           { title: "Conflitos", path: "/conflict-report" },

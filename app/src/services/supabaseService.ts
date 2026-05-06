@@ -7,6 +7,7 @@ import { supabase } from "../config/supabase";
 export const TABLE_READ: Record<string, string> = {
   disciplines:             "disciplinas",   // leitura direto na tabela base (VIEW não tem color/data)
   disciplinas:             "disciplinas",
+  discipline_areas:        "discipline_areas",
   instructors:             "instructors",
   cohorts:                 "cohorts",
   classes:                 "cohorts",       // classes são derivadas dos cohorts

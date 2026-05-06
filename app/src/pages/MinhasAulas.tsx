@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+﻿import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   ChevronLeft, ChevronRight, CalendarDays, BookOpen,
   Info, Zap, ClipboardList, GraduationCap, Clock, MapPin, User, Star,
@@ -8,6 +8,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { useAuth } from "../contexts/AuthContext";
 import { subscribeToEventsByDateRange } from "../services/supabaseService";
+import { InstructorCombobox } from "../components/InstructorCombobox";
 import { GanttView } from "../components/GanttView";
 import {
   getStartOfWeek, addDays, formatDate, getWeekDays, formatDateForDisplay,
@@ -585,16 +586,13 @@ export const MinhasAulas = () => {
           {/* Instructor selector + chips */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`text-[11px] font-semibold uppercase tracking-wide ${muted}`}>Docente</span>
-            <select
+            <InstructorCombobox
+              instructors={instructors}
               value={docenteFilter}
-              onChange={(e) => setDocenteFilter(e.target.value)}
-              className={`text-[12px] rounded-lg border px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${isDark ? "bg-slate-800 border-slate-600 text-slate-100" : "bg-white border-slate-300 text-slate-800"}`}
-            >
-              <option value="">Todos os docentes</option>
-              {instructors.slice().sort((a, b) => a.warName.localeCompare(b.warName)).map((i) => (
-                <option key={i.trigram} value={i.trigram}>{i.rank ? `${i.rank} ` : ""}{i.warName} ({i.trigram})</option>
-              ))}
-            </select>
+              onChange={setDocenteFilter}
+              emptyLabel="Todos os docentes"
+              size="sm"
+            />
             {myDisciplines.map((d) => (
               <span key={d.id} className="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
                 style={{ borderColor: d.color + "60", backgroundColor: d.color + "18", color: d.color }}>
