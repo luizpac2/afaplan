@@ -195,7 +195,13 @@ export const AcademicGantt = () => {
       .filter(e => SHOW_TYPES.has(e.type ?? "") || e.disciplineId === "ACADEMIC")
       .map(e => {
         const sqRaw    = e.targetSquadron;
-        const sqNum    = sqRaw != null && sqRaw !== "ALL" ? Number(sqRaw) : null;
+        // For EVALUATION: fall back to classId when targetSquadron is not set
+        const sqFallback = (e.type === "EVALUATION" && sqRaw == null && e.classId)
+          ? parseInt(e.classId.charAt(0))
+          : null;
+        const sqNum    = sqRaw === "ALL" ? null
+          : sqRaw != null ? Number(sqRaw)
+          : (sqFallback !== null && !isNaN(sqFallback) ? sqFallback : null);
         const sqValid  = sqNum !== null && Number.isFinite(sqNum) && sqNum >= 1 && sqNum <= 4;
         let label: string;
         if (e.type === "EVALUATION") {
@@ -219,8 +225,11 @@ export const AcademicGantt = () => {
       .filter(e => {
         // Type filter (multi-select, empty = all)
         if (selTypes.size > 0 && !selTypes.has(e.type)) return false;
-        // Squadron filter (multi-select, empty = all); null squadron = general event, always shown
-        if (selSquadrons.size > 0 && e.squadron !== null && !selSquadrons.has(e.squadron)) return false;
+        // Squadron filter; EVALUATION events are always squadron-specific (never universal)
+        if (selSquadrons.size > 0) {
+          if (e.squadron !== null) { if (!selSquadrons.has(e.squadron)) return false; }
+          else if (e.type === "EVALUATION") return false; // no squadron info → hide when filtering
+        }
         return true;
       })
       .sort((a, b) => a.start.getTime() - b.start.getTime());

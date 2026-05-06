@@ -535,6 +535,15 @@ export const GanttProgramming = () => {
       if (!ACADEMIC_TYPES.has(e.type ?? "") && e.disciplineId !== "ACADEMIC") return false;
       const end = (e as any).endDate ?? e.date;
       if (dateStr < e.date || dateStr > end) return false;
+      // For EVALUATION: targetSquadron is authoritative; fall back to classId if not set
+      if (e.type === "EVALUATION") {
+        const ts = e.targetSquadron;
+        if (ts === "ALL") return true;
+        if (ts != null) return Number(ts) === currentSquadron;
+        // fallback: derive from classId (e.g. "4A" → 4)
+        const sq = e.classId ? parseInt(e.classId.charAt(0)) : NaN;
+        return !isNaN(sq) && sq === currentSquadron;
+      }
       const ts = e.targetSquadron;
       if (ts !== "ALL" && ts != null && Number(ts) !== currentSquadron) return false;
       return true;
