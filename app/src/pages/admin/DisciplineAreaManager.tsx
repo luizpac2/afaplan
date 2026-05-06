@@ -69,7 +69,7 @@ export const DisciplineAreaManager = () => {
         body: { action: "upsert_area", area: row },
       });
       if (e) throw e;
-      upsertDisciplineArea(row as DisciplineArea);
+      upsertDisciplineArea(row as unknown as DisciplineArea);
       invalidateCache("discipline_areas");
       setEditing(null);
     } catch (e: any) {

@@ -40,7 +40,6 @@ function InstructorByYearSection({
     const [expanded, setExpanded] = useState(false);
 
     const isDark = theme === 'dark';
-    const inputCls = `w-full px-2 py-1.5 border rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500 ${isDark ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-slate-300 text-slate-800'}`;
     const mutedCls = isDark ? 'text-slate-400' : 'text-slate-500';
 
     // Derive enabled classIds from ppcLoads > 0
