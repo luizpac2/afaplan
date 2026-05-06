@@ -87,7 +87,7 @@ const formatLastSeen = (ts: number) => {
 export const UserManagement = () => {
   const { userProfile: currentUser } = useAuth();
   const { theme } = useTheme();
-  const { disciplines, cohorts } = useCourseStore();
+  const { disciplines, instructors, cohorts, updateDiscipline } = useCourseStore();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -125,11 +125,57 @@ export const UserManagement = () => {
     setIsCleaningData(true);
     setCleanResult(null);
     try {
-      const { data, error } = await supabase.functions.invoke("admin-manage-content", {
-        body: { action: "clean_discipline_instructors" },
-      });
-      if (error) throw error;
-      const count = (data as any)?.disciplinesCleaned ?? 0;
+      const validTrigrams = new Set(instructors.map((i) => i.trigram));
+      let count = 0;
+
+      for (const disc of disciplines) {
+        let changed = false;
+        const updates: Record<string, unknown> = {};
+
+        // instructorTrigram raiz
+        if (disc.instructorTrigram && !validTrigrams.has(disc.instructorTrigram)) {
+          updates.instructorTrigram = undefined;
+          changed = true;
+        }
+
+        // instructorByClass
+        if (disc.instructorByClass) {
+          const cleaned: Record<string, string> = {};
+          for (const [k, v] of Object.entries(disc.instructorByClass)) {
+            if (validTrigrams.has(v)) cleaned[k] = v;
+            else changed = true;
+          }
+          updates.instructorByClass = Object.keys(cleaned).length ? cleaned : undefined;
+        }
+
+        // instructorByYear
+        if (disc.instructorByYear) {
+          const newByYear: Record<string, { trigram?: string; byClass?: Record<string, string> }> = {};
+          for (const [yr, yd] of Object.entries(disc.instructorByYear)) {
+            const updYd = { ...yd };
+            if (updYd.trigram && !validTrigrams.has(updYd.trigram)) {
+              updYd.trigram = undefined;
+              changed = true;
+            }
+            if (updYd.byClass) {
+              const cleanedByClass: Record<string, string> = {};
+              for (const [k, v] of Object.entries(updYd.byClass)) {
+                if (validTrigrams.has(v)) cleanedByClass[k] = v;
+                else changed = true;
+              }
+              updYd.byClass = Object.keys(cleanedByClass).length ? cleanedByClass : undefined;
+            }
+            newByYear[yr] = updYd;
+          }
+          updates.instructorByYear = newByYear;
+        }
+
+        if (changed) {
+          updateDiscipline(disc.id, updates as Partial<typeof disc>);
+          count++;
+        }
+      }
+
       setCleanResult(`Limpeza concluída: ${count} disciplina(s) normalizadas.`);
     } catch (e: any) {
       setCleanResult(`Erro: ${e.message}`);
