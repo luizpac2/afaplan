@@ -209,9 +209,25 @@ export const AcademicGantt = () => {
         if (e.type === "EVALUATION") {
           const discCode = e.disciplineId ? (discMap.get(e.disciplineId) ?? "") : "";
           const evalLabel = EVAL_LABELS[e.evaluationType ?? ""] ?? "";
-          if (discCode && evalLabel) label = `${discCode} – ${evalLabel}`;
-          else if (evalLabel)        label = evalLabel;
-          else if (discCode)         label = discCode;
+          // Deriva audiência para incluir no título (ex: "ITAP – Exame – 2º Aviação")
+          const cid = e.classId ?? "";
+          let audSuffix = "";
+          if (sqNum && cid) {
+            const pfx = `${sqNum}º `;
+            if (cid.endsWith("AVIATION"))    audSuffix = ` – ${pfx}Aviação`;
+            else if (cid.endsWith("INTENDANCY")) audSuffix = ` – ${pfx}Intendência`;
+            else if (cid.endsWith("INFANTRY"))   audSuffix = ` – ${pfx}Infantaria`;
+            else if (cid.endsWith("ESQ"))         audSuffix = ` – ${pfx}Esq`;
+            else if (cid.length === 2 && !isNaN(parseInt(cid[0]))) {
+              const letter = cid[1];
+              if (["A","B","C","D"].includes(letter)) audSuffix = ` – ${pfx}Aviação`;
+              else if (letter === "E") audSuffix = ` – ${pfx}Intendência`;
+              else if (letter === "F") audSuffix = ` – ${pfx}Infantaria`;
+            }
+          }
+          if (discCode && evalLabel) label = `${discCode} – ${evalLabel}${audSuffix}`;
+          else if (evalLabel)        label = `${evalLabel}${audSuffix}`;
+          else if (discCode)         label = `${discCode}${audSuffix}`;
           else                       label = "Avaliação";
         } else {
           label = e.description || e.location || TYPE_LABELS[e.type!] || "Evento";
@@ -463,11 +479,18 @@ export const AcademicGantt = () => {
                             else if (ids.length === 0) { audience = ev.squadron ? `${ev.squadron}º Esq` : ""; }
                             else if (ids.every(c => c.endsWith("ESQ"))) { audience = ids.map(c => `${c.replace("ESQ","")}º Esq`).join(", "); }
                             else {
-                              const letters = [...new Set(ids.map(c => c.slice(1)))].sort();
-                              if (letters.length >= 4 && letters.every(l => ["A","B","C","D"].includes(l))) audience = "Aviação";
-                              else if (letters.every(l => l === "E")) audience = "Intendência";
-                              else if (letters.every(l => l === "F")) audience = "Infantaria";
-                              else audience = ids.join("/");
+                              const sqNums = [...new Set(ids.map(c => c[0]).filter(Boolean))];
+                              const sqPfx = sqNums.length === 1 ? `${sqNums[0]}º ` : (ev.squadron ? `${ev.squadron}º ` : "");
+                              if (ids.every(c => c.endsWith("AVIATION"))) audience = `${sqPfx}Aviação`;
+                              else if (ids.every(c => c.endsWith("INTENDANCY"))) audience = `${sqPfx}Intendência`;
+                              else if (ids.every(c => c.endsWith("INFANTRY"))) audience = `${sqPfx}Infantaria`;
+                              else {
+                                const letters = [...new Set(ids.map(c => c.slice(1)))].sort();
+                                if (letters.length >= 4 && letters.every(l => ["A","B","C","D"].includes(l))) audience = `${sqPfx}Aviação`;
+                                else if (letters.every(l => l === "E")) audience = `${sqPfx}Intendência`;
+                                else if (letters.every(l => l === "F")) audience = `${sqPfx}Infantaria`;
+                                else audience = ids.join("/");
+                              }
                             }
                             return audience ? <span className="text-[9px] text-orange-500/80 truncate block">{audience}</span> : null;
                           })()}
