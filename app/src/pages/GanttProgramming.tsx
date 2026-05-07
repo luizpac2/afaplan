@@ -1371,7 +1371,7 @@ export const GanttProgramming = () => {
                                     className="rounded-lg border border-orange-500/40 bg-orange-500/10 px-2 py-1.5"
                                   >
                                     <p className="text-[10px] font-bold leading-tight text-orange-500">
-                                      {code} — {evalLabel}
+                                      {code} — {evalLabel}{audience && audience !== "Todos" ? ` — ${audience}` : ""}
                                     </p>
                                     {audience && (
                                       <span className="inline-block mt-1 text-[8px] font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded px-1">
