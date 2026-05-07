@@ -11,8 +11,9 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     const { user, userProfile, loading, profileLoading, mustChangePassword, isInactive } = useAuth();
     const location = useLocation();
 
-    // Sessão ainda carregando
-    if (loading || profileLoading) {
+    // Sessão ainda carregando — só bloqueia se ainda não temos perfil (carregamento inicial)
+    // Se já temos um perfil, o refresh de token em background não desmonta a página
+    if (loading || (profileLoading && !userProfile)) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-900">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
