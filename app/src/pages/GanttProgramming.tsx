@@ -1347,6 +1347,11 @@ export const GanttProgramming = () => {
                             // Extrai número do esquadrão dos classIds para prefixar o curso
                             const squadNums = [...new Set(ids.map(c => c[0]).filter(Boolean))];
                             const sqPrefix = squadNums.length === 1 ? `${squadNums[0]}º ` : "";
+                            // Scope de curso inteiro: "2AVIATION", "3INTENDANCY", "2INFANTRY"
+                            if (ids.every(c => c.endsWith("AVIATION"))) return `${sqPrefix}Aviação`;
+                            if (ids.every(c => c.endsWith("INTENDANCY"))) return `${sqPrefix}Intendência`;
+                            if (ids.every(c => c.endsWith("INFANTRY"))) return `${sqPrefix}Infantaria`;
+                            // Turmas individuais A-D = Aviação, E = Intendência, F = Infantaria
                             const letters = [...new Set(ids.map(c => c.slice(1)))].filter(Boolean).sort();
                             if (letters.length >= 4 && letters.every(l => ["A","B","C","D"].includes(l))) return `${sqPrefix}Aviação`;
                             if (letters.every(l => l === "E")) return `${sqPrefix}Intendência`;
