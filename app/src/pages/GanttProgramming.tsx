@@ -1344,10 +1344,13 @@ export const GanttProgramming = () => {
                             const ids = [...classIds].sort();
                             if (ids.length === 0) return "";
                             if (ids.every(c => c.endsWith("ESQ"))) return ids.map(c => `${c.replace("ESQ","")}º Esq`).join(", ");
+                            // Extrai número do esquadrão dos classIds para prefixar o curso
+                            const squadNums = [...new Set(ids.map(c => c[0]).filter(Boolean))];
+                            const sqPrefix = squadNums.length === 1 ? `${squadNums[0]}º ` : "";
                             const letters = [...new Set(ids.map(c => c.slice(1)))].filter(Boolean).sort();
-                            if (letters.length >= 4 && letters.every(l => ["A","B","C","D"].includes(l))) return "Aviação";
-                            if (letters.every(l => l === "E")) return "Intendência";
-                            if (letters.every(l => l === "F")) return "Infantaria";
+                            if (letters.length >= 4 && letters.every(l => ["A","B","C","D"].includes(l))) return `${sqPrefix}Aviação`;
+                            if (letters.every(l => l === "E")) return `${sqPrefix}Intendência`;
+                            if (letters.every(l => l === "F")) return `${sqPrefix}Infantaria`;
                             return ids.join("/");
                           };
                           return (

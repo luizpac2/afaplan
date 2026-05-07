@@ -366,15 +366,24 @@ export const AcademicCalendar = () => {
                                 <div className="flex flex-wrap gap-2 mt-auto">
                                     {(group.targetSquadron !== 'ALL' || group.targetCourse !== 'ALL' || group.targetClass !== 'ALL') ? (
                                         <div className="flex flex-wrap gap-1">
-                                            {group.targetSquadron !== 'ALL' && (
+                                            {/* Combina esquadrão + curso num badge único quando ambos estão definidos */}
+                                            {group.targetSquadron !== 'ALL' && group.targetCourse !== 'ALL' ? (
                                                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                                                    {group.targetSquadron}º Esquadrão
+                                                    {group.targetSquadron}º {formatCourse(group.targetCourse)}
                                                 </span>
-                                            )}
-                                            {group.targetCourse !== 'ALL' && (
-                                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                                                    {formatCourse(group.targetCourse)}
-                                                </span>
+                                            ) : (
+                                                <>
+                                                    {group.targetSquadron !== 'ALL' && (
+                                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                                            {group.targetSquadron}º Esquadrão
+                                                        </span>
+                                                    )}
+                                                    {group.targetCourse !== 'ALL' && (
+                                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                                            {formatCourse(group.targetCourse)}
+                                                        </span>
+                                                    )}
+                                                </>
                                             )}
                                             {group.targetClass !== 'ALL' && (
                                                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
