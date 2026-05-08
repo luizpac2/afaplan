@@ -645,8 +645,7 @@ export const PanoramicMirror = () => {
                             const isMultiDay = endDateVal && endDateVal !== ev.date;
                             if (isDayOff) return (
                               <div key={ev.id}
-                                className={`rounded-lg border border-dashed border-red-500/40 px-3 py-2 flex flex-col gap-0.5 bg-red-500/10 ${canEdit ? "cursor-pointer hover:bg-red-500/15 transition-colors" : ""}`}
-                                onClick={canEdit ? () => setEditingAcademic(ev) : undefined}
+                                className="rounded-lg border border-dashed border-red-500/40 px-3 py-2 flex flex-col gap-0.5 bg-red-500/10"
                               >
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-[11px]">📅</span>

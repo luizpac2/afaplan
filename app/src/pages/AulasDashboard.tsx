@@ -65,7 +65,7 @@ function appliesToSquadron(ev: SEvent, squadronId: number): boolean {
   return ts === null || ts === undefined || ts === "ALL" || Number(ts) === squadronId;
 }
 
-const DAY_OFF_TYPES = new Set(["DAY_OFF", "HOLIDAY"]);
+const DAY_OFF_TYPES = new Set(["DAY_OFF"]);
 
 // Conta dias não letivos de um esquadrão — baseado nos eventos do calendário
 function calcExcludedDays(events: SEvent[], year: number, squadronId: number) {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Save, Trash2, Calendar, Clock, MapPin, FileText, Users, Ban, Shield, Plane, ClipboardList } from "lucide-react";
+import { X, Save, Trash2, Calendar, Clock, MapPin, FileText, Users, Shield, Plane, ClipboardList } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { TIME_SLOTS, LOCATION_OPTIONS } from "../utils/constants";
@@ -65,11 +65,10 @@ export const AcademicEventForm = ({
   const labelCls = isDark ? "text-gray-300" : "text-gray-600";
   const muted    = isDark ? "text-gray-400" : "text-gray-500";
 
-  type Category = "ACADEMIC" | "EVALUATION" | "DAY_OFF" | "COMMEMORATIVE" | "SPORTS" | "INFORMATIVE" | "HOLIDAY" | "MILITARY" | "FLIGHT_INSTRUCTION" | "TRIP";
+  type Category = "ACADEMIC" | "EVALUATION" | "COMMEMORATIVE" | "SPORTS" | "INFORMATIVE" | "HOLIDAY" | "MILITARY" | "FLIGHT_INSTRUCTION" | "TRIP";
   const rawType = initialData?.type as string | undefined;
   const initCat: Category =
     rawType === "EVALUATION"         ? "EVALUATION"        :
-    rawType === "DAY_OFF"            ? "DAY_OFF"           :
     rawType === "COMMEMORATIVE"      ? "COMMEMORATIVE"     :
     rawType === "SPORTS"             ? "SPORTS"            :
     rawType === "INFORMATIVE"        ? "INFORMATIVE"       :
@@ -83,8 +82,7 @@ export const AcademicEventForm = ({
 
   const today = new Date().toISOString().split("T")[0];
 
-  const defaultTitle = initCat === "DAY_OFF" ? "Day Off" : "";
-  const [title, setTitle]         = useState(rawType === "EVALUATION" ? "" : (initialData?.description ?? initialData?.location ?? defaultTitle));
+  const [title, setTitle]         = useState(rawType === "EVALUATION" ? "" : (initialData?.description ?? initialData?.location ?? ""));
   const [notes, setNotes]         = useState(initialData?.notes ?? "");
   const [startDate, setStartDate] = useState(initialData?.date ?? today);
   const [endDate, setEndDate]     = useState(initialData?.endDate ?? initialData?.date ?? today);
@@ -143,13 +141,13 @@ export const AcademicEventForm = ({
       classId: initialData?.classId ?? "",
       date:    startDate,
       endDate: effectiveEnd,
-      startTime: (allDay || ["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? null as any : startTime,
-      endTime:   (allDay || ["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? null as any : (endTime || startTime),
-      location:  (["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? undefined : (location || undefined),
+      startTime: (allDay || ["COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? null as any : startTime,
+      endTime:   (allDay || ["COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? null as any : (endTime || startTime),
+      location:  (["COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? undefined : (location || undefined),
       type: category as any,
       description: title.trim(),
       notes: notes.trim() || undefined,
-      targetSquadron: category === "DAY_OFF" ? "ALL" : (squadron === "ALL" ? "ALL" : squadron as any),
+      targetSquadron: squadron === "ALL" ? "ALL" : squadron as any,
       targetCourse: null,
       targetClass: null,
       color: initialData?.color,
@@ -187,7 +185,6 @@ export const AcademicEventForm = ({
           const hdrMap: Record<string, { border: string; bg: string; icon: React.ReactNode; textCls: string; label: string }> = {
             ACADEMIC:          { border: "border-purple-500/30",  bg: "bg-purple-500/10",  icon: <Calendar size={16} className="text-purple-400" />,      textCls: "text-purple-300",  label: "Evento Acadêmico"  },
             EVALUATION:        { border: "border-orange-500/30",  bg: "bg-orange-500/10",  icon: <ClipboardList size={16} className="text-orange-400" />,  textCls: "text-orange-300",  label: "Avaliação"         },
-            DAY_OFF:           { border: "border-red-500/30",     bg: "bg-red-500/10",     icon: <Ban size={16} className="text-red-400" />,               textCls: "text-red-300",     label: "Day Off"           },
             COMMEMORATIVE:     { border: "border-amber-500/30",   bg: "bg-amber-500/10",   icon: <Calendar size={16} className="text-amber-400" />,        textCls: "text-amber-300",   label: "Comemorativo"      },
             SPORTS:            { border: "border-teal-500/30",    bg: "bg-teal-500/10",    icon: <Calendar size={16} className="text-teal-400" />,         textCls: "text-teal-300",    label: "CDEF"              },
             INFORMATIVE:       { border: "border-sky-500/30",     bg: "bg-sky-500/10",     icon: <Calendar size={16} className="text-sky-400" />,          textCls: "text-sky-300",     label: "Informativo"       },
@@ -220,7 +217,6 @@ export const AcademicEventForm = ({
               {([
                 { key: "ACADEMIC",           label: "Acadêmico",        active: "bg-purple-600 border-purple-600 text-white",  hover: "hover:border-purple-500"  },
                 { key: "EVALUATION",         label: "Avaliação",        active: "bg-orange-600 border-orange-600 text-white",  hover: "hover:border-orange-500"  },
-                { key: "DAY_OFF",            label: "Day Off",          active: "bg-red-600 border-red-600 text-white",        hover: "hover:border-red-500"     },
                 { key: "COMMEMORATIVE",      label: "Comemorativo",     active: "bg-amber-500 border-amber-500 text-white",    hover: "hover:border-amber-500"   },
                 { key: "SPORTS",             label: "CDEF",             active: "bg-teal-600 border-teal-600 text-white",      hover: "hover:border-teal-500"    },
                 { key: "INFORMATIVE",        label: "Informativo",      active: "bg-sky-500 border-sky-500 text-white",        hover: "hover:border-sky-500"     },
@@ -230,11 +226,7 @@ export const AcademicEventForm = ({
                 { key: "TRIP",               label: "Viagem",           active: "bg-violet-600 border-violet-600 text-white",  hover: "hover:border-violet-500"  },
               ] as const).map(opt => (
                 <button key={opt.key} type="button"
-                  onClick={() => {
-                    setCategory(opt.key as any);
-                    if (opt.key === "DAY_OFF") { if (!title.trim()) setTitle("Day Off"); setAllDay(true); }
-                    if (opt.key !== "DAY_OFF" && title === "Day Off") setTitle("");
-                  }}
+                  onClick={() => setCategory(opt.key as any)}
                   className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg border text-xs font-semibold transition-colors
                     ${category === opt.key
                       ? opt.active
@@ -245,9 +237,6 @@ export const AcademicEventForm = ({
                 </button>
               ))}
             </div>
-            {category === "DAY_OFF" && (
-              <p className={`text-[10px] mt-1.5 ${muted}`}>Conta como dia não letivo (alocação ainda é permitida por admins).</p>
-            )}
           </div>
 
           {/* Campos específicos de Avaliação */}
@@ -327,8 +316,8 @@ export const AcademicEventForm = ({
             />
           </div>
 
-          {/* Destinatário — oculto para Day Off (sempre todos) */}
-          {category !== "DAY_OFF" && <div>
+          {/* Destinatário */}
+          <div>
             <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
               <Users size={12} className="text-purple-400" />
               Destinatário
@@ -372,8 +361,8 @@ export const AcademicEventForm = ({
             </div>
           </div>
 
-          {/* Horário — oculto para Day Off, Comemorativo, Informativo e Feriado */}
-          {!["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category) && <div>
+          {/* Horário — oculto para Comemorativo, Informativo e Feriado */}
+          {!["COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category) && <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className={`flex items-center gap-1.5 text-xs font-semibold ${labelCls}`}>
                 <Clock size={12} className="text-purple-400" />
@@ -420,8 +409,8 @@ export const AcademicEventForm = ({
             )}
           </div>}
 
-          {/* Local — oculto para Day Off, Comemorativo, Informativo e Feriado */}
-          {!["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category) && <div>
+          {/* Local — oculto para Comemorativo, Informativo e Feriado */}
+          {!["COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category) && <div>
             <label className={`flex items-center gap-1.5 text-xs font-semibold mb-1.5 ${labelCls}`}>
               <MapPin size={12} className="text-purple-400" />
               Local <span className={`font-normal ${muted}`}>(opcional)</span>

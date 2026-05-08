@@ -1193,15 +1193,7 @@ export const GanttProgramming = ({ forcedSquadronId }: GanttProgrammingProps = {
 
         return (
           <div key={dateStr}
-            className={`rounded-xl border overflow-hidden ${card} ${isToday ? "ring-2 ring-blue-500/40" : ""} ${isDayOff ? "ring-2 ring-red-500/40" : ""}`}>
-
-            {/* Day Off banner */}
-            {isDayOff && (
-              <div className="flex items-center gap-2 px-4 py-1.5 bg-red-500/10 border-b border-red-500/20">
-                <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">⛔ Day Off</span>
-                <span className="text-[10px] text-red-400/80 truncate">{dayOff_[0].description || "Dia sem aulas"}</span>
-              </div>
-            )}
+            className={`rounded-xl border overflow-hidden ${card} ${isToday ? "ring-2 ring-blue-500/40" : ""} ${isDayOff ? "ring-2 ring-red-500/30" : ""}`}>
 
             {/* Day header */}
             <div className={`flex items-center gap-3 px-4 py-2 border-b ${border} ${isToday ? (isDark ? "bg-blue-900/20" : "bg-blue-50/50") : ""}`}>
@@ -1296,10 +1288,23 @@ export const GanttProgramming = ({ forcedSquadronId }: GanttProgrammingProps = {
                       )}
                     </div>
 
-                    {notices_.length === 0 ? (
+                    {notices_.length === 0 && !isDayOff ? (
                       <p className={`text-[10px] italic ${muted} opacity-60`}>Sem avisos</p>
                     ) : (
                       <div className="flex flex-col gap-1">
+                        {isDayOff && (
+                          <div className="rounded-lg border border-red-500/30 px-2 py-1.5 bg-red-500/10">
+                            <div className="flex items-center gap-1 text-red-400 font-semibold text-[10px] leading-tight">
+                              <span>📅</span>
+                              <span>Dia não letivo</span>
+                            </div>
+                            {dayOff_.some(e => e.targetSquadron !== "ALL") && (
+                              <p className={`text-[9px] leading-tight mt-0.5 ${muted}`}>
+                                {dayOff_.filter(e => e.targetSquadron !== "ALL").map(e => `${e.targetSquadron}º Esq`).join(", ")}
+                              </p>
+                            )}
+                          </div>
+                        )}
                         {notices_.map((n) => {
                           const style = NOTICE_STYLES[n.type] || NOTICE_STYLES.GENERAL;
                           return (
