@@ -246,7 +246,7 @@ export const AcademicEventForm = ({
               ))}
             </div>
             {category === "DAY_OFF" && (
-              <p className={`text-[10px] mt-1.5 ${muted}`}>Inviabiliza alocação de aulas neste dia.</p>
+              <p className={`text-[10px] mt-1.5 ${muted}`}>Conta como dia não letivo (alocação ainda é permitida por admins).</p>
             )}
           </div>
 

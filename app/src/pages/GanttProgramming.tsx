@@ -1212,7 +1212,7 @@ export const GanttProgramming = ({ forcedSquadronId }: GanttProgrammingProps = {
                 {weekEvents.filter(e => e.date === dateStr && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC" && e.classId?.startsWith(String(currentSquadron))).length} aula(s)
               </span>
               <div className="flex gap-1 ml-auto items-center">
-                {canEdit && isBatchMode && !isDayOff && (
+                {canEdit && isBatchMode && (
                   <button
                     onClick={() => selectAllSlotsForDay(dateStr)}
                     className={`text-[9px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
@@ -1225,7 +1225,7 @@ export const GanttProgramming = ({ forcedSquadronId }: GanttProgrammingProps = {
                     ☑ Dia
                   </button>
                 )}
-                {canEdit && isSelectionMode && !isDayOff && (
+                {canEdit && isSelectionMode && (
                   <button
                     onClick={() => selectAllEventsForDay(dateStr)}
                     className={`text-[9px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
@@ -1267,10 +1267,10 @@ export const GanttProgramming = ({ forcedSquadronId }: GanttProgrammingProps = {
                   onSelectEvent={handleSelectEvent}
                   isSelectionMode={isSelectionMode}
                   onSlotDrop={handleSlotDrop}
-                  onEmptySlotClick={!isBatchMode && !isDayOff ? handleEmptySlotClick : undefined}
-                  isBatchMode={isBatchMode && !isDayOff}
+                  onEmptySlotClick={!isBatchMode ? handleEmptySlotClick : undefined}
+                  isBatchMode={isBatchMode}
                   selectedSlots={selectedSlots}
-                  onSlotSelect={!isDayOff ? handleSlotSelect : undefined}
+                  onSlotSelect={handleSlotSelect}
                   onDeleteEvent={(id) => useCourseStore.getState().deleteEvent(id)}
                 />
               </div>

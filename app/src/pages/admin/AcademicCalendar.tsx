@@ -43,6 +43,7 @@ export const AcademicCalendar = () => {
     const [detailedDescription, setDetailedDescription] = useState('');
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [isBlocking, setIsBlocking] = useState(true);
+    const [isDayOff, setIsDayOff] = useState(false);
     const [color, setColor] = useState('#f59e0b');
 
     const [targetSquadron, setTargetSquadron] = useState<number | 'ALL'>('ALL');
@@ -85,6 +86,7 @@ export const AcademicCalendar = () => {
             location: cur.location,
             description: cur.description,
             isBlocking: cur.isBlocking,
+            type: cur.type ?? 'ACADEMIC',
             targetSquadron: cur.targetSquadron || 'ALL',
             targetCourse: cur.targetCourse || 'ALL',
             targetClass: cur.targetClass || 'ALL',
@@ -98,6 +100,7 @@ export const AcademicCalendar = () => {
             const diffDays = Math.round((currStart.getTime() - prevEnd.getTime()) / (1000 * 3600 * 24));
 
             const isSame =
+                (event.type ?? 'ACADEMIC') === currentGroup.type &&
                 event.location === currentGroup.location &&
                 event.description === currentGroup.description &&
                 event.isBlocking === currentGroup.isBlocking &&
@@ -118,6 +121,7 @@ export const AcademicCalendar = () => {
                     location: event.location,
                     description: event.description,
                     isBlocking: event.isBlocking,
+                    type: event.type ?? 'ACADEMIC',
                     targetSquadron: event.targetSquadron || 'ALL',
                     targetCourse: event.targetCourse || 'ALL',
                     targetClass: event.targetClass || 'ALL',
@@ -168,7 +172,7 @@ export const AcademicCalendar = () => {
                     classId: targetClass === 'ALL' ? 'Geral' : (targetSquadron !== 'ALL' ? `${targetSquadron}${targetClass}` : targetClass),
                     startTime: '00:00',
                     endTime: '23:59',
-                    type: 'ACADEMIC',
+                    type: isDayOff ? 'DAY_OFF' : 'ACADEMIC',
                     location: title,
                     description: detailedDescription,
                     isBlocking,
@@ -199,6 +203,7 @@ export const AcademicCalendar = () => {
         setEndDate('');
         setTitle('');
         setDetailedDescription('');
+        setIsDayOff(false);
         setEditingGroupId(null);
     };
 
@@ -208,7 +213,8 @@ export const AcademicCalendar = () => {
         setTitle(group.location);
         setDetailedDescription(group.description || '');
         setIsBlocking(group.isBlocking !== false);
-        setColor(group.color || (group.isBlocking !== false ? '#f59e0b' : '#3b82f6'));
+        setIsDayOff(group.type === 'DAY_OFF');
+        setColor(group.color || (group.type === 'DAY_OFF' ? '#ef4444' : group.isBlocking !== false ? '#f59e0b' : '#3b82f6'));
         setTargetSquadron(group.targetSquadron || 'ALL');
         setTargetCourse(group.targetCourse || 'ALL');
         setTargetClass(group.targetClass || 'ALL');
@@ -387,7 +393,12 @@ export const AcademicCalendar = () => {
                                             Geral (Toda AFA)
                                         </span>
                                     )}
-                                    {group.isBlocking && (
+                                    {group.type === 'DAY_OFF' && (
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-semibold">
+                                            Não Letivo
+                                        </span>
+                                    )}
+                                    {group.isBlocking && group.type !== 'DAY_OFF' && (
                                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center gap-1">
                                             <ShieldCheck size={10} />
                                             Bloqueio
@@ -428,6 +439,8 @@ export const AcademicCalendar = () => {
                 setDetailedDescription={setDetailedDescription}
                 isBlocking={isBlocking}
                 setIsBlocking={setIsBlocking}
+                isDayOff={isDayOff}
+                setIsDayOff={setIsDayOff}
                 color={color}
                 setColor={setColor}
                 targetSquadron={targetSquadron}
@@ -467,6 +480,8 @@ interface AcademicEventModalProps {
     setDetailedDescription: (v: string) => void;
     isBlocking: boolean;
     setIsBlocking: (v: boolean) => void;
+    isDayOff: boolean;
+    setIsDayOff: (v: boolean) => void;
     color: string;
     setColor: (v: string) => void;
     targetSquadron: number | 'ALL';
@@ -559,7 +574,16 @@ const AcademicEventModal = (props: AcademicEventModalProps) => {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4 py-2">
+                    <div className="flex flex-wrap items-center gap-4 py-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <div
+                                onClick={() => props.setIsDayOff(!props.isDayOff)}
+                                className={`w-12 h-6 rounded-full p-1 transition-all ${props.isDayOff ? 'bg-red-500' : 'bg-slate-400'}`}
+                            >
+                                <div className={`w-4 h-4 rounded-full bg-white transition-all ${props.isDayOff ? 'translate-x-6' : 'translate-x-0'}`} />
+                            </div>
+                            <span className="text-sm font-medium">Dia Não Letivo</span>
+                        </label>
                         <label className="flex items-center gap-2 cursor-pointer group">
                             <div
                                 onClick={() => props.setIsBlocking(!props.isBlocking)}
