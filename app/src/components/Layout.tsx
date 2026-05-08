@@ -109,6 +109,7 @@ const MENU_ITEMS: MenuItem[] = [
     icon: BookOpen,
     roles: ALL_ROLES,
     submenu: [
+      { title: "Painel Acadêmico", path: "/aulas-dashboard", icon: BarChart2 },
       { title: "Painel de Disciplinas", path: "/discipline-panel", icon: BookOpen },
       { title: "Gantt de Disciplinas", path: "/discipline-gantt", icon: BarChart2 },
     ],
