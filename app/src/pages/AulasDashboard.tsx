@@ -200,21 +200,7 @@ export const AulasDashboard = () => {
     return counts;
   }, [instructors]);
 
-  // ── Carga total por esquadrão (via ppcLoads) ──────────────────────────────
-  const totalHoursByYear = useMemo(() => {
-    const totals: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
-    for (const d of activeDisciplines) {
-      for (const year of d.enabledYears ?? []) {
-        for (const course of d.enabledCourses ?? []) {
-          const key = `${course}_${year}`;
-          totals[year] = (totals[year] ?? 0) + (d.ppcLoads?.[key] ?? 0);
-        }
-      }
-    }
-    return totals;
-  }, [activeDisciplines]);
-
-  // ── Carga total por curso (todas as turmas) ──────────────────────────────
+// ── Carga total por curso (todas as turmas) ──────────────────────────────
   const totalHoursByCourse = useMemo(() => {
     const totals: Record<string, number> = { AVIATION: 0, INTENDANCY: 0, INFANTRY: 0 };
     for (const d of activeDisciplines) {
