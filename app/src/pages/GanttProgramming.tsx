@@ -92,16 +92,14 @@ export const GanttProgramming = () => {
     }
     const start = formatDate(getStartOfWeek(initDate));
     const end = formatDate(addDays(getStartOfWeek(initDate), 6));
-    // Prefer yearEventsCache (updated in-place on mutations, never cleared) over eventsWeekCache
+    // Prefer yearEventsCache (updated in-place on mutations, never cleared) over eventsWeekCache.
+    // Must return ALL events for the week (no squadron filter) to match what subscribeToEventsByDateRange
+    // returns — same IDs allow the bail-out in the effect to skip the re-render.
     const yearCache = useCourseStore.getState().yearEventsCache[new Date().getFullYear()];
     if (yearCache) {
-      const prefix = String(sq);
       return yearCache.filter(e => {
         const evEnd = (e as any).endDate ?? e.date;
-        if (e.date > end || evEnd < start) return false;
-        if ((e.type as string) === "ACADEMIC" || e.disciplineId === "ACADEMIC") return true;
-        if (e.classId === "Geral" || e.classId === "GLOBAL" || (e.classId?.endsWith("ESQ") ?? false)) return true;
-        return e.classId?.startsWith(prefix) ?? false;
+        return e.date <= end && evEnd >= start;
       });
     }
     return (getEventsWeekCacheSync(start, end) as ScheduleEvent[]) ?? [];
