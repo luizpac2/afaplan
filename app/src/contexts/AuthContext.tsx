@@ -89,12 +89,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // TOKEN_REFRESHED: apenas atualiza o objeto user silenciosamente,
-        // sem setar profileLoading(true) — evita desmontar a UI durante edição.
+        // TOKEN_REFRESHED: apenas atualiza o objeto user silenciosamente.
         if (event === "TOKEN_REFRESHED") {
           if (session?.user) setUser(session.user);
           return;
         }
+        // Sessões null que não sejam SIGNED_OUT explícito são estados transitórios
+        // causados por recuperação de lock do auth durante chamadas de API (functions.invoke).
+        // Ignorar para evitar desmontar o Layout/UI durante edição.
+        // A sessão inicial sem login já é tratada pelo getSession() direto acima.
+        if (!session?.user && event !== "SIGNED_OUT") return;
         void handleSession(session);
       }
     );

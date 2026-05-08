@@ -188,11 +188,6 @@ export const Layout = () => {
   const location = useLocation();
   const clearStore = useCourseStore((state) => state.clearStore);
 
-  useEffectKA(() => {
-    console.log('[KA-DIAG] Layout MOUNTED');
-    return () => { console.log('[KA-DIAG] Layout UNMOUNTED'); };
-  }, []);
-
   // ── Keep-alive para páginas do gantt ──────────────────────────────────────
   const ganttMatch = location.pathname.match(/^\/gantt\/(\d+)/);
   const activeGanttSq = ganttMatch ? parseInt(ganttMatch[1]) : null;
