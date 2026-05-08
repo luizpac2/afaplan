@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "../config/supabase";
 import type { UserProfile } from "../types";
 
@@ -56,12 +56,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [profileLoading, setProfileLoading]     = useState(true);
   const [mustChangePassword, setMustChange]     = useState(false);
   const [isInactive, setIsInactive]             = useState(false);
+  // Evita re-exibir spinner de profileLoading em recuperações de lock pós-login
+  const profileLoadedRef = useRef(false);
 
   const handleSession = async (session: SupabaseSession) => {
     if (session?.user) {
       setUser(session.user);
       setLoading(false);
-      setProfileLoading(true);
+      // Só exibe spinner na carga inicial do perfil; re-auth recovery não desmonta o Layout
+      if (!profileLoadedRef.current) setProfileLoading(true);
 
       // Busca metadados frescos do servidor (não do JWT que pode estar desatualizado)
       const { data: { user: freshUser } } = await supabase.auth.getUser();
@@ -71,8 +74,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { profile, inactive } = await buildProfile(session.user);
       setIsInactive(inactive);
       setUserProfile(profile);
+      profileLoadedRef.current = true;
       setProfileLoading(false);
     } else {
+      profileLoadedRef.current = false;
       setUser(null);
       setUserProfile(null);
       setMustChange(false);
