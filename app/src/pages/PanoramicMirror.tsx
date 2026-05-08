@@ -44,14 +44,14 @@ export const PanoramicMirror = () => {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const { userProfile } = useAuth();
-  const { fetchYearlyEvents, notices, disciplines, cohorts, addEvent, addNotice, updateNotice, deleteNotice } = useCourseStore();
+  const { fetchYearlyEvents, notices, disciplines, cohorts, addEvent, addNotice, updateNotice, deleteNotice, deleteEvent, yearEventsCache } = useCourseStore();
   const canEdit = ["SUPER_ADMIN", "ADMIN"].includes(userProfile?.role ?? "");
 
   const today = new Date();
   const [year, setYear]   = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
-  const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [dayOffPickerDate, setDayOffPickerDate] = useState<string | null>(null);
 
   // Modal state
   const [academicFormDate, setAcademicFormDate]   = useState<string | null>(null);
@@ -59,9 +59,12 @@ export const PanoramicMirror = () => {
   const [noticeFormDate, setNoticeFormDate]       = useState<string | null>(null);
   const [editingNotice, setEditingNotice]         = useState<SystemNotice | null>(null);
 
+  // Events from cache — reactive to addEvent/deleteEvent
+  const yearlyEvents = yearEventsCache[year] ?? [];
+
   // Load events for current year
   useEffect(() => {
-    fetchYearlyEvents(year).then(setEvents);
+    fetchYearlyEvents(year);
   }, [year, fetchYearlyEvents]);
 
   const prevMonth = () => {
@@ -75,7 +78,7 @@ export const PanoramicMirror = () => {
 
   // Academic events and evaluations for this month
   const monthAcademic = useMemo(() => {
-    return events.filter(e => {
+    return yearlyEvents.filter(e => {
       const SHOW = new Set(["ACADEMIC","EVALUATION","DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY","MILITARY","FLIGHT_INSTRUCTION","TRIP"]);
       const isAcad = SHOW.has(e.type ?? "") || e.disciplineId === "ACADEMIC";
       if (!isAcad) return false;
@@ -86,7 +89,7 @@ export const PanoramicMirror = () => {
       const monthEnd   = formatISODate(year, month, daysInMonth(year, month));
       return start <= monthEnd && end >= monthStart;
     });
-  }, [events, year, month]);
+  }, [yearlyEvents, year, month]);
 
   // Notices active in this month
   const monthNotices = useMemo(() => {
@@ -227,24 +230,41 @@ export const PanoramicMirror = () => {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleAcademicSubmit = (data: Omit<ScheduleEvent, "id">) => {
-    const id = crypto.randomUUID();
-    const ev = { ...data, id };
-    addEvent(ev);
-    setEvents(prev => [...prev, ev]);
+    addEvent({ ...data, id: crypto.randomUUID() });
     setAcademicFormDate(null);
   };
 
   const handleAcademicUpdate = (data: Omit<ScheduleEvent, "id">) => {
     if (!editingAcademic) return;
     useCourseStore.getState().updateEvent(editingAcademic.id, data);
-    setEvents(prev => prev.map(e => e.id === editingAcademic.id ? { ...e, ...data } : e));
     setEditingAcademic(null);
   };
 
   const handleAcademicDelete = (id: string) => {
     useCourseStore.getState().deleteEvent(id);
-    setEvents(prev => prev.filter(e => e.id !== id));
     setEditingAcademic(null);
+  };
+
+  const toggleDayOff = (dateStr: string, squadron: "ALL" | number) => {
+    const existing = yearlyEvents.find(
+      e => e.type === "DAY_OFF" && e.date === dateStr &&
+        (squadron === "ALL" ? e.targetSquadron === "ALL" : Number(e.targetSquadron) === squadron)
+    );
+    if (existing) {
+      deleteEvent(existing.id);
+    } else {
+      addEvent({
+        id: crypto.randomUUID(),
+        type: "DAY_OFF",
+        date: dateStr,
+        disciplineId: "ACADEMIC",
+        classId: squadron === "ALL" ? "ESQ" : `${squadron}ESQ`,
+        targetSquadron: squadron,
+        description: "Dia não letivo",
+        startTime: "07:30",
+        endTime: "17:00",
+      });
+    }
   };
 
   const handleNoticeSubmit = (data: Partial<SystemNotice>) => {
@@ -418,7 +438,7 @@ export const PanoramicMirror = () => {
                 return (
                   <div
                     key={day}
-                    onClick={() => setSelectedDate(isSel ? null : dateStr)}
+                    onClick={() => { setSelectedDate(isSel ? null : dateStr); setDayOffPickerDate(null); }}
                     className={`border-t border-r ${border} p-1.5 cursor-pointer transition-colors flex flex-col gap-0.5
                       ${isSel ? (isDark ? "bg-blue-900/30 ring-1 ring-inset ring-blue-500/50" : "bg-blue-50 ring-1 ring-inset ring-blue-300") : ""}
                       ${hasDayOff && !isSel ? (isDark ? "bg-red-900/15" : "bg-red-50/60") : ""}
@@ -427,12 +447,52 @@ export const PanoramicMirror = () => {
                     `}
                     style={{ minHeight: DAY_NUM_H + barsAreaH + 80 }}
                   >
-                    {/* Day number */}
-                    <span className={`text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0
-                      ${isToday ? "bg-blue-600 text-white" : (isWknd ? muted : (isDark ? "text-slate-200" : "text-slate-700"))}
-                    `}>
-                      {day}
-                    </span>
+                    {/* Day number + day-off toggle */}
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0
+                        ${isToday ? "bg-blue-600 text-white" : (isWknd ? muted : (isDark ? "text-slate-200" : "text-slate-700"))}
+                      `}>
+                        {day}
+                      </span>
+                      {canEdit && (
+                        <button
+                          onClick={e => { e.stopPropagation(); setDayOffPickerDate(dayOffPickerDate === dateStr ? null : dateStr); }}
+                          className={`text-[10px] leading-none px-0.5 rounded transition-colors ${hasDayOff ? "text-red-400" : (isDark ? "text-slate-600 hover:text-red-400" : "text-slate-300 hover:text-red-400")}`}
+                          title="Marcar dia não letivo"
+                        >
+                          📅
+                        </button>
+                      )}
+                    </div>
+                    {/* Squadron picker */}
+                    {canEdit && dayOffPickerDate === dateStr && (
+                      <div
+                        className={`flex flex-wrap gap-0.5 p-1 rounded ${isDark ? "bg-slate-700/80" : "bg-slate-100"}`}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        {(["ALL", 1, 2, 3, 4] as const).map(sq => {
+                          const active = dayEvts.some(e =>
+                            e.type === "DAY_OFF" &&
+                            (sq === "ALL" ? e.targetSquadron === "ALL" : Number(e.targetSquadron) === sq)
+                          );
+                          return (
+                            <button
+                              key={String(sq)}
+                              onClick={() => toggleDayOff(dateStr, sq)}
+                              className={`text-[9px] px-1 py-0.5 rounded font-medium transition-colors ${
+                                active
+                                  ? "bg-red-500/80 text-white"
+                                  : isDark
+                                    ? "bg-slate-600 text-slate-300 hover:bg-red-500/50 hover:text-white"
+                                    : "bg-slate-200 text-slate-600 hover:bg-red-100 hover:text-red-600"
+                              }`}
+                            >
+                              {sq === "ALL" ? "All" : `${sq}º`}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
 
                     {/* Spacer for bars area */}
                     {barsAreaH > 0 && <div style={{ height: barsAreaH }} className="flex-shrink-0" />}
