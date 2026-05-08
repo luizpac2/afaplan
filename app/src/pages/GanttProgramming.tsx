@@ -7,7 +7,7 @@ import {
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { useAuth } from "../contexts/AuthContext";
-import { subscribeToEventsByDateRange, saveDocument, invalidateEventsWeekCache } from "../services/supabaseService";
+import { subscribeToEventsByDateRange, saveDocument, invalidateEventsWeekCache, getEventsWeekCacheSync } from "../services/supabaseService";
 import { supabase } from "../config/supabase";
 import { GanttView } from "../components/GanttView";
 import { EventForm } from "../components/EventForm";
@@ -78,8 +78,25 @@ export const GanttProgramming = () => {
     try { sessionStorage.setItem(sessionKey, formatDate(currentDate)); } catch { /* ignora */ }
   }, [currentDate, sessionKey]);
 
-  const [weekEvents, setWeekEvents]   = useState<ScheduleEvent[]>([]);
-  const [yearlyEvents, setYearlyEvents] = useState<ScheduleEvent[]>([]);
+  const [weekEvents, setWeekEvents] = useState<ScheduleEvent[]>(() => {
+    const sq = parseInt(squadronId || "1");
+    let initDate = new Date();
+    if (dateParam) {
+      const d = new Date(dateParam + "T12:00:00");
+      if (!isNaN(d.getTime())) initDate = d;
+    } else {
+      try {
+        const saved = sessionStorage.getItem(`gantt_date_sq${sq}`);
+        if (saved) { const d = new Date(saved + "T12:00:00"); if (!isNaN(d.getTime())) initDate = d; }
+      } catch { /* */ }
+    }
+    const start = formatDate(getStartOfWeek(initDate));
+    const end = formatDate(addDays(getStartOfWeek(initDate), 6));
+    return (getEventsWeekCacheSync(start, end) as ScheduleEvent[]) ?? [];
+  });
+  const [yearlyEvents, setYearlyEvents] = useState<ScheduleEvent[]>(
+    () => useCourseStore.getState().yearEventsCache[new Date().getFullYear()] ?? []
+  );
   const [editingEvent, setEditingEvent] = useState<ScheduleEvent | undefined>();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [calendarYear] = useState(new Date().getFullYear());

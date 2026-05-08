@@ -137,6 +137,13 @@ const EVENTS_CACHE_TTL = 10 * 60_000; // 10 minutos
 /** Invalida todo o cache de semanas em memória (chamar após qualquer mutação de evento) */
 export const invalidateEventsWeekCache = () => eventsWeekCache.clear();
 
+/** Leitura síncrona do cache de semana — retorna null se expirado/ausente */
+export const getEventsWeekCacheSync = (startDate: string, endDate: string): unknown[] | null => {
+  const cached = eventsWeekCache.get(`${startDate}|${endDate}`);
+  if (cached && Date.now() - cached.ts < EVENTS_CACHE_TTL) return cached.data;
+  return null;
+};
+
 export const subscribeToEventsByDateRange = (
   startDate: string,
   endDate: string,
