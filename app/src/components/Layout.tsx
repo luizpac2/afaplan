@@ -62,7 +62,6 @@ const MENU_ITEMS: MenuItem[] = [
     icon: GraduationCap,
     roles: ALL_ROLES,
     submenu: [
-      { title: "Painel Acadêmico", path: "/aulas-dashboard", icon: Layers },
       { title: "Minhas Aulas", path: "/my-classes", icon: Star },
       { title: "Aulas de Hoje", path: "/", icon: Home },
       { title: "1º Esquadrão", path: "/gantt/1", icon: BarChart2 },
@@ -118,6 +117,7 @@ const MENU_ITEMS: MenuItem[] = [
         title: "Disciplinas",
         icon: BookOpen,
         submenu: [
+          { title: "Painel Acadêmico", path: "/aulas-dashboard" },
           { title: "Dashboard", path: "/discipline-dashboard" },
           { title: "Gerenciar", path: "/disciplinas" },
           { title: "Áreas Acadêmicas", path: "/discipline-areas" },

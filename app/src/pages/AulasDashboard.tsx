@@ -214,6 +214,20 @@ export const AulasDashboard = () => {
     return totals;
   }, [activeDisciplines]);
 
+  // ── Carga total por curso (todas as turmas) ──────────────────────────────
+  const totalHoursByCourse = useMemo(() => {
+    const totals: Record<string, number> = { AVIATION: 0, INTENDANCY: 0, INFANTRY: 0 };
+    for (const d of activeDisciplines) {
+      for (const course of d.enabledCourses ?? []) {
+        for (const year of d.enabledYears ?? []) {
+          const key = `${course}_${year}`;
+          totals[course] = (totals[course] ?? 0) + (d.ppcLoads?.[key] ?? 0);
+        }
+      }
+    }
+    return totals;
+  }, [activeDisciplines]);
+
   // ── Cohort name por esquadrão ────────────────────────────────────────────
   const cohortBySquadron = useMemo(() => {
     const map: Record<number, string> = {};
@@ -256,7 +270,8 @@ export const AulasDashboard = () => {
         <div className={`flex items-center gap-1 rounded-xl border p-1 ${isDark ? "bg-slate-900 border-slate-700" : "bg-slate-50 border-slate-200"}`}>
           <button
             onClick={() => setCalendarYear((y) => y - 1)}
-            className={`p-1.5 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600"}`}
+            disabled={calendarYear <= 2026}
+            className={`p-1.5 rounded-lg transition-colors ${calendarYear <= 2026 ? "opacity-30 cursor-not-allowed" : isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600"}`}
           >
             <ChevronLeft size={16} />
           </button>
@@ -265,12 +280,7 @@ export const AulasDashboard = () => {
           </span>
           <button
             onClick={() => setCalendarYear((y) => y + 1)}
-            disabled={calendarYear >= currentYear}
-            className={`p-1.5 rounded-lg transition-colors ${
-              calendarYear >= currentYear
-                ? "opacity-30 cursor-not-allowed"
-                : isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600"
-            }`}
+            className={`p-1.5 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600"}`}
           >
             <ChevronRight size={16} />
           </button>
@@ -358,67 +368,61 @@ export const AulasDashboard = () => {
         </div>
       </div>
 
-      {/* ── Disciplinas por Esquadrão × Curso ────────────────────────────── */}
+      {/* ── Disciplinas por Curso × Esquadrão ────────────────────────────── */}
       <div className={`rounded-xl border overflow-hidden ${card}`}>
         <div className={`px-4 py-3 border-b flex items-center gap-2 ${cardHeader}`}>
           <Layers size={15} className="text-purple-400" />
-          <span className={`text-sm font-semibold ${text}`}>Disciplinas por Esquadrão / Curso</span>
+          <span className={`text-sm font-semibold ${text}`}>Disciplinas por Curso / Esquadrão</span>
           <span className={`ml-auto text-[11px] ${muted}`}>quantidade · carga horária (h)</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className={`border-b ${tableBorder}`}>
-                <th className={`text-left px-4 py-2.5 text-xs font-semibold ${muted} w-36`}>Esquadrão</th>
-                {COURSES.map((c) => (
-                  <th key={c} className={`text-center px-3 py-2.5 text-xs font-semibold ${muted}`}>
-                    {COURSE_LABELS[c]}
-                  </th>
-                ))}
+                <th className={`text-left px-4 py-2.5 text-xs font-semibold ${muted} w-36`}>Curso</th>
+                {YEARS.map((year) => {
+                  const tokens = squadronColor(year);
+                  return (
+                    <th key={year} className={`text-center px-3 py-2.5 text-xs font-semibold`} style={{ color: tokens.primary }}>
+                      {year}º Esq
+                      <div className={`text-[9px] font-normal ${muted}`}>{cohortBySquadron[year]}</div>
+                    </th>
+                  );
+                })}
                 <th className={`text-center px-3 py-2.5 text-xs font-semibold ${muted}`}>Carga Total (h)</th>
               </tr>
             </thead>
             <tbody className={`divide-y ${divider}`}>
-              {YEARS.map((year) => {
-                const tokens = squadronColor(year);
-                return (
-                  <tr key={year} className={rowHover}>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: tokens.primary }}
-                        />
-                        <span className={`font-medium ${text}`}>{year}º Esquadrão</span>
-                      </div>
-                      <span className={`text-[11px] ${muted} pl-[18px]`}>{cohortBySquadron[year]}</span>
-                    </td>
-                    {COURSES.map((c) => {
-                      const { count, hours } = discByYearCourse[year][c];
-                      return (
-                        <td key={c} className="px-3 py-3 text-center">
-                          {count > 0 ? (
-                            <>
-                              <span className={`font-semibold ${text}`}>{count}</span>
-                              {hours > 0 && (
-                                <span className={`ml-1 text-[11px] ${muted}`}>({hours}h)</span>
-                              )}
-                            </>
-                          ) : (
-                            <span className={`${muted} text-xs`}>—</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className="px-3 py-3 text-center">
-                      <span className={`font-semibold ${text}`}>{totalHoursByYear[year] || "—"}</span>
-                      {totalHoursByYear[year] > 0 && (
-                        <span className={`ml-0.5 text-[11px] ${muted}`}>h</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              {COURSES.map((course) => (
+                <tr key={course} className={rowHover}>
+                  <td className="px-4 py-3">
+                    <span className={`font-medium ${text}`}>{COURSE_LABELS[course]}</span>
+                  </td>
+                  {YEARS.map((year) => {
+                    const { count, hours } = discByYearCourse[year][course];
+                    return (
+                      <td key={year} className="px-3 py-3 text-center">
+                        {count > 0 ? (
+                          <>
+                            <span className={`font-semibold ${text}`}>{count}</span>
+                            {hours > 0 && (
+                              <span className={`ml-1 text-[11px] ${muted}`}>({hours}h)</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className={`${muted} text-xs`}>—</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="px-3 py-3 text-center">
+                    <span className={`font-semibold ${text}`}>{totalHoursByCourse[course] || "—"}</span>
+                    {totalHoursByCourse[course] > 0 && (
+                      <span className={`ml-0.5 text-[11px] ${muted}`}>h</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
