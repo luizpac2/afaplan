@@ -1,4 +1,9 @@
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
+import { lazy, Suspense, useState as useStateKA, useEffect as useEffectKA } from "react";
+
+const GanttProgrammingKA = lazy(() =>
+  import("../pages/GanttProgramming").then((m) => ({ default: m.GanttProgramming }))
+);
 import {
   BookOpen,
   Plane,
@@ -162,6 +167,17 @@ export const Layout = () => {
 
   const location = useLocation();
   const clearStore = useCourseStore((state) => state.clearStore);
+
+  // ── Keep-alive para páginas do gantt ──────────────────────────────────────
+  const ganttMatch = location.pathname.match(/^\/gantt\/(\d+)/);
+  const activeGanttSq = ganttMatch ? parseInt(ganttMatch[1]) : null;
+  const [mountedGantts, setMountedGantts] = useStateKA<Set<number>>(() => new Set());
+  useEffectKA(() => {
+    if (activeGanttSq !== null) {
+      setMountedGantts((prev) => prev.has(activeGanttSq) ? prev : new Set([...prev, activeGanttSq]));
+    }
+  }, [activeGanttSq]);
+
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
@@ -696,9 +712,27 @@ export const Layout = () => {
         </aside>
 
         <main
-          className={`flex-1 overflow-y-auto scroll-smooth transition-colors duration-300 ${theme === "dark" ? "bg-slate-950" : "bg-gray-50"}`}
+          className={`flex-1 relative transition-colors duration-300 overflow-hidden ${theme === "dark" ? "bg-slate-950" : "bg-gray-50"}`}
         >
-          <Outlet />
+          {/* Keep-alive: gantt pages stay mounted after first visit */}
+          {[1, 2, 3, 4].filter((sq) => mountedGantts.has(sq)).map((sq) => (
+            <div
+              key={sq}
+              className="absolute inset-0 overflow-y-auto scroll-smooth"
+              style={{ display: activeGanttSq === sq ? "block" : "none" }}
+            >
+              <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
+                <GanttProgrammingKA forcedSquadronId={String(sq)} />
+              </Suspense>
+            </div>
+          ))}
+          {/* Todas as outras páginas via Outlet */}
+          <div
+            className="absolute inset-0 overflow-y-auto scroll-smooth"
+            style={{ display: activeGanttSq !== null ? "none" : "block" }}
+          >
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

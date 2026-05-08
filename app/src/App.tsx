@@ -103,14 +103,7 @@ function App() {
                     path="programming"
                     element={<Navigate to="/programming/1" replace />}
                   />
-                  <Route
-                    path="gantt/:squadronId"
-                    element={
-                      <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "CADETE", "DOCENTE", "CHEFE_TURMA"]}>
-                        <GanttProgramming />
-                      </ProtectedRoute>
-                    }
-                  />
+                  <Route path="gantt/:squadronId" element={null} />
                   <Route
                     path="gantt"
                     element={<Navigate to="/gantt/1" replace />}

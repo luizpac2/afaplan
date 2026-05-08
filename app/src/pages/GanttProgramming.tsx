@@ -35,9 +35,12 @@ const NOTICE_STYLES: Record<string, { bg: string; text: string; icon: React.Reac
   GENERAL:    { bg: "bg-slate-500/15 border-slate-400/40", text: "text-slate-400",  icon: <Info size={11} /> },
 };
 
-export const GanttProgramming = () => {
+interface GanttProgrammingProps { forcedSquadronId?: string; }
+
+export const GanttProgramming = ({ forcedSquadronId }: GanttProgrammingProps = {}) => {
   type ToastState = { type: "success" | "error" | "info"; message: string } | null;
-  const { squadronId } = useParams<{ squadronId: string }>();
+  const params = useParams<{ squadronId: string }>();
+  const squadronId = forcedSquadronId ?? params.squadronId;
   const [searchParams] = useSearchParams();
   const { theme } = useTheme();
   const isDark = theme === "dark";
