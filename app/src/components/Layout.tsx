@@ -777,7 +777,9 @@ export const Layout = () => {
             className="absolute inset-0 overflow-y-auto scroll-smooth"
             style={{ display: (activeGanttSq !== null || activeKAPage !== null) ? "none" : "block" }}
           >
-            <Outlet />
+            <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
+              <Outlet />
+            </Suspense>
           </div>
         </main>
       </div>
