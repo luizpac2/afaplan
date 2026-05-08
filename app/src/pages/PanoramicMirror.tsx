@@ -147,13 +147,20 @@ export const PanoramicMirror = () => {
     const monthEnd   = formatISODate(year, month, totalDays);
 
     // Collect unique multi-day events (endDate > date), skip EVALUATION (shown as chips)
+    // DAY_OFF events with same date range are deduplicated into one bar
     const seen = new Set<string>();
+    const seenDayOff = new Set<string>();
     const multiEvts = monthAcademic.filter(e => {
       if (e.type === "EVALUATION") return false;
       const end = (e as any).endDate ?? e.date;
       if (end <= e.date) return false; // single day
       if (seen.has(e.id)) return false;
       seen.add(e.id);
+      if (e.type === "DAY_OFF") {
+        const key = `${e.date}|${end}`;
+        if (seenDayOff.has(key)) return false;
+        seenDayOff.add(key);
+      }
       return true;
     });
 
@@ -429,10 +436,21 @@ export const PanoramicMirror = () => {
                     </div>
                   );
                 }
-                for (const ev of otherEvts) {
+                // Single consolidated DAY_OFF chip
+                const dayOffChips = otherEvts.filter(e => e.type === "DAY_OFF");
+                if (dayOffChips.length > 0) {
+                  chips.push(
+                    <div key="day-off-chip"
+                      className="rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white"
+                      style={{ backgroundColor: "#b91c1c" }}>
+                      Dia não letivo
+                    </div>
+                  );
+                }
+                for (const ev of otherEvts.filter(e => e.type !== "DAY_OFF")) {
                   const sqN = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
                   const sqV = sqN !== null && Number.isFinite(sqN) && sqN >= 1 && sqN <= 4;
-                  const isSpecial = ["DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY","MILITARY","FLIGHT_INSTRUCTION","TRIP"].includes(ev.type ?? "");
+                  const isSpecial = ["COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY","MILITARY","FLIGHT_INSTRUCTION","TRIP"].includes(ev.type ?? "");
                   const color = isSpecial ? (TYPE_COLOR_MAP2[ev.type!] ?? "#4338ca") : sqV ? sqColor(sqN!) : (ev.color ?? "#4338ca");
                   const label = isSpecial ? (ev.description || TYPE_LABEL_MAP[ev.type!] || "Evento") : (ev.description || ev.location || "Evento");
                   chips.push(
