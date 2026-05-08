@@ -448,7 +448,7 @@ export const PanoramicMirror = () => {
                     style={{ minHeight: DAY_NUM_H + barsAreaH + 80 }}
                   >
                     {/* Day number + day-off toggle */}
-                    <div className="flex items-center justify-between">
+                    <div className="relative z-20 flex items-center justify-between">
                       <span className={`text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0
                         ${isToday ? "bg-blue-600 text-white" : (isWknd ? muted : (isDark ? "text-slate-200" : "text-slate-700"))}
                       `}>
@@ -467,7 +467,7 @@ export const PanoramicMirror = () => {
                     {/* Squadron picker */}
                     {canEdit && dayOffPickerDate === dateStr && (
                       <div
-                        className={`flex flex-wrap gap-0.5 p-1 rounded ${isDark ? "bg-slate-700/80" : "bg-slate-100"}`}
+                        className={`relative z-20 flex flex-wrap gap-0.5 p-1 rounded ${isDark ? "bg-slate-700/80" : "bg-slate-100"}`}
                         onClick={e => e.stopPropagation()}
                       >
                         {(["ALL", 1, 2, 3, 4] as const).map(sq => {
