@@ -447,8 +447,8 @@ export const PanoramicMirror = () => {
                     `}
                     style={{ minHeight: DAY_NUM_H + barsAreaH + 80 }}
                   >
-                    {/* Day number + day-off toggle */}
-                    <div className="relative z-20 flex items-center justify-between">
+                    {/* Day number + day-off toggle (picker is absolute, doesn't push content) */}
+                    <div className="relative flex items-center justify-between" style={{ zIndex: 20 }}>
                       <span className={`text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0
                         ${isToday ? "bg-blue-600 text-white" : (isWknd ? muted : (isDark ? "text-slate-200" : "text-slate-700"))}
                       `}>
@@ -463,36 +463,37 @@ export const PanoramicMirror = () => {
                           📅
                         </button>
                       )}
+                      {/* Squadron picker — absolute so it floats above without affecting flow */}
+                      {canEdit && dayOffPickerDate === dateStr && (
+                        <div
+                          className={`absolute top-full left-0 flex flex-wrap gap-0.5 p-1 rounded shadow-lg ${isDark ? "bg-slate-700 border border-slate-600" : "bg-white border border-slate-200"}`}
+                          style={{ zIndex: 40, minWidth: 88 }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          {(["ALL", 1, 2, 3, 4] as const).map(sq => {
+                            const active = dayEvts.some(e =>
+                              e.type === "DAY_OFF" &&
+                              (sq === "ALL" ? e.targetSquadron === "ALL" : Number(e.targetSquadron) === sq)
+                            );
+                            return (
+                              <button
+                                key={String(sq)}
+                                onClick={() => toggleDayOff(dateStr, sq)}
+                                className={`text-[9px] px-1 py-0.5 rounded font-medium transition-colors ${
+                                  active
+                                    ? "bg-red-500/80 text-white"
+                                    : isDark
+                                      ? "bg-slate-600 text-slate-300 hover:bg-red-500/50 hover:text-white"
+                                      : "bg-slate-200 text-slate-600 hover:bg-red-100 hover:text-red-600"
+                                }`}
+                              >
+                                {sq === "ALL" ? "All" : `${sq}º`}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                    {/* Squadron picker */}
-                    {canEdit && dayOffPickerDate === dateStr && (
-                      <div
-                        className={`relative z-20 flex flex-wrap gap-0.5 p-1 rounded ${isDark ? "bg-slate-700/80" : "bg-slate-100"}`}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        {(["ALL", 1, 2, 3, 4] as const).map(sq => {
-                          const active = dayEvts.some(e =>
-                            e.type === "DAY_OFF" &&
-                            (sq === "ALL" ? e.targetSquadron === "ALL" : Number(e.targetSquadron) === sq)
-                          );
-                          return (
-                            <button
-                              key={String(sq)}
-                              onClick={() => toggleDayOff(dateStr, sq)}
-                              className={`text-[9px] px-1 py-0.5 rounded font-medium transition-colors ${
-                                active
-                                  ? "bg-red-500/80 text-white"
-                                  : isDark
-                                    ? "bg-slate-600 text-slate-300 hover:bg-red-500/50 hover:text-white"
-                                    : "bg-slate-200 text-slate-600 hover:bg-red-100 hover:text-red-600"
-                              }`}
-                            >
-                              {sq === "ALL" ? "All" : `${sq}º`}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
 
                     {/* Spacer for bars area */}
                     {barsAreaH > 0 && <div style={{ height: barsAreaH }} className="flex-shrink-0" />}
