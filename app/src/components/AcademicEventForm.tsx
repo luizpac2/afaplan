@@ -326,7 +326,7 @@ export const AcademicEventForm = ({
               {sqBtn("ALL", "Todos (CCAer)")}
               {SQUADRONS.map((n) => sqBtn(n, `${n}º Esq`))}
             </div>
-          </div>}
+          </div>
 
           {/* Período */}
           <div>
