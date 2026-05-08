@@ -579,10 +579,10 @@ export const PanoramicMirror = () => {
                                 onClick={canEdit ? () => setEditingAcademic(ev) : undefined}
                               >
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-[11px]">⛔</span>
+                                  <span className="text-[11px]">📅</span>
                                   <span className="text-[11px] font-semibold leading-tight text-red-400">{title}</span>
                                 </div>
-                                <p className="text-[10px] text-red-400/70 ml-5">Alocação de aulas bloqueada</p>
+                                <p className="text-[10px] text-red-400/70 ml-5">Dia não letivo</p>
                                 {isMultiDay && <p className={`text-[10px] ${muted} ml-5`}>De {fmtDate(ev.date)} a {fmtDate(endDateVal)}</p>}
                               </div>
                             );

@@ -540,7 +540,7 @@ export const AcademicGantt = () => {
                               {fmtShort(ev.start)}{isMulti ? ` → ${fmtShort(ev.end)} (${diffDays(ev.start, ev.end) + 1}d)` : ""}
                             </p>
                             <p className="text-[10px] mt-0.5" style={{ color: ev.color }}>{TYPE_LABELS[ev.type] ?? ev.type}</p>
-                            {isDayOff && <p className="text-red-400 text-[10px]">⛔ Alocação de aulas bloqueada</p>}
+                            {isDayOff && <p className="text-red-400 text-[10px]">📅 Dia não letivo</p>}
                             {ev.squadron !== null && !isDayOff && <p style={{ color: ev.color }}>{SQ_LABELS[ev.squadron]}</p>}
                             {canEdit && <p className={`mt-1 opacity-50 ${muted}`}>clique para editar</p>}
                           </div>
