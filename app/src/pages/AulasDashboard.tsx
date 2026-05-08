@@ -29,24 +29,21 @@ const YEARS: CourseYear[] = [1, 2, 3, 4];
 const COURSES = ["AVIATION", "INTENDANCY", "INFANTRY"] as const;
 const FIELDS = ["GERAL", "MILITAR", "PROFISSIONAL", "ATIVIDADES_COMPLEMENTARES"] as const;
 
-// Conta dias letivos (Seg–Sáb) no ano, excluindo domingos
+// Conta dias úteis (Seg–Sex) no ano
 function countWeekdaysInYear(year: number): number {
   let count = 0;
   const d = new Date(year, 0, 1);
   while (d.getFullYear() === year) {
     const day = d.getDay();
-    if (day !== 0 && day !== 6) count++; // exclui domingo (0) e sábado (6)
+    if (day !== 0 && day !== 6) count++;
     d.setDate(d.getDate() + 1);
   }
   return count;
 }
 
-const DAY_OFF_TYPES = new Set(["DAY_OFF", "HOLIDAY"]);
-const FULL_DAY_BLOCK_KEYWORDS = ["INTERAFA", "NAVAMAER", "ESPADIM", "ASPIRANTADO"];
-
 type SEvent = import("../types").ScheduleEvent;
 
-// Expande evento multi-dia e adiciona seus dias úteis (Seg-Sex) ao Set
+// Expande evento multi-dia e adiciona seus dias úteis ao Set
 function expandWeekdays(ev: SEvent, year: number, out: Set<string>) {
   const yearStart = `${year}-01-01`;
   const yearEnd   = `${year}-12-31`;
@@ -68,27 +65,15 @@ function appliesToSquadron(ev: SEvent, squadronId: number): boolean {
   return ts === null || ts === undefined || ts === "ALL" || Number(ts) === squadronId;
 }
 
-// Retorna breakdown de exclusões para um esquadrão específico
+// Conta dias não letivos de um esquadrão — apenas eventos DAY_OFF explícitos do calendário
 function calcExcludedDays(events: SEvent[], year: number, squadronId: number) {
-  const offDates     = new Set<string>();
-  const blockedDates = new Set<string>();
-
+  const offDates = new Set<string>();
   for (const ev of events) {
+    if (ev.type !== "DAY_OFF") continue;
     if (!appliesToSquadron(ev, squadronId)) continue;
-
-    if (DAY_OFF_TYPES.has(ev.type ?? "")) {
-      expandWeekdays(ev, year, offDates);
-      continue;
-    }
-    const isBlocking = (ev as any).isBlocking !== false;
-    const loc = ((ev.location ?? "") + " " + (ev.description ?? "")).toUpperCase();
-    if (isBlocking && FULL_DAY_BLOCK_KEYWORDS.some((kw) => loc.includes(kw))) {
-      expandWeekdays(ev, year, blockedDates);
-    }
+    expandWeekdays(ev, year, offDates);
   }
-
-  const all = new Set([...offDates, ...blockedDates]);
-  return { total: all.size, dayOff: offDates.size, blocked: blockedDates.size };
+  return { total: offDates.size };
 }
 
 export const AulasDashboard = () => {
@@ -122,24 +107,6 @@ export const AulasDashboard = () => {
     () => Math.min(...diasLetivosBySquadron.map((d) => d.dias)),
     [diasLetivosBySquadron],
   );
-
-  // Breakdown global (union de todos os esquadrões) para a legenda
-  const excludedGlobal = useMemo(() => {
-    const off = new Set<string>();
-    const blocked = new Set<string>();
-    for (const sq of YEARS) {
-      for (const ev of yearlyEvents) {
-        if (!appliesToSquadron(ev, sq)) continue;
-        if (DAY_OFF_TYPES.has(ev.type ?? "")) { expandWeekdays(ev, calendarYear, off); continue; }
-        const isBlocking = (ev as any).isBlocking !== false;
-        const loc = ((ev.location ?? "") + " " + (ev.description ?? "")).toUpperCase();
-        if (isBlocking && FULL_DAY_BLOCK_KEYWORDS.some((kw) => loc.includes(kw)))
-          expandWeekdays(ev, calendarYear, blocked);
-      }
-    }
-    const all = new Set([...off, ...blocked]);
-    return { total: all.size, dayOff: off.size, blocked: blocked.size };
-  }, [yearlyEvents, calendarYear]);
 
   // ── Disciplinas ativa = tem enabledYears ou enabledCourses preenchidos ───
   const activeDisciplines = useMemo(
@@ -514,63 +481,6 @@ export const AulasDashboard = () => {
         </div>
       </div>
 
-      {/* ── Legenda: critérios para dia letivo ────────────────────────────── */}
-      <div className={`rounded-xl border p-4 ${card}`}>
-        <p className={`text-xs font-semibold uppercase tracking-wide mb-3 ${muted}`}>
-          Como é calculado o total de dias letivos
-        </p>
-        <ol className={`flex flex-col gap-2 text-sm ${muted}`}>
-          <li className="flex gap-2">
-            <span className={`font-bold shrink-0 ${text}`}>1.</span>
-            <span>
-              Conta-se todos os dias <strong className={text}>segunda a sexta-feira</strong> do
-              ano letivo selecionado ({totalWeekdays} dias em {calendarYear}).
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span className={`font-bold shrink-0 ${text}`}>2.</span>
-            <span>
-              São subtraídos os dias classificados como{" "}
-              <strong className={text}>Day-off</strong> ou{" "}
-              <strong className={text}>Feriado</strong> (tipo{" "}
-              <code className="text-[11px] bg-slate-200 dark:bg-slate-700 px-1 rounded">DAY_OFF</code> ou{" "}
-              <code className="text-[11px] bg-slate-200 dark:bg-slate-700 px-1 rounded">HOLIDAY</code>)
-              cadastrados no calendário acadêmico
-              {excludedGlobal.dayOff > 0 && (
-                <span className="ml-1 text-amber-500 font-semibold">
-                  (−{excludedGlobal.dayOff} dia{excludedGlobal.dayOff !== 1 ? "s" : ""} em {calendarYear})
-                </span>
-              )}.
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span className={`font-bold shrink-0 ${text}`}>3.</span>
-            <span>
-              São subtraídos dias cujo evento acadêmico bloqueante é{" "}
-              <strong className={text}>INTERAFA</strong>,{" "}
-              <strong className={text}>NAVAMAER</strong>,{" "}
-              <strong className={text}>ESPADIM</strong> ou{" "}
-              <strong className={text}>ASPIRANTADO</strong> — eventos que ocupam
-              integralmente o dia, impedindo a alocação de aulas regulares
-              {excludedGlobal.blocked > 0 && (
-                <span className="ml-1 text-amber-500 font-semibold">
-                  (−{excludedGlobal.blocked} dia{excludedGlobal.blocked !== 1 ? "s" : ""} em {calendarYear})
-                </span>
-              )}.
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span className={`font-bold shrink-0 ${text}`}>4.</span>
-            <span>
-              Sábados e domingos são sempre excluídos, independentemente de qualquer alocação.
-            </span>
-          </li>
-        </ol>
-        <p className={`mt-3 text-xs font-semibold ${text}`}>
-          Base: {totalWeekdays} dias úteis (Seg–Sex) em {calendarYear}. O total por esquadrão
-          varia conforme os eventos acima se apliquem a cada um individualmente.
-        </p>
-      </div>
     </div>
   );
 };
