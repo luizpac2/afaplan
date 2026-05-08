@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
-import { lazy, Suspense, useState as useStateKA, useEffect as useEffectKA, ComponentType } from "react";
+import { lazy, Suspense, useState as useStateKA, useEffect as useEffectKA } from "react";
+import type { ComponentType } from "react";
 
 const GanttProgrammingKA = lazy(() =>
   import("../pages/GanttProgramming").then((m) => ({ default: m.GanttProgramming }))
