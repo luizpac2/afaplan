@@ -47,7 +47,6 @@ const ChefeTurmaLancamento = lazy(() => import("./pages/ChefeTurmaLancamento").t
 const FaltasReport = lazy(() => import("./pages/FaltasReport").then(m => ({ default: m.FaltasReport })));
 const DisciplineAreaManager = lazy(() => import("./pages/admin/DisciplineAreaManager").then(m => ({ default: m.DisciplineAreaManager })));
 const DisciplineDashboard = lazy(() => import("./pages/DisciplineDashboard").then(m => ({ default: m.DisciplineDashboard })));
-const GanttProgramming = lazy(() => import("./pages/GanttProgramming").then(m => ({ default: m.GanttProgramming })));
 const AulasDashboard   = lazy(() => import("./pages/AulasDashboard").then(m => ({ default: m.AulasDashboard })));
 const AcademicGantt    = lazy(() => import("./pages/AcademicGantt").then(m => ({ default: m.AcademicGantt })));
 const DisciplineGantt  = lazy(() => import("./pages/DisciplineGantt").then(m => ({ default: m.DisciplineGantt })));
