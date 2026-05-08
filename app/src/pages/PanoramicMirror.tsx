@@ -629,32 +629,42 @@ export const PanoramicMirror = () => {
                               </div>
                             );
                           })}
-                          {/* Non-evaluation events */}
-                          {otherEvents.map(ev => {
-                            const isDayOff = ev.type === "DAY_OFF";
-                            const sqNum = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
-                            const sqValid = sqNum !== null && Number.isFinite(sqNum) && sqNum >= 1 && sqNum <= 4;
-                            const color = isDayOff ? "#ef4444" : (sqValid ? sqColor(sqNum!) : (ev.color ?? "#6366f1"));
-                            const title = isDayOff
-                              ? (ev.description || "Day Off")
-                              : (ev.description || ev.location || "Evento Acadêmico");
-                            const notes = (ev as any).notes;
-                            const hasNotes = notes && notes !== title;
-                            const showLocation = ev.location && ev.location !== title && !isDayOff;
-                            const endDateVal = (ev as any).endDate;
-                            const isMultiDay = endDateVal && endDateVal !== ev.date;
-                            if (isDayOff) return (
-                              <div key={ev.id}
-                                className="rounded-lg border border-dashed border-red-500/40 px-3 py-2 flex flex-col gap-0.5 bg-red-500/10"
-                              >
+                          {/* Consolidated DAY_OFF card */}
+                          {(() => {
+                            const dayOffEvts = otherEvents.filter(e => e.type === "DAY_OFF");
+                            if (dayOffEvts.length === 0) return null;
+                            const hasAll = dayOffEvts.some(e => e.targetSquadron === "ALL");
+                            const sqNums = [...new Set(
+                              dayOffEvts
+                                .filter(e => e.targetSquadron !== "ALL" && e.targetSquadron != null)
+                                .map(e => Number(e.targetSquadron))
+                                .filter(n => n >= 1 && n <= 4)
+                            )].sort();
+                            const sqLabel = hasAll
+                              ? "Todos os esquadrões"
+                              : sqNums.map(n => `${n}º`).join(" / ");
+                            return (
+                              <div className="rounded-lg border border-dashed border-red-500/40 px-3 py-2 flex flex-col gap-0.5 bg-red-500/10">
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-[11px]">📅</span>
-                                  <span className="text-[11px] font-semibold leading-tight text-red-400">{title}</span>
+                                  <span className="text-[11px] font-semibold leading-tight text-red-400">
+                                    Dia não letivo{sqLabel ? ` — ${sqLabel}` : ""}
+                                  </span>
                                 </div>
-                                <p className="text-[10px] text-red-400/70 ml-5">Dia não letivo</p>
-                                {isMultiDay && <p className={`text-[10px] ${muted} ml-5`}>De {fmtDate(ev.date)} a {fmtDate(endDateVal)}</p>}
                               </div>
                             );
+                          })()}
+                          {/* Non-evaluation, non-DAY_OFF events */}
+                          {otherEvents.filter(ev => ev.type !== "DAY_OFF").map(ev => {
+                            const sqNum = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
+                            const sqValid = sqNum !== null && Number.isFinite(sqNum) && sqNum >= 1 && sqNum <= 4;
+                            const color = sqValid ? sqColor(sqNum!) : (ev.color ?? "#6366f1");
+                            const title = ev.description || ev.location || "Evento Acadêmico";
+                            const notes = (ev as any).notes;
+                            const hasNotes = notes && notes !== title;
+                            const showLocation = ev.location && ev.location !== title;
+                            const endDateVal = (ev as any).endDate;
+                            const isMultiDay = endDateVal && endDateVal !== ev.date;
                             return (
                               <div key={ev.id}
                                 className={`rounded-lg border px-3 py-2 flex flex-col gap-0.5 ${canEdit ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
