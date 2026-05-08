@@ -48,8 +48,17 @@ export const PanoramicMirror = () => {
   const canEdit = ["SUPER_ADMIN", "ADMIN"].includes(userProfile?.role ?? "");
 
   const today = new Date();
-  const [year, setYear]   = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth());
+  const [year, setYear]   = useState(() => {
+    const s = sessionStorage.getItem("cal-year");
+    return s ? parseInt(s) : today.getFullYear();
+  });
+  const [month, setMonth] = useState(() => {
+    const s = sessionStorage.getItem("cal-month");
+    return s ? parseInt(s) : today.getMonth();
+  });
+
+  useEffect(() => { sessionStorage.setItem("cal-year", String(year)); }, [year]);
+  useEffect(() => { sessionStorage.setItem("cal-month", String(month)); }, [month]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [dayOffPickerDate, setDayOffPickerDate] = useState<string | null>(null);
 
