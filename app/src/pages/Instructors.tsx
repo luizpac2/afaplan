@@ -10,6 +10,11 @@ import { supabase } from '../config/supabase';
 type BulkInstructorEdits = Record<string, Partial<Pick<Instructor, 'venture' | 'maxTitle' | 'weeklyLoadLimit' | 'specialty' | 'rank'>>>;
 
 export const Instructors = () => {
+   useEffect(() => {
+      console.log('[KA-DIAG] Instructors MOUNTED');
+      return () => { console.log('[KA-DIAG] Instructors UNMOUNTED'); };
+   }, []);
+
    const pageHeaderRef  = useRef<HTMLDivElement>(null);
    const toolbarRef     = useRef<HTMLDivElement>(null);
    const bulkHeaderRef  = useRef<HTMLDivElement>(null);
