@@ -92,6 +92,18 @@ export const GanttProgramming = () => {
     }
     const start = formatDate(getStartOfWeek(initDate));
     const end = formatDate(addDays(getStartOfWeek(initDate), 6));
+    // Prefer yearEventsCache (updated in-place on mutations, never cleared) over eventsWeekCache
+    const yearCache = useCourseStore.getState().yearEventsCache[new Date().getFullYear()];
+    if (yearCache) {
+      const prefix = String(sq);
+      return yearCache.filter(e => {
+        const evEnd = (e as any).endDate ?? e.date;
+        if (e.date > end || evEnd < start) return false;
+        if ((e.type as string) === "ACADEMIC" || e.disciplineId === "ACADEMIC") return true;
+        if (e.classId === "Geral" || e.classId === "GLOBAL" || (e.classId?.endsWith("ESQ") ?? false)) return true;
+        return e.classId?.startsWith(prefix) ?? false;
+      });
+    }
     return (getEventsWeekCacheSync(start, end) as ScheduleEvent[]) ?? [];
   });
   const [yearlyEvents, setYearlyEvents] = useState<ScheduleEvent[]>(
@@ -172,7 +184,14 @@ export const GanttProgramming = () => {
   useEffect(() => {
     if (!dataReady) return;
     const unsub = subscribeToEventsByDateRange(startDayStr, endDayStr, (data) => {
-      setWeekEvents(data as ScheduleEvent[]);
+      setWeekEvents(prev => {
+        const next = data as ScheduleEvent[];
+        if (prev.length === next.length) {
+          const prevIds = new Set(prev.map(e => e.id));
+          if (next.every(e => prevIds.has(e.id))) return prev;
+        }
+        return next;
+      });
     });
     return () => unsub();
   }, [startDayStr, endDayStr, dataReady]);
