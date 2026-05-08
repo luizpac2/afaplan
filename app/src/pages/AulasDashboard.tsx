@@ -94,15 +94,17 @@ function calcExcludedDays(events: SEvent[], year: number, squadronId: number) {
 export const AulasDashboard = () => {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const { disciplines, instructors, classes, cohorts, fetchYearlyEvents, dataReady } = useCourseStore();
+  const { disciplines, instructors, classes, cohorts, fetchYearlyEvents, dataReady, yearEventsCache } = useCourseStore();
 
   const currentYear = new Date().getFullYear();
   const [calendarYear, setCalendarYear] = useState(currentYear);
-  const [yearlyEvents, setYearlyEvents] = useState<import("../types").ScheduleEvent[]>([]);
+
+  // Lê direto do cache do store para reagir quando addEvent/addBatchEvents atualizam o cache
+  const yearlyEvents = yearEventsCache[calendarYear] ?? [];
 
   useEffect(() => {
     if (!dataReady) return;
-    fetchYearlyEvents(calendarYear).then(setYearlyEvents);
+    fetchYearlyEvents(calendarYear);
   }, [dataReady, calendarYear, fetchYearlyEvents]);
 
   // ── Dias letivos por esquadrão ────────────────────────────────────────────

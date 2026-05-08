@@ -145,6 +145,7 @@ const MENU_ITEMS: MenuItem[] = [
         submenu: [
           { title: "Painel Acadêmico", path: "/aulas-dashboard" },
           { title: "Dashboard", path: "/discipline-dashboard" },
+          { title: "Dias Não Letivos", path: "/academic-calendar" },
           { title: "Gerenciar", path: "/disciplinas" },
           { title: "Áreas Acadêmicas", path: "/discipline-areas" },
           { title: "PPC", path: "/cursos" },
