@@ -12,6 +12,7 @@
 !app/vercel.json
 !app/tsconfig.json
 !app/tsconfig.*.json
+!supabase/functions/deno.json
 
 # Dependências
 node_modules/

@@ -703,7 +703,7 @@ Deno.serve(async (req) => {
     const { data: events } = await adminClient.from("programacao_aulas").select("disciplineId");
     const { data: disciplines } = await adminClient.from("disciplinas").select("id");
     const validIds = new Set((disciplines ?? []).map((d: any) => d.id));
-    const orphanIds = [...new Set((events ?? []).map((e: any) => e.disciplineId).filter((id: any) => id && !validIds.has(id)))];
+    const orphanIds = [...new Set((events ?? []).map((e: any) => e.disciplineId).filter((id: any) => id && !validIds.has(id)))] as string[];
     const counts: Record<string, number> = {};
     for (const id of orphanIds) {
       counts[id] = (events ?? []).filter((e: any) => e.disciplineId === id).length;
@@ -718,14 +718,14 @@ Deno.serve(async (req) => {
     const { data: events } = await adminClient.from("programacao_aulas").select("disciplineId");
     const { data: disciplines } = await adminClient.from("disciplinas").select("id, code, name");
     const validIds = new Set((disciplines ?? []).map((d: any) => d.id));
-    const orphanIds = [...new Set((events ?? []).map((e: any) => e.disciplineId).filter((id: any) => id && !validIds.has(id)))];
+    const orphanIds = [...new Set((events ?? []).map((e: any) => e.disciplineId).filter((id: any) => id && !validIds.has(id)))] as string[];
 
     const results: any[] = [];
     for (const orphanId of orphanIds) {
       // Tenta achar disciplina com id ou code parecido (case-insensitive)
       const match = (disciplines ?? []).find((d: any) =>
-        d.id?.toLowerCase() === orphanId?.toLowerCase() ||
-        d.code?.toLowerCase() === orphanId?.toLowerCase()
+        d.id?.toLowerCase() === (orphanId as string)?.toLowerCase() ||
+        d.code?.toLowerCase() === (orphanId as string)?.toLowerCase()
       );
       if (match) {
         const { data: updated } = await adminClient.from("programacao_aulas")
