@@ -29,24 +29,21 @@ const YEARS: CourseYear[] = [1, 2, 3, 4];
 const COURSES = ["AVIATION", "INTENDANCY", "INFANTRY"] as const;
 const FIELDS = ["GERAL", "MILITAR", "PROFISSIONAL", "ATIVIDADES_COMPLEMENTARES"] as const;
 
-// Conta dias letivos (Seg–Sáb) no ano, excluindo domingos
+// Conta dias úteis (Seg–Sex) no ano
 function countWeekdaysInYear(year: number): number {
   let count = 0;
   const d = new Date(year, 0, 1);
   while (d.getFullYear() === year) {
     const day = d.getDay();
-    if (day !== 0 && day !== 6) count++; // exclui domingo (0) e sábado (6)
+    if (day !== 0 && day !== 6) count++;
     d.setDate(d.getDate() + 1);
   }
   return count;
 }
 
-const DAY_OFF_TYPES = new Set(["DAY_OFF", "HOLIDAY"]);
-const FULL_DAY_BLOCK_KEYWORDS = ["INTERAFA", "NAVAMAER", "ESPADIM", "ASPIRANTADO"];
-
 type SEvent = import("../types").ScheduleEvent;
 
-// Expande evento multi-dia e adiciona seus dias úteis (Seg-Sex) ao Set
+// Expande evento multi-dia e adiciona seus dias úteis ao Set
 function expandWeekdays(ev: SEvent, year: number, out: Set<string>) {
   const yearStart = `${year}-01-01`;
   const yearEnd   = `${year}-12-31`;
@@ -68,41 +65,33 @@ function appliesToSquadron(ev: SEvent, squadronId: number): boolean {
   return ts === null || ts === undefined || ts === "ALL" || Number(ts) === squadronId;
 }
 
-// Retorna breakdown de exclusões para um esquadrão específico
+const DAY_OFF_TYPES = new Set(["DAY_OFF"]);
+
+// Conta dias não letivos de um esquadrão — baseado nos eventos do calendário
 function calcExcludedDays(events: SEvent[], year: number, squadronId: number) {
-  const offDates     = new Set<string>();
-  const blockedDates = new Set<string>();
-
+  const offDates = new Set<string>();
   for (const ev of events) {
+    if (!DAY_OFF_TYPES.has(ev.type ?? "")) continue;
     if (!appliesToSquadron(ev, squadronId)) continue;
-
-    if (DAY_OFF_TYPES.has(ev.type ?? "")) {
-      expandWeekdays(ev, year, offDates);
-      continue;
-    }
-    const isBlocking = (ev as any).isBlocking !== false;
-    const loc = ((ev.location ?? "") + " " + (ev.description ?? "")).toUpperCase();
-    if (isBlocking && FULL_DAY_BLOCK_KEYWORDS.some((kw) => loc.includes(kw))) {
-      expandWeekdays(ev, year, blockedDates);
-    }
+    expandWeekdays(ev, year, offDates);
   }
-
-  const all = new Set([...offDates, ...blockedDates]);
-  return { total: all.size, dayOff: offDates.size, blocked: blockedDates.size };
+  return { total: offDates.size };
 }
 
 export const AulasDashboard = () => {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const { disciplines, instructors, classes, cohorts, fetchYearlyEvents, dataReady } = useCourseStore();
+  const { disciplines, instructors, classes, cohorts, fetchYearlyEvents, dataReady, yearEventsCache } = useCourseStore();
 
   const currentYear = new Date().getFullYear();
   const [calendarYear, setCalendarYear] = useState(currentYear);
-  const [yearlyEvents, setYearlyEvents] = useState<import("../types").ScheduleEvent[]>([]);
+
+  // Lê direto do cache do store para reagir quando addEvent/addBatchEvents atualizam o cache
+  const yearlyEvents = yearEventsCache[calendarYear] ?? [];
 
   useEffect(() => {
     if (!dataReady) return;
-    fetchYearlyEvents(calendarYear).then(setYearlyEvents);
+    fetchYearlyEvents(calendarYear);
   }, [dataReady, calendarYear, fetchYearlyEvents]);
 
   // ── Dias letivos por esquadrão ────────────────────────────────────────────
@@ -120,24 +109,6 @@ export const AulasDashboard = () => {
     () => Math.min(...diasLetivosBySquadron.map((d) => d.dias)),
     [diasLetivosBySquadron],
   );
-
-  // Breakdown global (union de todos os esquadrões) para a legenda
-  const excludedGlobal = useMemo(() => {
-    const off = new Set<string>();
-    const blocked = new Set<string>();
-    for (const sq of YEARS) {
-      for (const ev of yearlyEvents) {
-        if (!appliesToSquadron(ev, sq)) continue;
-        if (DAY_OFF_TYPES.has(ev.type ?? "")) { expandWeekdays(ev, calendarYear, off); continue; }
-        const isBlocking = (ev as any).isBlocking !== false;
-        const loc = ((ev.location ?? "") + " " + (ev.description ?? "")).toUpperCase();
-        if (isBlocking && FULL_DAY_BLOCK_KEYWORDS.some((kw) => loc.includes(kw)))
-          expandWeekdays(ev, calendarYear, blocked);
-      }
-    }
-    const all = new Set([...off, ...blocked]);
-    return { total: all.size, dayOff: off.size, blocked: blocked.size };
-  }, [yearlyEvents, calendarYear]);
 
   // ── Disciplinas ativa = tem enabledYears ou enabledCourses preenchidos ───
   const activeDisciplines = useMemo(
@@ -200,14 +171,14 @@ export const AulasDashboard = () => {
     return counts;
   }, [instructors]);
 
-  // ── Carga total por esquadrão (via ppcLoads) ──────────────────────────────
-  const totalHoursByYear = useMemo(() => {
-    const totals: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+// ── Carga total por curso (todas as turmas) ──────────────────────────────
+  const totalHoursByCourse = useMemo(() => {
+    const totals: Record<string, number> = { AVIATION: 0, INTENDANCY: 0, INFANTRY: 0 };
     for (const d of activeDisciplines) {
-      for (const year of d.enabledYears ?? []) {
-        for (const course of d.enabledCourses ?? []) {
+      for (const course of d.enabledCourses ?? []) {
+        for (const year of d.enabledYears ?? []) {
           const key = `${course}_${year}`;
-          totals[year] = (totals[year] ?? 0) + (d.ppcLoads?.[key] ?? 0);
+          totals[course] = (totals[course] ?? 0) + (d.ppcLoads?.[key] ?? 0);
         }
       }
     }
@@ -256,7 +227,8 @@ export const AulasDashboard = () => {
         <div className={`flex items-center gap-1 rounded-xl border p-1 ${isDark ? "bg-slate-900 border-slate-700" : "bg-slate-50 border-slate-200"}`}>
           <button
             onClick={() => setCalendarYear((y) => y - 1)}
-            className={`p-1.5 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600"}`}
+            disabled={calendarYear <= 2026}
+            className={`p-1.5 rounded-lg transition-colors ${calendarYear <= 2026 ? "opacity-30 cursor-not-allowed" : isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600"}`}
           >
             <ChevronLeft size={16} />
           </button>
@@ -265,12 +237,7 @@ export const AulasDashboard = () => {
           </span>
           <button
             onClick={() => setCalendarYear((y) => y + 1)}
-            disabled={calendarYear >= currentYear}
-            className={`p-1.5 rounded-lg transition-colors ${
-              calendarYear >= currentYear
-                ? "opacity-30 cursor-not-allowed"
-                : isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600"
-            }`}
+            className={`p-1.5 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600"}`}
           >
             <ChevronRight size={16} />
           </button>
@@ -358,67 +325,61 @@ export const AulasDashboard = () => {
         </div>
       </div>
 
-      {/* ── Disciplinas por Esquadrão × Curso ────────────────────────────── */}
+      {/* ── Disciplinas por Curso × Esquadrão ────────────────────────────── */}
       <div className={`rounded-xl border overflow-hidden ${card}`}>
         <div className={`px-4 py-3 border-b flex items-center gap-2 ${cardHeader}`}>
           <Layers size={15} className="text-purple-400" />
-          <span className={`text-sm font-semibold ${text}`}>Disciplinas por Esquadrão / Curso</span>
+          <span className={`text-sm font-semibold ${text}`}>Disciplinas por Curso / Esquadrão</span>
           <span className={`ml-auto text-[11px] ${muted}`}>quantidade · carga horária (h)</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className={`border-b ${tableBorder}`}>
-                <th className={`text-left px-4 py-2.5 text-xs font-semibold ${muted} w-36`}>Esquadrão</th>
-                {COURSES.map((c) => (
-                  <th key={c} className={`text-center px-3 py-2.5 text-xs font-semibold ${muted}`}>
-                    {COURSE_LABELS[c]}
-                  </th>
-                ))}
+                <th className={`text-left px-4 py-2.5 text-xs font-semibold ${muted} w-36`}>Curso</th>
+                {YEARS.map((year) => {
+                  const tokens = squadronColor(year);
+                  return (
+                    <th key={year} className={`text-center px-3 py-2.5 text-xs font-semibold`} style={{ color: tokens.primary }}>
+                      {year}º Esq
+                      <div className={`text-[9px] font-normal ${muted}`}>{cohortBySquadron[year]}</div>
+                    </th>
+                  );
+                })}
                 <th className={`text-center px-3 py-2.5 text-xs font-semibold ${muted}`}>Carga Total (h)</th>
               </tr>
             </thead>
             <tbody className={`divide-y ${divider}`}>
-              {YEARS.map((year) => {
-                const tokens = squadronColor(year);
-                return (
-                  <tr key={year} className={rowHover}>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: tokens.primary }}
-                        />
-                        <span className={`font-medium ${text}`}>{year}º Esquadrão</span>
-                      </div>
-                      <span className={`text-[11px] ${muted} pl-[18px]`}>{cohortBySquadron[year]}</span>
-                    </td>
-                    {COURSES.map((c) => {
-                      const { count, hours } = discByYearCourse[year][c];
-                      return (
-                        <td key={c} className="px-3 py-3 text-center">
-                          {count > 0 ? (
-                            <>
-                              <span className={`font-semibold ${text}`}>{count}</span>
-                              {hours > 0 && (
-                                <span className={`ml-1 text-[11px] ${muted}`}>({hours}h)</span>
-                              )}
-                            </>
-                          ) : (
-                            <span className={`${muted} text-xs`}>—</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className="px-3 py-3 text-center">
-                      <span className={`font-semibold ${text}`}>{totalHoursByYear[year] || "—"}</span>
-                      {totalHoursByYear[year] > 0 && (
-                        <span className={`ml-0.5 text-[11px] ${muted}`}>h</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              {COURSES.map((course) => (
+                <tr key={course} className={rowHover}>
+                  <td className="px-4 py-3">
+                    <span className={`font-medium ${text}`}>{COURSE_LABELS[course]}</span>
+                  </td>
+                  {YEARS.map((year) => {
+                    const { count, hours } = discByYearCourse[year][course];
+                    return (
+                      <td key={year} className="px-3 py-3 text-center">
+                        {count > 0 ? (
+                          <>
+                            <span className={`font-semibold ${text}`}>{count}</span>
+                            {hours > 0 && (
+                              <span className={`ml-1 text-[11px] ${muted}`}>({hours}h)</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className={`${muted} text-xs`}>—</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="px-3 py-3 text-center">
+                    <span className={`font-semibold ${text}`}>{totalHoursByCourse[course] || "—"}</span>
+                    {totalHoursByCourse[course] > 0 && (
+                      <span className={`ml-0.5 text-[11px] ${muted}`}>h</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -522,63 +483,6 @@ export const AulasDashboard = () => {
         </div>
       </div>
 
-      {/* ── Legenda: critérios para dia letivo ────────────────────────────── */}
-      <div className={`rounded-xl border p-4 ${card}`}>
-        <p className={`text-xs font-semibold uppercase tracking-wide mb-3 ${muted}`}>
-          Como é calculado o total de dias letivos
-        </p>
-        <ol className={`flex flex-col gap-2 text-sm ${muted}`}>
-          <li className="flex gap-2">
-            <span className={`font-bold shrink-0 ${text}`}>1.</span>
-            <span>
-              Conta-se todos os dias <strong className={text}>segunda a sexta-feira</strong> do
-              ano letivo selecionado ({totalWeekdays} dias em {calendarYear}).
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span className={`font-bold shrink-0 ${text}`}>2.</span>
-            <span>
-              São subtraídos os dias classificados como{" "}
-              <strong className={text}>Day-off</strong> ou{" "}
-              <strong className={text}>Feriado</strong> (tipo{" "}
-              <code className="text-[11px] bg-slate-200 dark:bg-slate-700 px-1 rounded">DAY_OFF</code> ou{" "}
-              <code className="text-[11px] bg-slate-200 dark:bg-slate-700 px-1 rounded">HOLIDAY</code>)
-              cadastrados no calendário acadêmico
-              {excludedGlobal.dayOff > 0 && (
-                <span className="ml-1 text-amber-500 font-semibold">
-                  (−{excludedGlobal.dayOff} dia{excludedGlobal.dayOff !== 1 ? "s" : ""} em {calendarYear})
-                </span>
-              )}.
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span className={`font-bold shrink-0 ${text}`}>3.</span>
-            <span>
-              São subtraídos dias cujo evento acadêmico bloqueante é{" "}
-              <strong className={text}>INTERAFA</strong>,{" "}
-              <strong className={text}>NAVAMAER</strong>,{" "}
-              <strong className={text}>ESPADIM</strong> ou{" "}
-              <strong className={text}>ASPIRANTADO</strong> — eventos que ocupam
-              integralmente o dia, impedindo a alocação de aulas regulares
-              {excludedGlobal.blocked > 0 && (
-                <span className="ml-1 text-amber-500 font-semibold">
-                  (−{excludedGlobal.blocked} dia{excludedGlobal.blocked !== 1 ? "s" : ""} em {calendarYear})
-                </span>
-              )}.
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span className={`font-bold shrink-0 ${text}`}>4.</span>
-            <span>
-              Sábados e domingos são sempre excluídos, independentemente de qualquer alocação.
-            </span>
-          </li>
-        </ol>
-        <p className={`mt-3 text-xs font-semibold ${text}`}>
-          Base: {totalWeekdays} dias úteis (Seg–Sex) em {calendarYear}. O total por esquadrão
-          varia conforme os eventos acima se apliquem a cada um individualmente.
-        </p>
-      </div>
     </div>
   );
 };

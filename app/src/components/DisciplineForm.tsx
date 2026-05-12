@@ -1,9 +1,9 @@
 ﻿
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Save, Search, Users } from 'lucide-react';
+import { X, Save, Search, Users, Plus, Trash2, SplitSquareHorizontal } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCourseStore } from '../store/useCourseStore';
-import type { Discipline, CourseYear } from '../types';
+import type { Discipline, CourseYear, InstructorSegment } from '../types';
 import { InstructorCombobox } from './InstructorCombobox';
 
 interface DisciplineFormProps {
@@ -283,6 +283,130 @@ function InstructorByYearSection({
     function setYearTitular(trigram: string) { setYearTrigram(trigram); }
 }
 
+function InstructorSegmentsSection({
+    segments,
+    setSegments,
+    instructors,
+    totalLoad,
+    theme,
+}: {
+    segments: InstructorSegment[];
+    setSegments: (s: InstructorSegment[]) => void;
+    instructors: import('../types').Instructor[];
+    totalLoad: number;
+    theme: string;
+}) {
+    const [expanded, setExpanded] = useState(false);
+    const isDark = theme === 'dark';
+    const inputCls = `px-2 py-1 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500 ${isDark ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-slate-300 text-slate-800'}`;
+    const mutedCls = isDark ? 'text-slate-400' : 'text-slate-500';
+
+    const sorted = [...segments].sort((a, b) => a.fromLesson - b.fromLesson);
+
+    const addSegment = () => {
+        const last = sorted[sorted.length - 1];
+        const from = last ? last.toLesson + 1 : 1;
+        const to = totalLoad > 0 ? Math.max(from, totalLoad) : from + 9;
+        setSegments([...segments, { fromLesson: from, toLesson: to, trigram: '' }]);
+        setExpanded(true);
+    };
+
+    const update = (idx: number, patch: Partial<InstructorSegment>) => {
+        const next = segments.map((s, i) => i === idx ? { ...s, ...patch } : s);
+        setSegments(next);
+    };
+
+    const remove = (idx: number) => setSegments(segments.filter((_, i) => i !== idx));
+
+    // Overlap detection
+    const hasOverlap = sorted.some((s, i) =>
+        sorted.slice(i + 1).some(t => s.toLesson >= t.fromLesson && s.fromLesson <= t.toLesson)
+    );
+
+    const sortedInstructors = useMemo(
+        () => [...instructors].sort((a, b) => a.warName.localeCompare(b.warName)),
+        [instructors],
+    );
+
+    return (
+        <div className={`rounded-lg border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+            <button
+                type="button"
+                onClick={() => setExpanded(v => !v)}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors ${isDark ? 'hover:bg-slate-700/50 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}
+            >
+                <span className="flex items-center gap-2">
+                    <SplitSquareHorizontal size={14} className={segments.length > 0 ? 'text-purple-500' : mutedCls} />
+                    Divisão de Aulas por Docente
+                    {segments.length > 0 && (
+                        <span className="text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded font-semibold">
+                            {segments.length} faixa(s)
+                        </span>
+                    )}
+                </span>
+                <span className={`text-xs ${mutedCls}`}>{expanded ? '▲' : '▼'}</span>
+            </button>
+
+            {expanded && (
+                <div className={`px-3 pb-3 border-t ${isDark ? 'border-slate-700' : 'border-slate-200'} space-y-3`}>
+                    <p className={`text-[10px] mt-2 ${mutedCls}`}>
+                        Divida a disciplina entre dois ou mais docentes por faixa de aulas. O Docente Titular padrão é usado fora das faixas definidas.
+                    </p>
+
+                    {hasOverlap && (
+                        <p className="text-[10px] text-red-500 font-medium">⚠ Há sobreposição entre faixas — verifique os intervalos.</p>
+                    )}
+
+                    {sorted.length === 0 && (
+                        <p className={`text-[10px] italic ${mutedCls}`}>Nenhuma faixa configurada.</p>
+                    )}
+
+                    <div className="space-y-2">
+                        {sorted.map((seg, i) => (
+                            <div key={i} className={`flex items-center gap-2 rounded-lg p-2 ${isDark ? 'bg-slate-700/30' : 'bg-slate-50'}`}>
+                                <div className="flex items-center gap-1 shrink-0">
+                                    <label className={`text-[9px] uppercase ${mutedCls}`}>De</label>
+                                    <input
+                                        type="number" min={1}
+                                        value={seg.fromLesson}
+                                        onChange={e => update(i, { fromLesson: Math.max(1, parseInt(e.target.value) || 1) })}
+                                        className={`${inputCls} w-14 text-center`}
+                                    />
+                                    <label className={`text-[9px] uppercase ${mutedCls}`}>Até</label>
+                                    <input
+                                        type="number" min={seg.fromLesson}
+                                        value={seg.toLesson}
+                                        onChange={e => update(i, { toLesson: Math.max(seg.fromLesson, parseInt(e.target.value) || seg.fromLesson) })}
+                                        className={`${inputCls} w-14 text-center`}
+                                    />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <InstructorCombobox
+                                        instructors={sortedInstructors}
+                                        value={seg.trigram}
+                                        onChange={v => update(i, { trigram: v })}
+                                        emptyLabel="— Docente —"
+                                        size="sm"
+                                    />
+                                </div>
+                                <button type="button" onClick={() => remove(i)}
+                                    className="shrink-0 p-1 rounded text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
+                                    <Trash2 size={13} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+
+                    <button type="button" onClick={addSegment}
+                        className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded border transition-colors ${isDark ? 'border-slate-600 text-slate-400 hover:border-purple-500 hover:text-purple-400' : 'border-slate-300 text-slate-500 hover:border-purple-400 hover:text-purple-600'}`}>
+                        <Plus size={12} /> Adicionar Faixa
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFormProps) => {
     const { theme } = useTheme();
     const { instructors, locations, disciplineAreas } = useCourseStore();
@@ -310,6 +434,7 @@ export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFo
         color: '#3b82f6',
         noSpecificInstructor: false,
         areaId: undefined,
+        instructorSegments: [],
     });
 
     useEffect(() => {
@@ -332,6 +457,7 @@ export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFo
                 color: initialData.color,
                 noSpecificInstructor: initialData.noSpecificInstructor || false,
                 areaId: initialData.areaId,
+                instructorSegments: initialData.instructorSegments || [],
             });
             // Pré-preenche os campos de busca com o nome do instrutor atual
             const titular = instructors.find(i => i.trigram === initialData.instructorTrigram);
@@ -623,6 +749,14 @@ export const DisciplineForm = ({ initialData, onSubmit, onCancel }: DisciplineFo
                         formData={formData}
                         setFormData={setFormData}
                         instructors={instructors}
+                        theme={theme}
+                    />
+
+                    <InstructorSegmentsSection
+                        segments={formData.instructorSegments || []}
+                        setSegments={(s) => setFormData({ ...formData, instructorSegments: s })}
+                        instructors={instructors}
+                        totalLoad={Object.values(formData.ppcLoads || {}).reduce((acc, v) => Math.max(acc, v), 0)}
                         theme={theme}
                     />
 

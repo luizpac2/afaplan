@@ -7,7 +7,7 @@ import {
 import { useTheme } from "../contexts/ThemeContext";
 import { useCourseStore } from "../store/useCourseStore";
 import { useAuth } from "../contexts/AuthContext";
-import { subscribeToEventsByDateRange, saveDocument, invalidateEventsWeekCache } from "../services/supabaseService";
+import { subscribeToEventsByDateRange, saveDocument, invalidateEventsWeekCache, getEventsWeekCacheSync } from "../services/supabaseService";
 import { supabase } from "../config/supabase";
 import { GanttView } from "../components/GanttView";
 import { EventForm } from "../components/EventForm";
@@ -35,9 +35,12 @@ const NOTICE_STYLES: Record<string, { bg: string; text: string; icon: React.Reac
   GENERAL:    { bg: "bg-slate-500/15 border-slate-400/40", text: "text-slate-400",  icon: <Info size={11} /> },
 };
 
-export const GanttProgramming = () => {
+interface GanttProgrammingProps { forcedSquadronId?: string; }
+
+export const GanttProgramming = ({ forcedSquadronId }: GanttProgrammingProps = {}) => {
   type ToastState = { type: "success" | "error" | "info"; message: string } | null;
-  const { squadronId } = useParams<{ squadronId: string }>();
+  const params = useParams<{ squadronId: string }>();
+  const squadronId = forcedSquadronId ?? params.squadronId;
   const [searchParams] = useSearchParams();
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -78,8 +81,35 @@ export const GanttProgramming = () => {
     try { sessionStorage.setItem(sessionKey, formatDate(currentDate)); } catch { /* ignora */ }
   }, [currentDate, sessionKey]);
 
-  const [weekEvents, setWeekEvents]   = useState<ScheduleEvent[]>([]);
-  const [yearlyEvents, setYearlyEvents] = useState<ScheduleEvent[]>([]);
+  const [weekEvents, setWeekEvents] = useState<ScheduleEvent[]>(() => {
+    const sq = parseInt(squadronId || "1");
+    let initDate = new Date();
+    if (dateParam) {
+      const d = new Date(dateParam + "T12:00:00");
+      if (!isNaN(d.getTime())) initDate = d;
+    } else {
+      try {
+        const saved = sessionStorage.getItem(`gantt_date_sq${sq}`);
+        if (saved) { const d = new Date(saved + "T12:00:00"); if (!isNaN(d.getTime())) initDate = d; }
+      } catch { /* */ }
+    }
+    const start = formatDate(getStartOfWeek(initDate));
+    const end = formatDate(addDays(getStartOfWeek(initDate), 6));
+    // Prefer yearEventsCache (updated in-place on mutations, never cleared) over eventsWeekCache.
+    // Must return ALL events for the week (no squadron filter) to match what subscribeToEventsByDateRange
+    // returns — same IDs allow the bail-out in the effect to skip the re-render.
+    const yearCache = useCourseStore.getState().yearEventsCache[new Date().getFullYear()];
+    if (yearCache) {
+      return yearCache.filter(e => {
+        const evEnd = (e as any).endDate ?? e.date;
+        return e.date <= end && evEnd >= start;
+      });
+    }
+    return (getEventsWeekCacheSync(start, end) as ScheduleEvent[]) ?? [];
+  });
+  const [yearlyEvents, setYearlyEvents] = useState<ScheduleEvent[]>(
+    () => useCourseStore.getState().yearEventsCache[new Date().getFullYear()] ?? []
+  );
   const [editingEvent, setEditingEvent] = useState<ScheduleEvent | undefined>();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [calendarYear] = useState(new Date().getFullYear());
@@ -155,7 +185,14 @@ export const GanttProgramming = () => {
   useEffect(() => {
     if (!dataReady) return;
     const unsub = subscribeToEventsByDateRange(startDayStr, endDayStr, (data) => {
-      setWeekEvents(data as ScheduleEvent[]);
+      setWeekEvents(prev => {
+        const next = data as ScheduleEvent[];
+        if (prev.length === next.length) {
+          const prevIds = new Set(prev.map(e => e.id));
+          if (next.every(e => prevIds.has(e.id))) return prev;
+        }
+        return next;
+      });
     });
     return () => unsub();
   }, [startDayStr, endDayStr, dataReady]);
@@ -1156,15 +1193,7 @@ export const GanttProgramming = () => {
 
         return (
           <div key={dateStr}
-            className={`rounded-xl border overflow-hidden ${card} ${isToday ? "ring-2 ring-blue-500/40" : ""} ${isDayOff ? "ring-2 ring-red-500/40" : ""}`}>
-
-            {/* Day Off banner */}
-            {isDayOff && (
-              <div className="flex items-center gap-2 px-4 py-1.5 bg-red-500/10 border-b border-red-500/20">
-                <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">⛔ Day Off</span>
-                <span className="text-[10px] text-red-400/80 truncate">{dayOff_[0].description || "Dia sem aulas"}</span>
-              </div>
-            )}
+            className={`rounded-xl border overflow-hidden ${card} ${isToday ? "ring-2 ring-blue-500/40" : ""} ${isDayOff ? "ring-2 ring-red-500/30" : ""}`}>
 
             {/* Day header */}
             <div className={`flex items-center gap-3 px-4 py-2 border-b ${border} ${isToday ? (isDark ? "bg-blue-900/20" : "bg-blue-50/50") : ""}`}>
@@ -1175,7 +1204,7 @@ export const GanttProgramming = () => {
                 {weekEvents.filter(e => e.date === dateStr && e.type !== "ACADEMIC" && e.disciplineId !== "ACADEMIC" && e.classId?.startsWith(String(currentSquadron))).length} aula(s)
               </span>
               <div className="flex gap-1 ml-auto items-center">
-                {canEdit && isBatchMode && !isDayOff && (
+                {canEdit && isBatchMode && (
                   <button
                     onClick={() => selectAllSlotsForDay(dateStr)}
                     className={`text-[9px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
@@ -1188,7 +1217,7 @@ export const GanttProgramming = () => {
                     ☑ Dia
                   </button>
                 )}
-                {canEdit && isSelectionMode && !isDayOff && (
+                {canEdit && isSelectionMode && (
                   <button
                     onClick={() => selectAllEventsForDay(dateStr)}
                     className={`text-[9px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
@@ -1230,10 +1259,10 @@ export const GanttProgramming = () => {
                   onSelectEvent={handleSelectEvent}
                   isSelectionMode={isSelectionMode}
                   onSlotDrop={handleSlotDrop}
-                  onEmptySlotClick={!isBatchMode && !isDayOff ? handleEmptySlotClick : undefined}
-                  isBatchMode={isBatchMode && !isDayOff}
+                  onEmptySlotClick={!isBatchMode ? handleEmptySlotClick : undefined}
+                  isBatchMode={isBatchMode}
                   selectedSlots={selectedSlots}
-                  onSlotSelect={!isDayOff ? handleSlotSelect : undefined}
+                  onSlotSelect={handleSlotSelect}
                   onDeleteEvent={(id) => useCourseStore.getState().deleteEvent(id)}
                 />
               </div>
@@ -1259,10 +1288,23 @@ export const GanttProgramming = () => {
                       )}
                     </div>
 
-                    {notices_.length === 0 ? (
+                    {notices_.length === 0 && !isDayOff ? (
                       <p className={`text-[10px] italic ${muted} opacity-60`}>Sem avisos</p>
                     ) : (
                       <div className="flex flex-col gap-1">
+                        {isDayOff && (
+                          <div className="rounded-lg border border-red-500/30 px-2 py-1.5 bg-red-500/10">
+                            <div className="flex items-center gap-1 text-red-400 font-semibold text-[10px] leading-tight">
+                              <span>📅</span>
+                              <span>Dia não letivo</span>
+                            </div>
+                            {dayOff_.some(e => e.targetSquadron !== "ALL") && (
+                              <p className={`text-[9px] leading-tight mt-0.5 ${muted}`}>
+                                {dayOff_.filter(e => e.targetSquadron !== "ALL").map(e => `${e.targetSquadron}º Esq`).join(", ")}
+                              </p>
+                            )}
+                          </div>
+                        )}
                         {notices_.map((n) => {
                           const style = NOTICE_STYLES[n.type] || NOTICE_STYLES.GENERAL;
                           return (

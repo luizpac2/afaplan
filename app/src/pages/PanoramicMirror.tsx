@@ -44,14 +44,23 @@ export const PanoramicMirror = () => {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const { userProfile } = useAuth();
-  const { fetchYearlyEvents, notices, disciplines, cohorts, addEvent, addNotice, updateNotice, deleteNotice } = useCourseStore();
+  const { fetchYearlyEvents, notices, disciplines, cohorts, addEvent, addNotice, updateNotice, deleteNotice, deleteEvent, yearEventsCache } = useCourseStore();
   const canEdit = ["SUPER_ADMIN", "ADMIN"].includes(userProfile?.role ?? "");
 
   const today = new Date();
-  const [year, setYear]   = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth());
-  const [events, setEvents] = useState<ScheduleEvent[]>([]);
+  const [year, setYear]   = useState(() => {
+    const s = sessionStorage.getItem("cal-year");
+    return s ? parseInt(s) : today.getFullYear();
+  });
+  const [month, setMonth] = useState(() => {
+    const s = sessionStorage.getItem("cal-month");
+    return s ? parseInt(s) : today.getMonth();
+  });
+
+  useEffect(() => { sessionStorage.setItem("cal-year", String(year)); }, [year]);
+  useEffect(() => { sessionStorage.setItem("cal-month", String(month)); }, [month]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [dayOffPickerDate, setDayOffPickerDate] = useState<string | null>(null);
 
   // Modal state
   const [academicFormDate, setAcademicFormDate]   = useState<string | null>(null);
@@ -59,9 +68,12 @@ export const PanoramicMirror = () => {
   const [noticeFormDate, setNoticeFormDate]       = useState<string | null>(null);
   const [editingNotice, setEditingNotice]         = useState<SystemNotice | null>(null);
 
+  // Events from cache — reactive to addEvent/deleteEvent
+  const yearlyEvents = yearEventsCache[year] ?? [];
+
   // Load events for current year
   useEffect(() => {
-    fetchYearlyEvents(year).then(setEvents);
+    fetchYearlyEvents(year);
   }, [year, fetchYearlyEvents]);
 
   const prevMonth = () => {
@@ -75,7 +87,7 @@ export const PanoramicMirror = () => {
 
   // Academic events and evaluations for this month
   const monthAcademic = useMemo(() => {
-    return events.filter(e => {
+    return yearlyEvents.filter(e => {
       const SHOW = new Set(["ACADEMIC","EVALUATION","DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY","MILITARY","FLIGHT_INSTRUCTION","TRIP"]);
       const isAcad = SHOW.has(e.type ?? "") || e.disciplineId === "ACADEMIC";
       if (!isAcad) return false;
@@ -86,7 +98,7 @@ export const PanoramicMirror = () => {
       const monthEnd   = formatISODate(year, month, daysInMonth(year, month));
       return start <= monthEnd && end >= monthStart;
     });
-  }, [events, year, month]);
+  }, [yearlyEvents, year, month]);
 
   // Notices active in this month
   const monthNotices = useMemo(() => {
@@ -135,13 +147,20 @@ export const PanoramicMirror = () => {
     const monthEnd   = formatISODate(year, month, totalDays);
 
     // Collect unique multi-day events (endDate > date), skip EVALUATION (shown as chips)
+    // DAY_OFF events with same date range are deduplicated into one bar
     const seen = new Set<string>();
+    const seenDayOff = new Set<string>();
     const multiEvts = monthAcademic.filter(e => {
       if (e.type === "EVALUATION") return false;
       const end = (e as any).endDate ?? e.date;
       if (end <= e.date) return false; // single day
       if (seen.has(e.id)) return false;
       seen.add(e.id);
+      if (e.type === "DAY_OFF") {
+        const key = `${e.date}|${end}`;
+        if (seenDayOff.has(key)) return false;
+        seenDayOff.add(key);
+      }
       return true;
     });
 
@@ -227,24 +246,41 @@ export const PanoramicMirror = () => {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleAcademicSubmit = (data: Omit<ScheduleEvent, "id">) => {
-    const id = crypto.randomUUID();
-    const ev = { ...data, id };
-    addEvent(ev);
-    setEvents(prev => [...prev, ev]);
+    addEvent({ ...data, id: crypto.randomUUID() });
     setAcademicFormDate(null);
   };
 
   const handleAcademicUpdate = (data: Omit<ScheduleEvent, "id">) => {
     if (!editingAcademic) return;
     useCourseStore.getState().updateEvent(editingAcademic.id, data);
-    setEvents(prev => prev.map(e => e.id === editingAcademic.id ? { ...e, ...data } : e));
     setEditingAcademic(null);
   };
 
   const handleAcademicDelete = (id: string) => {
     useCourseStore.getState().deleteEvent(id);
-    setEvents(prev => prev.filter(e => e.id !== id));
     setEditingAcademic(null);
+  };
+
+  const toggleDayOff = (dateStr: string, squadron: "ALL" | number) => {
+    const existing = yearlyEvents.find(
+      e => e.type === "DAY_OFF" && e.date === dateStr &&
+        (squadron === "ALL" ? e.targetSquadron === "ALL" : Number(e.targetSquadron) === squadron)
+    );
+    if (existing) {
+      deleteEvent(existing.id);
+    } else {
+      addEvent({
+        id: crypto.randomUUID(),
+        type: "DAY_OFF",
+        date: dateStr,
+        disciplineId: "ACADEMIC",
+        classId: squadron === "ALL" ? "ESQ" : `${squadron}ESQ`,
+        targetSquadron: squadron,
+        description: "Dia não letivo",
+        startTime: "07:30",
+        endTime: "17:00",
+      });
+    }
   };
 
   const handleNoticeSubmit = (data: Partial<SystemNotice>) => {
@@ -400,10 +436,21 @@ export const PanoramicMirror = () => {
                     </div>
                   );
                 }
-                for (const ev of otherEvts) {
+                // Single consolidated DAY_OFF chip
+                const dayOffChips = otherEvts.filter(e => e.type === "DAY_OFF");
+                if (dayOffChips.length > 0) {
+                  chips.push(
+                    <div key="day-off-chip"
+                      className="rounded px-1 py-0.5 text-[9px] leading-tight font-medium truncate text-white"
+                      style={{ backgroundColor: "#b91c1c" }}>
+                      Dia não letivo
+                    </div>
+                  );
+                }
+                for (const ev of otherEvts.filter(e => e.type !== "DAY_OFF")) {
                   const sqN = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
                   const sqV = sqN !== null && Number.isFinite(sqN) && sqN >= 1 && sqN <= 4;
-                  const isSpecial = ["DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY","MILITARY","FLIGHT_INSTRUCTION","TRIP"].includes(ev.type ?? "");
+                  const isSpecial = ["COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY","MILITARY","FLIGHT_INSTRUCTION","TRIP"].includes(ev.type ?? "");
                   const color = isSpecial ? (TYPE_COLOR_MAP2[ev.type!] ?? "#4338ca") : sqV ? sqColor(sqN!) : (ev.color ?? "#4338ca");
                   const label = isSpecial ? (ev.description || TYPE_LABEL_MAP[ev.type!] || "Evento") : (ev.description || ev.location || "Evento");
                   chips.push(
@@ -418,7 +465,7 @@ export const PanoramicMirror = () => {
                 return (
                   <div
                     key={day}
-                    onClick={() => setSelectedDate(isSel ? null : dateStr)}
+                    onClick={() => { setSelectedDate(isSel ? null : dateStr); setDayOffPickerDate(null); }}
                     className={`border-t border-r ${border} p-1.5 cursor-pointer transition-colors flex flex-col gap-0.5
                       ${isSel ? (isDark ? "bg-blue-900/30 ring-1 ring-inset ring-blue-500/50" : "bg-blue-50 ring-1 ring-inset ring-blue-300") : ""}
                       ${hasDayOff && !isSel ? (isDark ? "bg-red-900/15" : "bg-red-50/60") : ""}
@@ -427,12 +474,53 @@ export const PanoramicMirror = () => {
                     `}
                     style={{ minHeight: DAY_NUM_H + barsAreaH + 80 }}
                   >
-                    {/* Day number */}
-                    <span className={`text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0
-                      ${isToday ? "bg-blue-600 text-white" : (isWknd ? muted : (isDark ? "text-slate-200" : "text-slate-700"))}
-                    `}>
-                      {day}
-                    </span>
+                    {/* Day number + day-off toggle (picker is absolute, doesn't push content) */}
+                    <div className="relative flex items-center justify-between" style={{ zIndex: 20 }}>
+                      <span className={`text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0
+                        ${isToday ? "bg-blue-600 text-white" : (isWknd ? muted : (isDark ? "text-slate-200" : "text-slate-700"))}
+                      `}>
+                        {day}
+                      </span>
+                      {canEdit && (
+                        <button
+                          onClick={e => { e.stopPropagation(); setDayOffPickerDate(dayOffPickerDate === dateStr ? null : dateStr); }}
+                          className={`text-[10px] leading-none px-0.5 rounded transition-colors ${hasDayOff ? "text-red-400" : (isDark ? "text-slate-600 hover:text-red-400" : "text-slate-300 hover:text-red-400")}`}
+                          title="Marcar dia não letivo"
+                        >
+                          📅
+                        </button>
+                      )}
+                      {/* Squadron picker — absolute so it floats above without affecting flow */}
+                      {canEdit && dayOffPickerDate === dateStr && (
+                        <div
+                          className={`absolute top-full left-0 flex flex-wrap gap-0.5 p-1 rounded shadow-lg ${isDark ? "bg-slate-700 border border-slate-600" : "bg-white border border-slate-200"}`}
+                          style={{ zIndex: 40, minWidth: 88 }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          {(["ALL", 1, 2, 3, 4] as const).map(sq => {
+                            const active = dayEvts.some(e =>
+                              e.type === "DAY_OFF" &&
+                              (sq === "ALL" ? e.targetSquadron === "ALL" : Number(e.targetSquadron) === sq)
+                            );
+                            return (
+                              <button
+                                key={String(sq)}
+                                onClick={() => toggleDayOff(dateStr, sq)}
+                                className={`text-[9px] px-1 py-0.5 rounded font-medium transition-colors ${
+                                  active
+                                    ? "bg-red-500/80 text-white"
+                                    : isDark
+                                      ? "bg-slate-600 text-slate-300 hover:bg-red-500/50 hover:text-white"
+                                      : "bg-slate-200 text-slate-600 hover:bg-red-100 hover:text-red-600"
+                                }`}
+                              >
+                                {sq === "ALL" ? "All" : `${sq}º`}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
 
                     {/* Spacer for bars area */}
                     {barsAreaH > 0 && <div style={{ height: barsAreaH }} className="flex-shrink-0" />}
@@ -559,33 +647,42 @@ export const PanoramicMirror = () => {
                               </div>
                             );
                           })}
-                          {/* Non-evaluation events */}
-                          {otherEvents.map(ev => {
-                            const isDayOff = ev.type === "DAY_OFF";
-                            const sqNum = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
-                            const sqValid = sqNum !== null && Number.isFinite(sqNum) && sqNum >= 1 && sqNum <= 4;
-                            const color = isDayOff ? "#ef4444" : (sqValid ? sqColor(sqNum!) : (ev.color ?? "#6366f1"));
-                            const title = isDayOff
-                              ? (ev.description || "Day Off")
-                              : (ev.description || ev.location || "Evento Acadêmico");
-                            const notes = (ev as any).notes;
-                            const hasNotes = notes && notes !== title;
-                            const showLocation = ev.location && ev.location !== title && !isDayOff;
-                            const endDateVal = (ev as any).endDate;
-                            const isMultiDay = endDateVal && endDateVal !== ev.date;
-                            if (isDayOff) return (
-                              <div key={ev.id}
-                                className={`rounded-lg border border-dashed border-red-500/40 px-3 py-2 flex flex-col gap-0.5 bg-red-500/10 ${canEdit ? "cursor-pointer hover:bg-red-500/15 transition-colors" : ""}`}
-                                onClick={canEdit ? () => setEditingAcademic(ev) : undefined}
-                              >
+                          {/* Consolidated DAY_OFF card */}
+                          {(() => {
+                            const dayOffEvts = otherEvents.filter(e => e.type === "DAY_OFF");
+                            if (dayOffEvts.length === 0) return null;
+                            const hasAll = dayOffEvts.some(e => e.targetSquadron === "ALL");
+                            const sqNums = [...new Set(
+                              dayOffEvts
+                                .filter(e => e.targetSquadron !== "ALL" && e.targetSquadron != null)
+                                .map(e => Number(e.targetSquadron))
+                                .filter(n => n >= 1 && n <= 4)
+                            )].sort();
+                            const sqLabel = hasAll
+                              ? "Todos os esquadrões"
+                              : sqNums.map(n => `${n}º`).join(" / ");
+                            return (
+                              <div className="rounded-lg border border-dashed border-red-500/40 px-3 py-2 flex flex-col gap-0.5 bg-red-500/10">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-[11px]">⛔</span>
-                                  <span className="text-[11px] font-semibold leading-tight text-red-400">{title}</span>
+                                  <span className="text-[11px]">📅</span>
+                                  <span className="text-[11px] font-semibold leading-tight text-red-400">
+                                    Dia não letivo{sqLabel ? ` — ${sqLabel}` : ""}
+                                  </span>
                                 </div>
-                                <p className="text-[10px] text-red-400/70 ml-5">Alocação de aulas bloqueada</p>
-                                {isMultiDay && <p className={`text-[10px] ${muted} ml-5`}>De {fmtDate(ev.date)} a {fmtDate(endDateVal)}</p>}
                               </div>
                             );
+                          })()}
+                          {/* Non-evaluation, non-DAY_OFF events */}
+                          {otherEvents.filter(ev => ev.type !== "DAY_OFF").map(ev => {
+                            const sqNum = ev.targetSquadron != null && ev.targetSquadron !== "ALL" ? Number(ev.targetSquadron) : null;
+                            const sqValid = sqNum !== null && Number.isFinite(sqNum) && sqNum >= 1 && sqNum <= 4;
+                            const color = sqValid ? sqColor(sqNum!) : (ev.color ?? "#6366f1");
+                            const title = ev.description || ev.location || "Evento Acadêmico";
+                            const notes = (ev as any).notes;
+                            const hasNotes = notes && notes !== title;
+                            const showLocation = ev.location && ev.location !== title;
+                            const endDateVal = (ev as any).endDate;
+                            const isMultiDay = endDateVal && endDateVal !== ev.date;
                             return (
                               <div key={ev.id}
                                 className={`rounded-lg border px-3 py-2 flex flex-col gap-0.5 ${canEdit ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}

@@ -124,6 +124,12 @@ export interface DisciplineArea {
   coordinatorUserId?: string;
 }
 
+export interface InstructorSegment {
+  fromLesson: number; // aula inicial (inclusive)
+  toLesson: number;   // aula final (inclusive)
+  trigram: string;
+}
+
 export interface Discipline {
   id: string;
   code: string;
@@ -134,6 +140,7 @@ export interface Discipline {
   instructorTrigram?: string; // Link to Instructor.trigram (default, all years)
   instructorByClass?: Record<string, string>; // classId → trigram (default per-class overrides, all years)
   instructorByYear?: Record<string, { trigram?: string; byClass?: Record<string, string> }>; // year → year-specific assignment
+  instructorSegments?: InstructorSegment[]; // divisão por faixas de aula entre docentes
   noSpecificInstructor?: boolean; // Flag for disciplines without a specific instructor
   substituteTrigram?: string; // Link to Instructor.trigram for substitute
   substituteHours?: number; // How many hours the substitute taught

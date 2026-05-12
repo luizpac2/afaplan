@@ -487,6 +487,7 @@ export const useCourseStore = create<CourseState>((set) => ({
           instructor: discipline.instructor,
           instructorTrigram: discipline.instructorTrigram,
           areaId: discipline.areaId ?? null,
+          instructorSegments: discipline.instructorSegments?.length ? discipline.instructorSegments : null,
         },
       };
       await contentFn("upsert_discipline", { code: discipline.code, data: dbDiscipline });
@@ -546,6 +547,7 @@ export const useCourseStore = create<CourseState>((set) => ({
             enabledYears: after.enabledYears ?? null,
             ppcLoads: after.ppcLoads ?? null,
             areaId: after.areaId ?? null,
+            instructorSegments: after.instructorSegments?.length ? after.instructorSegments : null,
           },
         };
         await contentFn("update_discipline", { code: after.code, updates: dbUpdates });

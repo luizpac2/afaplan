@@ -1,4 +1,29 @@
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
+import { lazy, Suspense, useState as useStateKA, useEffect as useEffectKA } from "react";
+import type { ComponentType } from "react";
+
+const GanttProgrammingKA = lazy(() =>
+  import("../pages/GanttProgramming").then((m) => ({ default: m.GanttProgramming }))
+);
+const InstructorsKA = lazy(() =>
+  import("../pages/Instructors").then((m) => ({ default: m.Instructors }))
+);
+const DisciplinasKA = lazy(() =>
+  import("../pages/Disciplinas").then((m) => ({ default: m.Disciplinas }))
+);
+const ChangeRequestsKA = lazy(() =>
+  import("../pages/admin/ChangeRequestsPage").then((m) => ({
+    default: m.ChangeRequestsPage,
+  }))
+);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const KA_PAGE_MAP: Record<string, ComponentType<any>> = {
+  "/instructors": InstructorsKA,
+  "/disciplinas": DisciplinasKA,
+  "/change-requests": ChangeRequestsKA,
+};
+const KA_PAGE_PATHS = Object.keys(KA_PAGE_MAP);
 import {
   BookOpen,
   Plane,
@@ -62,7 +87,6 @@ const MENU_ITEMS: MenuItem[] = [
     icon: GraduationCap,
     roles: ALL_ROLES,
     submenu: [
-      { title: "Painel Acadêmico", path: "/aulas-dashboard", icon: Layers },
       { title: "Minhas Aulas", path: "/my-classes", icon: Star },
       { title: "Aulas de Hoje", path: "/", icon: Home },
       { title: "1º Esquadrão", path: "/gantt/1", icon: BarChart2 },
@@ -85,6 +109,7 @@ const MENU_ITEMS: MenuItem[] = [
     icon: BookOpen,
     roles: ALL_ROLES,
     submenu: [
+      { title: "Painel Acadêmico", path: "/aulas-dashboard", icon: BarChart2 },
       { title: "Painel de Disciplinas", path: "/discipline-panel", icon: BookOpen },
       { title: "Gantt de Disciplinas", path: "/discipline-gantt", icon: BarChart2 },
     ],
@@ -118,6 +143,7 @@ const MENU_ITEMS: MenuItem[] = [
         title: "Disciplinas",
         icon: BookOpen,
         submenu: [
+          { title: "Painel Acadêmico", path: "/aulas-dashboard" },
           { title: "Dashboard", path: "/discipline-dashboard" },
           { title: "Gerenciar", path: "/disciplinas" },
           { title: "Áreas Acadêmicas", path: "/discipline-areas" },
@@ -162,6 +188,28 @@ export const Layout = () => {
 
   const location = useLocation();
   const clearStore = useCourseStore((state) => state.clearStore);
+
+  // ── Keep-alive para páginas do gantt ──────────────────────────────────────
+  const ganttMatch = location.pathname.match(/^\/gantt\/(\d+)/);
+  const activeGanttSq = ganttMatch ? parseInt(ganttMatch[1]) : null;
+  const [mountedGantts, setMountedGantts] = useStateKA<Set<number>>(() => new Set());
+  useEffectKA(() => {
+    if (activeGanttSq !== null) {
+      setMountedGantts((prev) => prev.has(activeGanttSq) ? prev : new Set([...prev, activeGanttSq]));
+    }
+  }, [activeGanttSq]);
+
+  // ── Keep-alive para páginas de edição admin ───────────────────────────────
+  const activeKAPage = KA_PAGE_PATHS.includes(location.pathname) ? location.pathname : null;
+  const [mountedKAPages, setMountedKAPages] = useStateKA<Set<string>>(() => new Set());
+  useEffectKA(() => {
+    if (activeKAPage !== null) {
+      setMountedKAPages((prev) =>
+        prev.has(activeKAPage) ? prev : new Set([...prev, activeKAPage])
+      );
+    }
+  }, [activeKAPage]);
+
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
@@ -696,9 +744,44 @@ export const Layout = () => {
         </aside>
 
         <main
-          className={`flex-1 overflow-y-auto scroll-smooth transition-colors duration-300 ${theme === "dark" ? "bg-slate-950" : "bg-gray-50"}`}
+          className={`flex-1 relative transition-colors duration-300 overflow-hidden ${theme === "dark" ? "bg-slate-950" : "bg-gray-50"}`}
         >
-          <Outlet />
+          {/* Keep-alive: gantt pages stay mounted after first visit */}
+          {[1, 2, 3, 4].filter((sq) => mountedGantts.has(sq)).map((sq) => (
+            <div
+              key={sq}
+              className="absolute inset-0 overflow-y-auto scroll-smooth"
+              style={{ display: activeGanttSq === sq ? "block" : "none" }}
+            >
+              <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
+                <GanttProgrammingKA forcedSquadronId={String(sq)} />
+              </Suspense>
+            </div>
+          ))}
+          {/* Keep-alive: páginas de edição admin */}
+          {[...mountedKAPages].map((path) => {
+            const KAComp = KA_PAGE_MAP[path];
+            return (
+              <div
+                key={`ka-${path}`}
+                className="absolute inset-0 overflow-y-auto scroll-smooth"
+                style={{ display: location.pathname === path ? "block" : "none" }}
+              >
+                <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
+                  <KAComp />
+                </Suspense>
+              </div>
+            );
+          })}
+          {/* Todas as outras páginas via Outlet */}
+          <div
+            className="absolute inset-0 overflow-y-auto scroll-smooth"
+            style={{ display: (activeGanttSq !== null || activeKAPage !== null) ? "none" : "block" }}
+          >
+            <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
+              <Outlet />
+            </Suspense>
+          </div>
         </main>
       </div>
     </div>
