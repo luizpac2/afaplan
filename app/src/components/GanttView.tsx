@@ -74,7 +74,8 @@ export const GanttView = ({
   }, [events, date]);
 
   const classLetters = useMemo(() => {
-    const letters = new Set(classes.map((c) => c.slice(1)));
+    // Aceita apenas classIds reais: dígito + letra única A-F
+    const letters = new Set(classes.filter((c) => /^\d[A-F]$/.test(c)).map((c) => c.slice(1)));
     return Array.from(letters).sort();
   }, [classes]);
 

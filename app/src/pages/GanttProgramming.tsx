@@ -260,7 +260,10 @@ export const GanttProgramming = ({ forcedSquadronId }: GanttProgrammingProps = {
 
   const squadronClasses = useMemo(() => {
     const prefix = String(currentSquadron);
-    const fromEvents = [...new Set(weekEvents.filter((e) => e.classId?.startsWith(prefix) && !e.classId.endsWith("ESQ")).map((e) => e.classId))].sort();
+    // Aceita apenas classIds reais: dígito + letra única A-F (ex: "1A", "2F")
+    // Exclui scope classIds como "1ESQ", "1AVIATION", "1INTENDANCY", "1INFANTRY"
+    const isRealClass = (id: string) => /^\d[A-F]$/.test(id);
+    const fromEvents = [...new Set(weekEvents.filter((e) => e.classId?.startsWith(prefix) && isRealClass(e.classId)).map((e) => e.classId))].sort();
     if (fromEvents.length) return fromEvents;
     return ["A","B","C","D","E","F"].map((l) => `${currentSquadron}${l}`);
   }, [weekEvents, currentSquadron]);
