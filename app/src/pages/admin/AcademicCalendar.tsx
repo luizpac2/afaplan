@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Trash2, CheckCircle2, ShieldCheck, MessageSquare, Pencil, X, Save } from 'lucide-react';
+import { Trash2, CheckCircle2, ShieldCheck, MessageSquare, Pencil, X, Save, Printer } from 'lucide-react';
+import { exportAcademicCalendarToPDF } from '../../utils/exportUtils';
 import { useCourseStore } from '../../store/useCourseStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { formatCourse } from '../../utils/formatters';
@@ -277,7 +278,15 @@ export const AcademicCalendar = () => {
                 </div>
 
                 <div className="flex gap-4 items-center">
-                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border dark:border-slate-700 mr-2">
+                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border dark:border-slate-700 mr-2 gap-2">
+                        <button
+                            onClick={() => exportAcademicCalendarToPDF(groupedAcademicEvents as any, selectedYear)}
+                            className={`px-3 py-2 rounded-lg transition flex items-center gap-2 text-sm border ${theme === 'dark' ? 'bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-600' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'}`}
+                            title={`Imprimir calendário ${selectedYear} em PDF`}
+                        >
+                            <Printer size={16} />
+                            PDF
+                        </button>
                         <button
                             onClick={() => {
                                 resetForm();

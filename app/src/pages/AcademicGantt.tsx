@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { BarChart2, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { BarChart2, ChevronLeft, ChevronRight, Plus, Printer } from "lucide-react";
+import { exportGanttEventsToPDF } from "../utils/exportUtils";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useCourseStore } from "../store/useCourseStore";
@@ -368,6 +369,13 @@ export const AcademicGantt = () => {
                 <span className={`text-sm font-semibold w-12 text-center ${isDark ? "text-white" : "text-slate-900"}`}>{year}</span>
                 <button onClick={() => setYear(y => y + 1)} className={`p-1.5 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600"}`}><ChevronRight size={16} /></button>
               </div>
+              <button
+                onClick={() => exportGanttEventsToPDF(ganttEvents, year)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-xl transition-colors shadow-sm border ${isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-600" : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200"}`}
+                title={`Imprimir Gantt ${year} em PDF`}
+              >
+                <Printer size={13} /> PDF
+              </button>
               {canEdit && (
                 <button onClick={() => setAddingNew(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-sm">
