@@ -22,6 +22,23 @@ function fmtDatePT(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
+/** Deriva audiência legível a partir de classIds + squadron (mesmo padrão da UI) */
+function resolveAudience(classIds: string[], squadron: number | null): string {
+  if (squadron === null) return "Todos";
+  const ids = [...classIds].sort();
+  if (ids.length === 0) return squadron ? `${squadron}º Esq` : "Todos";
+  const sqPfx = `${squadron}º `;
+  if (ids.every(c => c.endsWith("ESQ")))        return `${sqPfx}Esq`;
+  if (ids.every(c => c.endsWith("AVIATION")))   return `${sqPfx}Aviação`;
+  if (ids.every(c => c.endsWith("INTENDANCY"))) return `${sqPfx}Intendência`;
+  if (ids.every(c => c.endsWith("INFANTRY")))   return `${sqPfx}Infantaria`;
+  const letters = [...new Set(ids.map(c => c.slice(1)))].sort();
+  if (letters.length >= 4 && letters.every(l => ["A","B","C","D"].includes(l))) return `${sqPfx}Aviação`;
+  if (letters.every(l => l === "E")) return `${sqPfx}Intendência`;
+  if (letters.every(l => l === "F")) return `${sqPfx}Infantaria`;
+  return `${sqPfx}Esq`;
+}
+
 /** Exporta o Gantt de Eventos completo do ano para PDF landscape */
 export const exportGanttEventsToPDF = (
   ganttEvents: Array<{
@@ -45,7 +62,12 @@ export const exportGanttEventsToPDF = (
   doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 14, 22);
   doc.text(`Total de eventos: ${ganttEvents.length}`, pageW - 14, 22, { align: "right" });
 
-  // Group events by month (based on start date)
+  const NCOLS = 6;
+  const monthCell = (label: string) =>
+    ({ content: label, styles: { fillColor: [30,41,59] as [number,number,number], textColor: [255,255,255] as [number,number,number], fontStyle: "bold" as const } });
+  const emptyCell = () => monthCell("");
+
+  const rows: unknown[][] = [];
   const byMonth: Record<number, typeof ganttEvents> = {};
   for (const ev of ganttEvents) {
     const m = ev.start.getMonth();
@@ -53,29 +75,28 @@ export const exportGanttEventsToPDF = (
     byMonth[m].push(ev);
   }
 
-  const rows: (string | { content: string; styles: { fillColor: [number,number,number]; textColor: [number,number,number] } })[][] = [];
   for (let m = 0; m < 12; m++) {
     const monthEvs = byMonth[m];
     if (!monthEvs?.length) continue;
-    rows.push([{ content: MONTHS_PT[m].toUpperCase(), styles: { fillColor: [30,41,59], textColor: [255,255,255] } }, { content: "", styles: { fillColor: [30,41,59], textColor: [255,255,255] } }, { content: "", styles: { fillColor: [30,41,59], textColor: [255,255,255] } }, { content: "", styles: { fillColor: [30,41,59], textColor: [255,255,255] } }, { content: "", styles: { fillColor: [30,41,59], textColor: [255,255,255] } }]);
+    rows.push([monthCell(MONTHS_PT[m].toUpperCase()), ...Array(NCOLS - 1).fill(null).map(emptyCell)]);
     for (const ev of monthEvs) {
       const isoStart = `${ev.start.getFullYear()}-${String(ev.start.getMonth()+1).padStart(2,"0")}-${String(ev.start.getDate()).padStart(2,"0")}`;
       const isoEnd   = `${ev.end.getFullYear()}-${String(ev.end.getMonth()+1).padStart(2,"0")}-${String(ev.end.getDate()).padStart(2,"0")}`;
       const dias = Math.round((ev.end.getTime() - ev.start.getTime()) / 86400000) + 1;
-      const target = ev.squadron ? `${ev.squadron}º Esq` : "Todos";
       rows.push([
         TYPE_LABELS_PT[ev.type] ?? ev.type,
         ev.label,
         fmtDatePT(isoStart),
         isoStart === isoEnd ? "—" : fmtDatePT(isoEnd),
-        dias === 1 ? "1 dia" : `${dias} dias  ·  ${target}`,
+        dias === 1 ? "1 dia" : `${dias} dias`,
+        resolveAudience(ev.classIds, ev.squadron),
       ]);
     }
   }
 
   autoTable(doc, {
     startY: 27,
-    head: [["Tipo", "Evento", "Início", "Fim", "Duração / Público"]],
+    head: [["Tipo", "Evento", "Início", "Fim", "Duração", "Destinatário"]],
     body: rows as string[][],
     theme: "grid",
     headStyles: { fillColor: [30, 64, 175], textColor: 255, fontSize: 8, fontStyle: "bold" },
@@ -83,13 +104,14 @@ export const exportGanttEventsToPDF = (
     columnStyles: {
       0: { cellWidth: 28 },
       1: { cellWidth: "auto" },
-      2: { cellWidth: 22 },
-      3: { cellWidth: 22 },
-      4: { cellWidth: 38 },
+      2: { cellWidth: 20 },
+      3: { cellWidth: 20 },
+      4: { cellWidth: 18 },
+      5: { cellWidth: 30 },
     },
     didParseCell: (data) => {
       if (data.section === "body" && data.column.index === 0) {
-        const type = (data.cell.raw as string);
+        const type = data.cell.raw as string;
         const key = Object.keys(TYPE_LABELS_PT).find(k => TYPE_LABELS_PT[k] === type);
         if (key) {
           const [r, g, b] = TYPE_COLORS_RGB[key] ?? [100, 100, 100];
