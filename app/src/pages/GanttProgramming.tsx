@@ -595,6 +595,8 @@ export const GanttProgramming = ({ forcedSquadronId }: GanttProgrammingProps = {
       if (e.type !== "DAY_OFF") return false;
       const end = (e as any).endDate ?? e.date;
       if (dateStr < e.date || dateStr > end) return false;
+      const tss = (e as any).targetSquadrons as number[] | undefined;
+      if (Array.isArray(tss) && tss.length > 0) return tss.includes(currentSquadron);
       const ts = e.targetSquadron;
       if (ts !== "ALL" && ts != null && Number(ts) !== currentSquadron) return false;
       return true;
@@ -1301,11 +1303,18 @@ export const GanttProgramming = ({ forcedSquadronId }: GanttProgrammingProps = {
                               <span>📅</span>
                               <span>Dia não letivo</span>
                             </div>
-                            {dayOff_.some(e => e.targetSquadron !== "ALL") && (
-                              <p className={`text-[9px] leading-tight mt-0.5 ${muted}`}>
-                                {dayOff_.filter(e => e.targetSquadron !== "ALL").map(e => `${e.targetSquadron}º Esq`).join(", ")}
-                              </p>
-                            )}
+                            {(() => {
+                              const hasAll = dayOff_.some(e => e.targetSquadron === "ALL" && !(Array.isArray((e as any).targetSquadrons) && (e as any).targetSquadrons.length > 0));
+                              if (hasAll) return null;
+                              const sqNums = [...new Set(dayOff_.flatMap(e => {
+                                const tss = (e as any).targetSquadrons as number[] | undefined;
+                                if (Array.isArray(tss) && tss.length > 0) return tss;
+                                const ts = e.targetSquadron;
+                                return ts != null && ts !== "ALL" ? [Number(ts)] : [];
+                              }))].sort((a, b) => a - b);
+                              if (sqNums.length === 0) return null;
+                              return <p className={`text-[9px] leading-tight mt-0.5 ${muted}`}>{sqNums.map(n => `${n}º`).join(" / ")} Esq</p>;
+                            })()}
                           </div>
                         )}
                         {notices_.map((n) => {
