@@ -432,6 +432,8 @@ Deno.serve(async (req) => {
     if (e.evaluationType !== undefined) safeEvent.evaluationType = e.evaluationType;
     if (e.color !== undefined) safeEvent.color = e.color;
     if (e.targetSquadron !== undefined) safeEvent.targetSquadron = e.targetSquadron;
+    if (e.targetSquadrons !== undefined) safeEvent.targetSquadrons = e.targetSquadrons;
+    if (e.extraTypes !== undefined) safeEvent.extraTypes = e.extraTypes;
     if (e.targetCourse !== undefined) safeEvent.targetCourse = e.targetCourse;
     if (e.targetClass !== undefined) safeEvent.targetClass = e.targetClass;
     if (e.description !== undefined) safeEvent.description = e.description;

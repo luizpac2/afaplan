@@ -66,9 +66,11 @@ export const normalizeEvent = (row: Record<string, unknown>): Record<string, unk
     classId:        row.classId ?? row.turma_id ?? row.class_id ?? null,
     disciplineId:   row.disciplineId ?? row.disciplina_id ?? row.discipline_id ?? null,
     instructorTrigram: row.instructorTrigram ?? row.instructorId ?? null,
-    location:       row.location ?? row.local_id ?? null,
-    evaluationType: row.evaluationType ?? row.evaluation_type ?? null,
-    endDate:        row.endDate ?? row.end_date ?? null,
+    location:          row.location ?? row.local_id ?? null,
+    evaluationType:    row.evaluationType ?? row.evaluation_type ?? null,
+    endDate:           row.endDate ?? row.end_date ?? null,
+    targetSquadrons:   Array.isArray(row.targetSquadrons) ? row.targetSquadrons : null,
+    extraTypes:        Array.isArray(row.extraTypes) ? row.extraTypes : null,
   };
 };
 
