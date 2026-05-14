@@ -141,9 +141,9 @@ export const AcademicEventForm = ({
       classId: initialData?.classId ?? "",
       date:    startDate,
       endDate: effectiveEnd,
-      startTime: (allDay || ["COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? null as any : startTime,
-      endTime:   (allDay || ["COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? null as any : (endTime || startTime),
-      location:  (["COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? undefined : (location || undefined),
+      startTime: (allDay || ["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? null as any : startTime,
+      endTime:   (allDay || ["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? null as any : (endTime || startTime),
+      location:  (["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? undefined : (location || undefined),
       type: category as any,
       description: title.trim(),
       notes: notes.trim() || undefined,
@@ -185,6 +185,7 @@ export const AcademicEventForm = ({
           const hdrMap: Record<string, { border: string; bg: string; icon: React.ReactNode; textCls: string; label: string }> = {
             ACADEMIC:          { border: "border-purple-500/30",  bg: "bg-purple-500/10",  icon: <Calendar size={16} className="text-purple-400" />,      textCls: "text-purple-300",  label: "Evento Acadêmico"  },
             EVALUATION:        { border: "border-orange-500/30",  bg: "bg-orange-500/10",  icon: <ClipboardList size={16} className="text-orange-400" />,  textCls: "text-orange-300",  label: "Avaliação"         },
+            DAY_OFF:           { border: "border-red-500/30",     bg: "bg-red-500/10",     icon: <Calendar size={16} className="text-red-400" />,          textCls: "text-red-300",     label: "Day Off"           },
             COMMEMORATIVE:     { border: "border-amber-500/30",   bg: "bg-amber-500/10",   icon: <Calendar size={16} className="text-amber-400" />,        textCls: "text-amber-300",   label: "Comemorativo"      },
             SPORTS:            { border: "border-teal-500/30",    bg: "bg-teal-500/10",    icon: <Calendar size={16} className="text-teal-400" />,         textCls: "text-teal-300",    label: "CDEF"              },
             INFORMATIVE:       { border: "border-sky-500/30",     bg: "bg-sky-500/10",     icon: <Calendar size={16} className="text-sky-400" />,          textCls: "text-sky-300",     label: "Informativo"       },
@@ -217,6 +218,7 @@ export const AcademicEventForm = ({
               {([
                 { key: "ACADEMIC",           label: "Acadêmico",        active: "bg-purple-600 border-purple-600 text-white",  hover: "hover:border-purple-500"  },
                 { key: "EVALUATION",         label: "Avaliação",        active: "bg-orange-600 border-orange-600 text-white",  hover: "hover:border-orange-500"  },
+                { key: "DAY_OFF",            label: "Day Off",          active: "bg-red-700 border-red-700 text-white",        hover: "hover:border-red-600"     },
                 { key: "COMMEMORATIVE",      label: "Comemorativo",     active: "bg-amber-500 border-amber-500 text-white",    hover: "hover:border-amber-500"   },
                 { key: "SPORTS",             label: "CDEF",             active: "bg-teal-600 border-teal-600 text-white",      hover: "hover:border-teal-500"    },
                 { key: "INFORMATIVE",        label: "Informativo",      active: "bg-sky-500 border-sky-500 text-white",        hover: "hover:border-sky-500"     },
@@ -238,6 +240,13 @@ export const AcademicEventForm = ({
               ))}
             </div>
           </div>
+
+          {/* Hint DAY_OFF */}
+          {category === "DAY_OFF" && (
+            <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+              📅 Este evento conta como <strong>dia não letivo</strong> no Painel Acadêmico.
+            </p>
+          )}
 
           {/* Campos específicos de Avaliação */}
           {category === "EVALUATION" && (
