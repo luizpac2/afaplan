@@ -65,10 +65,11 @@ export const AcademicEventForm = ({
   const labelCls = isDark ? "text-gray-300" : "text-gray-600";
   const muted    = isDark ? "text-gray-400" : "text-gray-500";
 
-  type Category = "ACADEMIC" | "EVALUATION" | "COMMEMORATIVE" | "SPORTS" | "INFORMATIVE" | "HOLIDAY" | "MILITARY" | "FLIGHT_INSTRUCTION" | "TRIP";
+  type Category = "ACADEMIC" | "EVALUATION" | "DAY_OFF" | "COMMEMORATIVE" | "SPORTS" | "INFORMATIVE" | "HOLIDAY" | "MILITARY" | "FLIGHT_INSTRUCTION" | "TRIP";
   const rawType = initialData?.type as string | undefined;
   const initCat: Category =
     rawType === "EVALUATION"         ? "EVALUATION"        :
+    rawType === "DAY_OFF"            ? "DAY_OFF"           :
     rawType === "COMMEMORATIVE"      ? "COMMEMORATIVE"     :
     rawType === "SPORTS"             ? "SPORTS"            :
     rawType === "INFORMATIVE"        ? "INFORMATIVE"       :
