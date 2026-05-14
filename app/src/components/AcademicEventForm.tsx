@@ -126,6 +126,14 @@ export const AcademicEventForm = ({
     });
   };
 
+  type Course = "ALL" | "AVIATION" | "INTENDANCY" | "INFANTRY";
+  const COURSE_LABELS: Record<Course, string> = { ALL: "Todos os cursos", AVIATION: "Aviação", INTENDANCY: "Intendência", INFANTRY: "Infantaria" };
+  const initCourse = (): Course => {
+    const tc = initialData?.targetCourse as Course | undefined;
+    return tc && tc !== "ALL" ? tc : "ALL";
+  };
+  const [course, setCourse] = useState<Course>(initCourse);
+
   // Evaluation-specific state
   const [evalDisciplineId, setEvalDisciplineId] = useState<string>(
     initialData?.type === "EVALUATION" ? (initialData.disciplineId ?? "") : ""
@@ -170,7 +178,7 @@ export const AcademicEventForm = ({
         notes: notes.trim() || undefined,
         ...sq,
         extraTypes: extraTypes.length > 0 ? extraTypes : undefined,
-        targetCourse: null,
+        targetCourse: course === "ALL" ? null : course as any,
         targetClass: null,
         color: initialData?.color,
       });
@@ -191,7 +199,7 @@ export const AcademicEventForm = ({
       description: title.trim(),
       notes: notes.trim() || undefined,
       ...sq,
-      targetCourse: null,
+      targetCourse: course === "ALL" ? null : course as any,
       targetClass: null,
       color: initialData?.color,
     });
@@ -374,9 +382,23 @@ export const AcademicEventForm = ({
               <Users size={12} className="text-purple-400" />
               Destinatário
             </label>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 mb-2">
               {sqBtn("ALL", "Todos (CCAer)")}
               {SQUADRONS.map((n) => sqBtn(n, `${n}º Esq`))}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {(["ALL", "AVIATION", "INTENDANCY", "INFANTRY"] as Course[]).map(c => (
+                <button key={c} type="button"
+                  onClick={() => setCourse(c)}
+                  className={`px-3 py-1.5 text-xs rounded-lg border font-semibold transition-colors ${
+                    course === c
+                      ? isDark ? "bg-indigo-600/40 border-indigo-400 text-indigo-200" : "bg-indigo-100 border-indigo-500 text-indigo-900"
+                      : isDark ? "border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-300" : "border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                  }`}
+                >
+                  {COURSE_LABELS[c]}
+                </button>
+              ))}
             </div>
           </div>
 

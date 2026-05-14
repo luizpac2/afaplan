@@ -49,11 +49,13 @@ interface GanttEvent {
   mergedIds: string[];  // todos os ids fundidos nesta barra
   classIds: string[];   // classIds dos eventos fundidos (para avaliações)
   label: string;
+  location: string | null;
   start: Date;
   end: Date;
   color: string;
   squadron: number | null;
   squadrons: number[];  // multiple squadrons (empty = ALL or single)
+  course: string | null; // AVIATION | INTENDANCY | INFANTRY | ALL
   type: string;
   extraTypes: string[]; // additional categories
 }
@@ -243,7 +245,8 @@ export const AcademicGantt = () => {
           : (TYPE_COLORS[e.type ?? ""] ?? TYPE_COLORS.ACADEMIC);
         const tss = (e as any).targetSquadrons as number[] | undefined;
         const sqArr: number[] = Array.isArray(tss) && tss.length > 0 ? tss : (sqValid && sqNum ? [sqNum] : []);
-        return { id: e.id, mergedIds: [e.id], classIds: e.classId ? [e.classId] : [], label, start, end, color, squadron: sqValid ? sqNum : null, squadrons: sqArr, type: e.type ?? "ACADEMIC", extraTypes: Array.isArray((e as any).extraTypes) ? (e as any).extraTypes : [] };
+        const courseVal = e.targetCourse ?? null;
+        return { id: e.id, mergedIds: [e.id], classIds: e.classId ? [e.classId] : [], label, location: e.location ?? null, start, end, color, squadron: sqValid ? sqNum : null, squadrons: sqArr, course: courseVal as string | null, type: e.type ?? "ACADEMIC", extraTypes: Array.isArray((e as any).extraTypes) ? (e as any).extraTypes : [] };
       })
       .filter(e => {
         // Type filter (multi-select, empty = all)
@@ -506,6 +509,14 @@ export const AcademicGantt = () => {
                             }
                             return audience ? <span className="text-[9px] text-orange-500/80 truncate block">{audience}</span> : null;
                           })()}
+                          {ev.type !== "EVALUATION" && ev.location && (
+                            <span className={`text-[9px] leading-tight truncate block ${muted}`}>📍 {ev.location}</span>
+                          )}
+                          {ev.type !== "EVALUATION" && ev.course && ev.course !== "ALL" && (
+                            <span className={`text-[9px] leading-tight truncate block`} style={{ color: ev.color, opacity: 0.8 }}>
+                              {ev.course === "AVIATION" ? "Aviação" : ev.course === "INTENDANCY" ? "Intendência" : ev.course === "INFANTRY" ? "Infantaria" : ev.course}
+                            </span>
+                          )}
                         </div>
                         {ev.type !== "EVALUATION" && (ev.squadrons ?? []).length > 0 && (
                           <span className="text-[9px] ml-auto flex-shrink-0 font-semibold" style={{ color: ev.color }}>
