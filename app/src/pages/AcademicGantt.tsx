@@ -93,7 +93,7 @@ function mergeConsecutive(events: GanttEvent[]): GanttEvent[] {
       last.mergedIds.push(...ev.mergedIds);
       for (const c of ev.classIds) { if (!last.classIds.includes(c)) last.classIds.push(c); }
     } else {
-      merged.push({ ...ev, mergedIds: [...ev.mergedIds], classIds: [...ev.classIds] });
+      merged.push({ ...ev, mergedIds: [...ev.mergedIds], classIds: [...ev.classIds], squadrons: Array.isArray(ev.squadrons) ? ev.squadrons : [], extraTypes: Array.isArray(ev.extraTypes) ? ev.extraTypes : [] });
     }
   }
   return merged;
@@ -242,7 +242,8 @@ export const AcademicGantt = () => {
           ? sqColor(sqNum!)
           : (TYPE_COLORS[e.type ?? ""] ?? TYPE_COLORS.ACADEMIC);
         const tss = (e as any).targetSquadrons as number[] | undefined;
-        return { id: e.id, mergedIds: [e.id], classIds: e.classId ? [e.classId] : [], label, start, end, color, squadron: sqValid ? sqNum : null, squadrons: tss && tss.length > 0 ? tss : (sqValid && sqNum ? [sqNum] : []), type: e.type ?? "ACADEMIC", extraTypes: (e as any).extraTypes ?? [] };
+        const sqArr: number[] = Array.isArray(tss) && tss.length > 0 ? tss : (sqValid && sqNum ? [sqNum] : []);
+        return { id: e.id, mergedIds: [e.id], classIds: e.classId ? [e.classId] : [], label, start, end, color, squadron: sqValid ? sqNum : null, squadrons: sqArr, type: e.type ?? "ACADEMIC", extraTypes: Array.isArray((e as any).extraTypes) ? (e as any).extraTypes : [] };
       })
       .filter(e => {
         // Type filter (multi-select, empty = all)
@@ -506,9 +507,9 @@ export const AcademicGantt = () => {
                             return audience ? <span className="text-[9px] text-orange-500/80 truncate block">{audience}</span> : null;
                           })()}
                         </div>
-                        {ev.type !== "EVALUATION" && ev.squadrons.length > 0 && (
+                        {ev.type !== "EVALUATION" && (ev.squadrons ?? []).length > 0 && (
                           <span className="text-[9px] ml-auto flex-shrink-0 font-semibold" style={{ color: ev.color }}>
-                            {ev.squadrons.map(s => `${s}º`).join("/")}
+                            {(ev.squadrons ?? []).map(s => `${s}º`).join("/")}
                           </span>
                         )}
                       </div>
