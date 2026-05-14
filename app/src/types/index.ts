@@ -222,6 +222,8 @@ export interface ScheduleEvent {
   isBlocking?: boolean;
   color?: string;
   targetSquadron?: number | "ALL" | null;
+  targetSquadrons?: number[]; // multiple specific squadrons (when > 1 and not ALL)
+  extraTypes?: string[];      // additional categories beyond primary `type`
   targetCourse?: "AVIATION" | "INTENDANCY" | "INFANTRY" | "ALL" | null;
   targetClass?: string | "ALL" | null;
   description?: string;

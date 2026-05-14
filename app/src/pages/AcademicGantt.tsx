@@ -53,7 +53,9 @@ interface GanttEvent {
   end: Date;
   color: string;
   squadron: number | null;
+  squadrons: number[];  // multiple squadrons (empty = ALL or single)
   type: string;
+  extraTypes: string[]; // additional categories
 }
 
 function parseDate(iso: string): Date {
@@ -239,7 +241,8 @@ export const AcademicGantt = () => {
         const color = (e.type === "ACADEMIC" || e.disciplineId === "ACADEMIC") && sqValid
           ? sqColor(sqNum!)
           : (TYPE_COLORS[e.type ?? ""] ?? TYPE_COLORS.ACADEMIC);
-        return { id: e.id, mergedIds: [e.id], classIds: e.classId ? [e.classId] : [], label, start, end, color, squadron: sqValid ? sqNum : null, type: e.type ?? "ACADEMIC" };
+        const tss = (e as any).targetSquadrons as number[] | undefined;
+        return { id: e.id, mergedIds: [e.id], classIds: e.classId ? [e.classId] : [], label, start, end, color, squadron: sqValid ? sqNum : null, squadrons: tss && tss.length > 0 ? tss : (sqValid && sqNum ? [sqNum] : []), type: e.type ?? "ACADEMIC", extraTypes: (e as any).extraTypes ?? [] };
       })
       .filter(e => {
         // Type filter (multi-select, empty = all)
@@ -503,8 +506,10 @@ export const AcademicGantt = () => {
                             return audience ? <span className="text-[9px] text-orange-500/80 truncate block">{audience}</span> : null;
                           })()}
                         </div>
-                        {ev.squadron !== null && ev.type !== "EVALUATION" && (
-                          <span className="text-[9px] ml-auto flex-shrink-0 font-semibold" style={{ color: ev.color }}>{ev.squadron}º</span>
+                        {ev.type !== "EVALUATION" && ev.squadrons.length > 0 && (
+                          <span className="text-[9px] ml-auto flex-shrink-0 font-semibold" style={{ color: ev.color }}>
+                            {ev.squadrons.map(s => `${s}º`).join("/")}
+                          </span>
                         )}
                       </div>
 

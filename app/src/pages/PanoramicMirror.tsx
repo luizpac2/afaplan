@@ -398,7 +398,7 @@ export const PanoramicMirror = () => {
                 const isWknd  = colIdx === 0 || colIdx === 6;
                 const dayEvts = eventsForDay(dateStr);
                 const dayNots = noticesForDay(dateStr);
-                const hasDayOff = dayEvts.some(e => e.type === "DAY_OFF");
+                const hasDayOff = dayEvts.some(e => e.type === "DAY_OFF" || ((e as any).extraTypes ?? []).includes("DAY_OFF"));
 
                 // Single-day events only (multi-day are shown as bars)
                 const singleDayEvts = dayEvts.filter(e => {

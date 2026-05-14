@@ -66,19 +66,37 @@ export const AcademicEventForm = ({
   const muted    = isDark ? "text-gray-400" : "text-gray-500";
 
   type Category = "ACADEMIC" | "EVALUATION" | "DAY_OFF" | "COMMEMORATIVE" | "SPORTS" | "INFORMATIVE" | "HOLIDAY" | "MILITARY" | "FLIGHT_INSTRUCTION" | "TRIP";
-  const rawType = initialData?.type as string | undefined;
-  const initCat: Category =
-    rawType === "EVALUATION"         ? "EVALUATION"        :
-    rawType === "DAY_OFF"            ? "DAY_OFF"           :
-    rawType === "COMMEMORATIVE"      ? "COMMEMORATIVE"     :
-    rawType === "SPORTS"             ? "SPORTS"            :
-    rawType === "INFORMATIVE"        ? "INFORMATIVE"       :
-    rawType === "HOLIDAY"            ? "HOLIDAY"           :
-    rawType === "MILITARY"           ? "MILITARY"          :
-    rawType === "FLIGHT_INSTRUCTION" ? "FLIGHT_INSTRUCTION":
-    rawType === "TRIP"               ? "TRIP"              : "ACADEMIC";
 
-  const [category, setCategory] = useState<Category>(initCat);
+  // The ordered list drives which category is "primary" (first in set order)
+  const CAT_ORDER: Category[] = ["ACADEMIC","EVALUATION","DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY","MILITARY","FLIGHT_INSTRUCTION","TRIP"];
+
+  const rawType = initialData?.type as string | undefined;
+  const initCats = (): Category[] => {
+    const extras = (initialData?.extraTypes ?? []) as Category[];
+    const primary: Category =
+      rawType === "EVALUATION"         ? "EVALUATION"        :
+      rawType === "DAY_OFF"            ? "DAY_OFF"           :
+      rawType === "COMMEMORATIVE"      ? "COMMEMORATIVE"     :
+      rawType === "SPORTS"             ? "SPORTS"            :
+      rawType === "INFORMATIVE"        ? "INFORMATIVE"       :
+      rawType === "HOLIDAY"            ? "HOLIDAY"           :
+      rawType === "MILITARY"           ? "MILITARY"          :
+      rawType === "FLIGHT_INSTRUCTION" ? "FLIGHT_INSTRUCTION":
+      rawType === "TRIP"               ? "TRIP"              : "ACADEMIC";
+    const all = [primary, ...extras.filter(e => e !== primary)];
+    return all.filter(c => CAT_ORDER.includes(c));
+  };
+
+  const [categories, setCategories] = useState<Category[]>(initCats);
+  const category = CAT_ORDER.find(c => categories.includes(c)) ?? "ACADEMIC";
+  const toggleCategory = (key: Category) => {
+    if (key === "EVALUATION") { setCategories(["EVALUATION"]); return; }
+    setCategories(prev => {
+      if (prev.includes("EVALUATION")) return [key];
+      const next = prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key];
+      return next.length === 0 ? [key] : next;
+    });
+  };
   const wasAllDay = !initialData?.startTime || initialData.startTime === "";
 
   const today = new Date().toISOString().split("T")[0];
@@ -91,11 +109,22 @@ export const AcademicEventForm = ({
   const [startTime, setStartTime] = useState(wasAllDay ? "07:00" : (initialData?.startTime ?? "07:00"));
   const [endTime, setEndTime]     = useState(wasAllDay ? "" : (initialData?.endTime ?? ""));
   const [location, setLocation]   = useState(initialData?.location ?? "");
-  const [squadron, setSquadron]   = useState<number | "ALL">(
-    initialData?.targetSquadron === "ALL" || initialData?.targetSquadron == null
-      ? "ALL"
-      : Number(initialData.targetSquadron)
-  );
+  const initSquadrons = (): (number | "ALL")[] => {
+    const tss = initialData?.targetSquadrons;
+    if (tss && tss.length > 0) return tss as number[];
+    const ts = initialData?.targetSquadron;
+    if (ts === "ALL" || ts == null) return ["ALL"];
+    return [Number(ts)];
+  };
+  const [squadrons, setSquadrons] = useState<(number | "ALL")[]>(initSquadrons);
+  const toggleSquadron = (sq: number | "ALL") => {
+    setSquadrons(prev => {
+      if (sq === "ALL") return ["ALL"];
+      const without = prev.filter(s => s !== "ALL" && s !== sq);
+      const next = prev.includes(sq) ? without : [...without, sq as number];
+      return next.length === 0 ? ["ALL"] : next;
+    });
+  };
 
   // Evaluation-specific state
   const [evalDisciplineId, setEvalDisciplineId] = useState<string>(
@@ -111,10 +140,20 @@ export const AcademicEventForm = ({
 
   const isEvalValid = category !== "EVALUATION" || (evalDisciplineId !== "" && evalType !== undefined);
   const isTitleValid = category === "EVALUATION" ? isEvalValid : !!title.trim();
+  const isDayOffSelected = categories.includes("DAY_OFF");
+  const noTimeCategories = ["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"];
+
+  const sqPayload = (): { targetSquadron: number | "ALL" | null; targetSquadrons?: number[] } => {
+    if (squadrons.includes("ALL") || squadrons.length === 0) return { targetSquadron: "ALL" };
+    if (squadrons.length === 1) return { targetSquadron: squadrons[0] as number };
+    return { targetSquadron: null, targetSquadrons: squadrons as number[] };
+  };
 
   const handleSubmit = () => {
     if (!isTitleValid) return;
     const effectiveEnd = endDate < startDate ? startDate : endDate;
+    const sq = sqPayload();
+    const extraTypes = categories.filter(c => c !== category);
 
     if (category === "EVALUATION") {
       onSubmit({
@@ -129,7 +168,8 @@ export const AcademicEventForm = ({
         evaluationType: evalType as any,
         description: undefined,
         notes: notes.trim() || undefined,
-        targetSquadron: squadron === "ALL" ? "ALL" : squadron as any,
+        ...sq,
+        extraTypes: extraTypes.length > 0 ? extraTypes : undefined,
         targetCourse: null,
         targetClass: null,
         color: initialData?.color,
@@ -137,18 +177,20 @@ export const AcademicEventForm = ({
       return;
     }
 
+    const noTime = allDay || categories.some(c => noTimeCategories.includes(c));
     onSubmit({
       disciplineId: "ACADEMIC",
       classId: initialData?.classId ?? "",
       date:    startDate,
       endDate: effectiveEnd,
-      startTime: (allDay || ["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? null as any : startTime,
-      endTime:   (allDay || ["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? null as any : (endTime || startTime),
-      location:  (["DAY_OFF","COMMEMORATIVE","INFORMATIVE","HOLIDAY"].includes(category)) ? undefined : (location || undefined),
+      startTime: noTime ? null as any : startTime,
+      endTime:   noTime ? null as any : (endTime || startTime),
+      location:  categories.some(c => noTimeCategories.includes(c)) ? undefined : (location || undefined),
       type: category as any,
+      extraTypes: extraTypes.length > 0 ? extraTypes : undefined,
       description: title.trim(),
       notes: notes.trim() || undefined,
-      targetSquadron: squadron === "ALL" ? "ALL" : squadron as any,
+      ...sq,
       targetCourse: null,
       targetClass: null,
       color: initialData?.color,
@@ -158,13 +200,13 @@ export const AcademicEventForm = ({
   const matchedSlot = TIME_SLOTS.find((s) => s.start === startTime);
 
   const sqBtn = (sq: number | "ALL", label: string) => {
-    const active = squadron === sq;
+    const active = squadrons.includes(sq);
     const col = getAcademicColor(sq === "ALL" ? "ALL" : sq, isDark);
     return (
       <button
         key={String(sq)}
         type="button"
-        onClick={() => setSquadron(sq)}
+        onClick={() => toggleSquadron(sq)}
         className={`px-3 py-1.5 text-xs rounded-lg border font-semibold transition-colors ${
           active
             ? `${col.bg} ${col.border} ${col.title}`
@@ -229,9 +271,9 @@ export const AcademicEventForm = ({
                 { key: "TRIP",               label: "Viagem",           active: "bg-violet-600 border-violet-600 text-white",  hover: "hover:border-violet-500"  },
               ] as const).map(opt => (
                 <button key={opt.key} type="button"
-                  onClick={() => setCategory(opt.key as any)}
+                  onClick={() => toggleCategory(opt.key as Category)}
                   className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg border text-xs font-semibold transition-colors
-                    ${category === opt.key
+                    ${categories.includes(opt.key as Category)
                       ? opt.active
                       : isDark ? `border-gray-600 text-gray-400 ${opt.hover}` : `border-gray-300 text-gray-500 ${opt.hover}`
                     }`}
@@ -243,7 +285,7 @@ export const AcademicEventForm = ({
           </div>
 
           {/* Hint DAY_OFF */}
-          {category === "DAY_OFF" && (
+          {isDayOffSelected && (
             <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
               📅 Este evento conta como <strong>dia não letivo</strong> no Painel Acadêmico.
             </p>
