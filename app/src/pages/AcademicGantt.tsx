@@ -122,8 +122,9 @@ export const AcademicGantt = () => {
   const [hovered, setHovered]     = useState<string | null>(null);
 
   // Multi-select filters: empty set = "all"
-  const [selTypes, setSelTypes]       = useState<Set<string>>(new Set());
+  const [selTypes, setSelTypes]         = useState<Set<string>>(new Set());
   const [selSquadrons, setSelSquadrons] = useState<Set<number>>(new Set());
+  const [selCourses, setSelCourses]     = useState<Set<string>>(new Set());
 
   const bodyRef   = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -249,18 +250,32 @@ export const AcademicGantt = () => {
         return { id: e.id, mergedIds: [e.id], classIds: e.classId ? [e.classId] : [], label, location: e.location ?? null, start, end, color, squadron: sqValid ? sqNum : null, squadrons: sqArr, course: courseVal as string | null, type: e.type ?? "ACADEMIC", extraTypes: Array.isArray((e as any).extraTypes) ? (e as any).extraTypes : [] };
       })
       .filter(e => {
-        // Type filter (multi-select, empty = all)
-        if (selTypes.size > 0 && !selTypes.has(e.type)) return false;
+        // Type filter: match primary type OR any extraType
+        if (selTypes.size > 0) {
+          const allTypes = [e.type, ...e.extraTypes];
+          if (!allTypes.some(t => selTypes.has(t))) return false;
+        }
         // Squadron filter; EVALUATION events are always squadron-specific (never universal)
         if (selSquadrons.size > 0) {
-          if (e.squadron !== null) { if (!selSquadrons.has(e.squadron)) return false; }
-          else if (e.type === "EVALUATION") return false; // no squadron info → hide when filtering
+          if (e.squadrons.length > 0) {
+            if (!e.squadrons.some(sq => selSquadrons.has(sq))) return false;
+          } else if (e.squadron !== null) {
+            if (!selSquadrons.has(e.squadron)) return false;
+          } else if (e.type === "EVALUATION") {
+            return false;
+          }
+        }
+        // Course filter (ALL = show for any course)
+        if (selCourses.size > 0) {
+          if (e.course && e.course !== "ALL") {
+            if (!selCourses.has(e.course)) return false;
+          }
         }
         return true;
       })
       .sort((a, b) => a.start.getTime() - b.start.getTime());
     return mergeConsecutive(raw);
-  }, [events, selTypes, selSquadrons, cohortTokens, disciplines]);
+  }, [events, selTypes, selSquadrons, selCourses, cohortTokens, disciplines]);
 
   // ── Filters toggle helpers ────────────────────────────────────────────────
   const toggleType = (t: string) => setSelTypes(prev => {
@@ -271,6 +286,11 @@ export const AcademicGantt = () => {
   const toggleSquadron = (sq: number) => setSelSquadrons(prev => {
     const next = new Set(prev);
     if (next.has(sq)) next.delete(sq); else next.add(sq);
+    return next;
+  });
+  const toggleCourse = (c: string) => setSelCourses(prev => {
+    const next = new Set(prev);
+    if (next.has(c)) next.delete(c); else next.add(c);
     return next;
   });
 
@@ -426,6 +446,27 @@ export const AcademicGantt = () => {
                     className={`${pillBase} ${active ? "text-white" : (isDark ? "text-slate-400 hover:border-slate-500" : "text-slate-500 hover:border-slate-400")}`}
                     style={active ? { backgroundColor: col, borderColor: col } : undefined}>
                     {sq}º
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className={`hidden sm:block w-px self-stretch ${isDark ? "bg-slate-700" : "bg-slate-200"}`} />
+
+            {/* Curso */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className={`text-[10px] font-bold uppercase tracking-wider mr-1 ${muted}`}>Curso</span>
+              <button onClick={() => setSelCourses(new Set())}
+                className={selCourses.size === 0 ? `${pillBase} bg-slate-600 border-slate-600 text-white` : pillOff}>
+                Todos
+              </button>
+              {(["AVIATION","INTENDANCY","INFANTRY"] as const).map(c => {
+                const label = c === "AVIATION" ? "Aviação" : c === "INTENDANCY" ? "Intendência" : "Infantaria";
+                const active = selCourses.has(c);
+                return (
+                  <button key={c} onClick={() => toggleCourse(c)}
+                    className={`${pillBase} ${active ? "bg-indigo-700 border-indigo-700 text-white" : pillOff}`}>
+                    {label}
                   </button>
                 );
               })}
