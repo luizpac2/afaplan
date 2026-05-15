@@ -33,13 +33,7 @@ const TYPE_LABELS: Record<string, string> = {
   SPORTS:"CDEF", INFORMATIVE:"Informativo", HOLIDAY:"Feriado", MILITARY:"Militar",
   FLIGHT_INSTRUCTION:"Instrução de Voo", TRIP:"Viagem",
 };
-const TYPE_COLORS: Record<string, string> = {
-  ACADEMIC:"bg-indigo-700 border-indigo-700 text-white", EVALUATION:"bg-orange-700 border-orange-700 text-white",
-  DAY_OFF:"bg-red-700 border-red-700 text-white", COMMEMORATIVE:"bg-amber-700 border-amber-700 text-white",
-  SPORTS:"bg-teal-700 border-teal-700 text-white", INFORMATIVE:"bg-sky-700 border-sky-700 text-white",
-  HOLIDAY:"bg-rose-700 border-rose-700 text-white", MILITARY:"bg-green-700 border-green-700 text-white",
-  FLIGHT_INSTRUCTION:"bg-blue-700 border-blue-700 text-white", TRIP:"bg-violet-700 border-violet-700 text-white",
-};
+
 const SQUADRONS = [1, 2, 3, 4] as const;
 
 function formatISODate(y: number, m: number, d: number) {
