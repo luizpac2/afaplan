@@ -126,8 +126,19 @@ export const AcademicGantt = () => {
   const [selSquadrons, setSelSquadrons] = useState<Set<number>>(new Set());
   const [selCourses, setSelCourses]     = useState<Set<string>>(new Set());
 
-  const bodyRef   = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
+  const bodyRef        = useRef<HTMLDivElement>(null);
+  const headerRef      = useRef<HTMLDivElement>(null);
+  const pageHeaderRef  = useRef<HTMLDivElement>(null);
+  const [pageHeaderH, setPageHeaderH] = useState(0);
+
+  useEffect(() => {
+    const el = pageHeaderRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(() => setPageHeaderH(el.offsetHeight));
+    obs.observe(el);
+    setPageHeaderH(el.offsetHeight);
+    return () => obs.disconnect();
+  }, []);
 
   // Subscribe directly to store cache — mutations update it synchronously
   const EMPTY_EVENTS = useMemo<ScheduleEvent[]>(() => [], []);
@@ -377,7 +388,7 @@ export const AcademicGantt = () => {
       <div className="p-4 md:p-6 flex flex-col gap-5 max-w-[1800px] mx-auto">
 
         {/* ── Page header + filters — sticky ────────────────────────────────── */}
-        <div className={`flex flex-col gap-3 sticky top-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 pb-3 pt-1 ${isDark ? "bg-slate-950" : "bg-gray-50"}`}>
+        <div ref={pageHeaderRef} className={`flex flex-col gap-3 sticky top-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 pb-3 pt-1 ${isDark ? "bg-slate-950" : "bg-gray-50"}`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-indigo-500/10 rounded-xl">
@@ -482,8 +493,8 @@ export const AcademicGantt = () => {
         ) : (
           <div className={`rounded-xl border ${card}`}>
 
-            {/* Sticky month header — OUTSIDE overflow-x-auto, synced via JS */}
-            <div className={`sticky top-0 z-30 border-b ${border} rounded-t-xl`} style={{ overflow: "hidden" }}>
+            {/* Sticky month header — offset below the page sticky header */}
+            <div className={`sticky z-30 border-b ${border} rounded-t-xl`} style={{ top: pageHeaderH, overflow: "hidden" }}>
               <div ref={headerRef} style={{ overflow: "hidden", pointerEvents: "none" }}>
                 <div style={{ display: "flex" }}>
                   <div className={`flex-shrink-0 border-r ${border} ${cornerBg}`} style={{ width: LABEL_W, height: HEAD_H }} />
