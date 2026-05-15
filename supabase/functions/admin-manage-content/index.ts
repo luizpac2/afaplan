@@ -493,7 +493,7 @@ Deno.serve(async (req) => {
       .from("programacao_aulas")
       .update(safeUpdates)
       .eq("id", id)
-      .select("id")
+      .select("id,targetSquadron,targetSquadrons,targetCourse,type,description")
       .single();
     if (upErr) {
       console.error("update_event error:", upErr.code, upErr.message, upErr.details);
@@ -503,7 +503,8 @@ Deno.serve(async (req) => {
       console.error("update_event: row not found for id", id);
       return err("Evento não encontrado", 404);
     }
-    return ok({ success: true });
+    console.log("update_event saved:", JSON.stringify(updData));
+    return ok({ success: true, saved: updData });
   }
 
   // ── delete_event ────────────────────────────────────────────────────────────
