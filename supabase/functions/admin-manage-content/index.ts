@@ -431,7 +431,8 @@ Deno.serve(async (req) => {
     if (e.type !== undefined) safeEvent.type = e.type;
     if (e.evaluationType !== undefined) safeEvent.evaluationType = e.evaluationType;
     if (e.color !== undefined) safeEvent.color = e.color;
-    if (e.targetSquadron !== undefined) safeEvent.targetSquadron = e.targetSquadron;
+    // "ALL" é valor frontend — banco armazena null (smallint não aceita string)
+    if (e.targetSquadron !== undefined) safeEvent.targetSquadron = (e.targetSquadron === "ALL" || e.targetSquadron == null) ? null : Number(e.targetSquadron);
     if (e.targetSquadrons !== undefined) safeEvent.targetSquadrons = e.targetSquadrons;
     if (e.extraTypes !== undefined) safeEvent.extraTypes = e.extraTypes;
     if (e.targetCourse !== undefined) safeEvent.targetCourse = e.targetCourse;
@@ -476,13 +477,16 @@ Deno.serve(async (req) => {
     if (u.type              !== undefined) safeUpdates.type            = u.type;
     if (u.evaluationType    !== undefined) safeUpdates.evaluationType  = u.evaluationType;
     if (u.color             !== undefined) safeUpdates.color           = u.color;
-    if (u.targetSquadron    !== undefined) safeUpdates.targetSquadron  = u.targetSquadron;
+    // "ALL" é valor frontend — banco armazena null (smallint não aceita string)
+    if (u.targetSquadron    !== undefined) safeUpdates.targetSquadron  = (u.targetSquadron === "ALL" || u.targetSquadron == null) ? null : Number(u.targetSquadron);
+    if (u.targetSquadrons   !== undefined) safeUpdates.targetSquadrons = u.targetSquadrons;
+    if (u.extraTypes        !== undefined) safeUpdates.extraTypes      = u.extraTypes;
     if (u.targetCourse      !== undefined) safeUpdates.targetCourse    = u.targetCourse;
     if (u.targetClass       !== undefined) safeUpdates.targetClass     = u.targetClass;
     if (u.description       !== undefined) safeUpdates.description     = u.description;
     if (u.notes             !== undefined) safeUpdates.notes           = u.notes;
     if (u.endDate           !== undefined) safeUpdates.endDate         = u.endDate;
-    
+
     console.log("update_event id:", id, "payload:", JSON.stringify(safeUpdates));
 
     // Upsert by id: atualiza se existir, cria se não existir (nunca deixa 0 linhas afetadas)
