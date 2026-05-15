@@ -376,8 +376,8 @@ export const AcademicGantt = () => {
       {modal}
       <div className="p-4 md:p-6 flex flex-col gap-5 max-w-[1800px] mx-auto">
 
-        {/* ── Page header ───────────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-3">
+        {/* ── Page header + filters — sticky ────────────────────────────────── */}
+        <div className={`flex flex-col gap-3 sticky top-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 pb-3 pt-1 ${isDark ? "bg-slate-950" : "bg-gray-50"}`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-indigo-500/10 rounded-xl">

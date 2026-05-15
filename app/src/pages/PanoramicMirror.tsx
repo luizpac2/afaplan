@@ -307,8 +307,8 @@ export const PanoramicMirror = () => {
   return (
     <div className={`p-4 md:p-6 flex flex-col gap-5 max-w-5xl mx-auto`}>
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header — sticky */}
+      <div className={`flex items-center justify-between sticky top-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 py-3 ${isDark ? "bg-slate-950" : "bg-gray-50"}`}>
         <div className="flex items-center gap-3">
           <div className="p-2 bg-blue-500/10 rounded-xl">
             <CalendarIcon className="text-blue-500" size={20} />
