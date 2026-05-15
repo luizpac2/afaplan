@@ -932,30 +932,6 @@ export const GanttProgramming = ({ forcedSquadronId }: GanttProgrammingProps = {
     setSelectedEventIds(ids);
   };
 
-  const [deduplicating, setDeduplicating] = useState(false);
-  const handleDeduplicateWeek = async () => {
-    setDeduplicating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("admin-manage-content", {
-        body: { action: "deduplicate_events", startDate: startDayStr, endDate: endDayStr },
-      });
-      if (error) { showToast(`Erro: ${error.message}`, "error"); return; }
-      console.log("deduplicate_events result:", data);
-      if (data?.deleted > 0) {
-        showToast(`${data.deleted} aula(s) duplicada(s) removida(s) da semana.`, "success");
-        // Invalida cache e recarrega
-        invalidateEventsWeekCache();
-        subscribeToEventsByDateRange(startDayStr, endDayStr, (evs) => setWeekEvents(evs as ScheduleEvent[]));
-      } else {
-        const detail = data?.totalRaw != null ? ` (${data.totalRaw} eventos no banco, nenhum duplicado por slot)` : "";
-        showToast(`Nenhuma duplicata encontrada nesta semana.${detail}`, "info");
-      }
-    } catch (e) {
-      showToast("Erro ao limpar duplicatas.", "error");
-    } finally {
-      setDeduplicating(false);
-    }
-  };
 
   const today  = formatDate(new Date());
   const card   = isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200 shadow-sm";
@@ -1040,16 +1016,6 @@ export const GanttProgramming = ({ forcedSquadronId }: GanttProgrammingProps = {
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-blue-400 ${text}`}
             >
               <MousePointer2 size={13} /> Selecionar
-            </button>
-          )}
-          {userProfile?.role === "SUPER_ADMIN" && !isSelectionMode && !isBatchMode && (
-            <button
-              onClick={handleDeduplicateWeek}
-              disabled={deduplicating}
-              title="Remove aulas duplicadas no mesmo slot desta semana"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${card} hover:border-orange-400 text-orange-500 disabled:opacity-40`}
-            >
-              🧹 {deduplicating ? "Limpando..." : "Duplicatas"}
             </button>
           )}
           {canEdit && isSelectionMode && (
