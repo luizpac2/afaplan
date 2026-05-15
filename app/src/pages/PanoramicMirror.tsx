@@ -27,6 +27,21 @@ const EVAL_LABELS: Record<string, string> = {
 
 const SQ_LABELS = ["", "1º ESQ", "2º ESQ", "3º ESQ", "4º ESQ"];
 
+const ALL_TYPES = ["ACADEMIC","EVALUATION","DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY","MILITARY","FLIGHT_INSTRUCTION","TRIP"] as const;
+const TYPE_LABELS: Record<string, string> = {
+  ACADEMIC:"Acadêmico", EVALUATION:"Avaliação", DAY_OFF:"Day Off", COMMEMORATIVE:"Comemorativo",
+  SPORTS:"CDEF", INFORMATIVE:"Informativo", HOLIDAY:"Feriado", MILITARY:"Militar",
+  FLIGHT_INSTRUCTION:"Instrução de Voo", TRIP:"Viagem",
+};
+const TYPE_COLORS: Record<string, string> = {
+  ACADEMIC:"bg-indigo-700 border-indigo-700 text-white", EVALUATION:"bg-orange-700 border-orange-700 text-white",
+  DAY_OFF:"bg-red-700 border-red-700 text-white", COMMEMORATIVE:"bg-amber-700 border-amber-700 text-white",
+  SPORTS:"bg-teal-700 border-teal-700 text-white", INFORMATIVE:"bg-sky-700 border-sky-700 text-white",
+  HOLIDAY:"bg-rose-700 border-rose-700 text-white", MILITARY:"bg-green-700 border-green-700 text-white",
+  FLIGHT_INSTRUCTION:"bg-blue-700 border-blue-700 text-white", TRIP:"bg-violet-700 border-violet-700 text-white",
+};
+const SQUADRONS = [1, 2, 3, 4] as const;
+
 function formatISODate(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
@@ -68,6 +83,12 @@ export const PanoramicMirror = () => {
   const [noticeFormDate, setNoticeFormDate]       = useState<string | null>(null);
   const [editingNotice, setEditingNotice]         = useState<SystemNotice | null>(null);
 
+  // Multi-select filters: empty set = "all"
+  const [selTypes, setSelTypes]         = useState<Set<string>>(new Set());
+  const [selSquadrons, setSelSquadrons] = useState<Set<number>>(new Set());
+  const toggleType = (t: string) => setSelTypes(prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
+  const toggleSquadron = (sq: number) => setSelSquadrons(prev => { const n = new Set(prev); n.has(sq) ? n.delete(sq) : n.add(sq); return n; });
+
   // Events from cache — reactive to addEvent/deleteEvent
   const yearlyEvents = yearEventsCache[year] ?? [];
 
@@ -85,20 +106,35 @@ export const PanoramicMirror = () => {
     else setMonth(m => m + 1);
   };
 
-  // Academic events and evaluations for this month
+  // Academic events and evaluations for this month (with filters)
   const monthAcademic = useMemo(() => {
+    const SHOW = new Set(["ACADEMIC","EVALUATION","DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY","MILITARY","FLIGHT_INSTRUCTION","TRIP"]);
     return yearlyEvents.filter(e => {
-      const SHOW = new Set(["ACADEMIC","EVALUATION","DAY_OFF","COMMEMORATIVE","SPORTS","INFORMATIVE","HOLIDAY","MILITARY","FLIGHT_INSTRUCTION","TRIP"]);
       const isAcad = SHOW.has(e.type ?? "") || e.disciplineId === "ACADEMIC";
       if (!isAcad) return false;
-      // multi-day: startDate ≤ day ≤ endDate
       const start = e.date;
       const end   = (e as any).endDate ?? e.date;
       const monthStart = formatISODate(year, month, 1);
       const monthEnd   = formatISODate(year, month, daysInMonth(year, month));
-      return start <= monthEnd && end >= monthStart;
+      if (!(start <= monthEnd && end >= monthStart)) return false;
+      // Type filter: match primary type OR any extraType
+      if (selTypes.size > 0) {
+        const allTypes = [e.type ?? "", ...((e as any).extraTypes ?? [])];
+        if (!allTypes.some(t => selTypes.has(t))) return false;
+      }
+      // Squadron filter
+      if (selSquadrons.size > 0) {
+        const tss = (e as any).targetSquadrons as number[] | undefined;
+        if (Array.isArray(tss) && tss.length > 0) {
+          if (!tss.some(sq => selSquadrons.has(sq))) return false;
+        } else {
+          const ts = e.targetSquadron;
+          if (ts !== "ALL" && ts != null && !selSquadrons.has(Number(ts))) return false;
+        }
+      }
+      return true;
     });
-  }, [yearlyEvents, year, month]);
+  }, [yearlyEvents, year, month, selTypes, selSquadrons]);
 
   // Notices active in this month
   const monthNotices = useMemo(() => {
@@ -307,32 +343,78 @@ export const PanoramicMirror = () => {
   return (
     <div className={`p-4 md:p-6 flex flex-col gap-5 max-w-5xl mx-auto`}>
 
-      {/* Header — sticky */}
-      <div className={`flex items-center justify-between sticky top-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 py-3 ${isDark ? "bg-slate-950" : "bg-gray-50"}`}>
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-500/10 rounded-xl">
-            <CalendarIcon className="text-blue-500" size={20} />
+      {/* Header + filtros — sticky */}
+      <div className={`flex flex-col gap-3 sticky top-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 pb-3 pt-1 ${isDark ? "bg-slate-950" : "bg-gray-50"}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-500/10 rounded-xl">
+              <CalendarIcon className="text-blue-500" size={20} />
+            </div>
+            <div>
+              <h1 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
+                Calendário Acadêmico
+              </h1>
+              <p className={`text-xs ${muted}`}>Eventos e avaliações do ano letivo</p>
+            </div>
           </div>
-          <div>
-            <h1 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
-              Calendário Acadêmico
-            </h1>
-            <p className={`text-xs ${muted}`}>Eventos e avaliações do ano letivo</p>
+
+          {/* Month navigation */}
+          <div className="flex items-center gap-1">
+            <button onClick={prevMonth} className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600"}`}>
+              <ChevronLeft size={18} />
+            </button>
+            <span className={`text-sm font-semibold min-w-[130px] text-center ${isDark ? "text-white" : "text-slate-900"}`}>
+              {MONTHS_PT[month]} {year}
+            </span>
+            <button onClick={nextMonth} className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600"}`}>
+              <ChevronRight size={18} />
+            </button>
           </div>
         </div>
 
-        {/* Month navigation */}
-        <div className="flex items-center gap-1">
-          <button onClick={prevMonth} className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600"}`}>
-            <ChevronLeft size={18} />
-          </button>
-          <span className={`text-sm font-semibold min-w-[130px] text-center ${isDark ? "text-white" : "text-slate-900"}`}>
-            {MONTHS_PT[month]} {year}
-          </span>
-          <button onClick={nextMonth} className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600"}`}>
-            <ChevronRight size={18} />
-          </button>
-        </div>
+        {/* Filtros multi-select */}
+        {(() => {
+          const pillBase = `px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-150 border`;
+          const pillOff  = isDark ? `${pillBase} border-slate-600 text-slate-400 hover:border-slate-500` : `${pillBase} border-slate-300 text-slate-500 hover:border-slate-400`;
+          const typeColors: Record<string, string> = {
+            ACADEMIC:"bg-indigo-700 border-indigo-700 text-white", EVALUATION:"bg-orange-700 border-orange-700 text-white",
+            DAY_OFF:"bg-red-700 border-red-700 text-white", COMMEMORATIVE:"bg-amber-700 border-amber-700 text-white",
+            SPORTS:"bg-teal-700 border-teal-700 text-white", INFORMATIVE:"bg-sky-700 border-sky-700 text-white",
+            HOLIDAY:"bg-rose-700 border-rose-700 text-white", MILITARY:"bg-green-700 border-green-700 text-white",
+            FLIGHT_INSTRUCTION:"bg-blue-700 border-blue-700 text-white", TRIP:"bg-violet-700 border-violet-700 text-white",
+          };
+          return (
+            <div className={`flex flex-wrap gap-3 p-3 rounded-xl border ${card}`}>
+              {/* Tipo */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className={`text-[10px] font-bold uppercase tracking-wider mr-1 ${muted}`}>Tipo</span>
+                <button onClick={() => setSelTypes(new Set())} className={selTypes.size === 0 ? `${pillBase} bg-slate-600 border-slate-600 text-white` : pillOff}>Todos</button>
+                {ALL_TYPES.map(t => (
+                  <button key={t} onClick={() => toggleType(t)} className={selTypes.has(t) ? `${pillBase} ${typeColors[t]}` : pillOff}>
+                    {TYPE_LABELS[t]}
+                  </button>
+                ))}
+              </div>
+              <div className={`hidden sm:block w-px self-stretch ${isDark ? "bg-slate-700" : "bg-slate-200"}`} />
+              {/* Esquadrão */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className={`text-[10px] font-bold uppercase tracking-wider mr-1 ${muted}`}>Esq.</span>
+                <button onClick={() => setSelSquadrons(new Set())} className={selSquadrons.size === 0 ? `${pillBase} bg-slate-600 border-slate-600 text-white` : pillOff}>Todos</button>
+                {SQUADRONS.map(sq => {
+                  const active = selSquadrons.has(sq);
+                  const col = sqDisplayColor(cohortTokens[sq] ?? getCohortColorTokens("blue"), isDark);
+                  return (
+                    <button key={sq} onClick={() => toggleSquadron(sq)}
+                      className={`${pillBase} ${active ? "text-white" : (isDark ? "text-slate-400 hover:border-slate-500" : "text-slate-500 hover:border-slate-400")}`}
+                      style={active ? { backgroundColor: col, borderColor: col } : undefined}>
+                      {sq}º
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Calendar grid + detail panel */}
