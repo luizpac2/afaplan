@@ -489,13 +489,19 @@ Deno.serve(async (req) => {
 
     console.log("update_event id:", id, "payload:", JSON.stringify(safeUpdates));
 
-    // Upsert by id: atualiza se existir, cria se não existir (nunca deixa 0 linhas afetadas)
-    const { error: upErr } = await adminClient
+    const { data: updData, error: upErr } = await adminClient
       .from("programacao_aulas")
-      .upsert({ id, ...safeUpdates }, { onConflict: "id" });
+      .update(safeUpdates)
+      .eq("id", id)
+      .select("id")
+      .single();
     if (upErr) {
       console.error("update_event error:", upErr.code, upErr.message, upErr.details);
       return err(upErr.message, 500);
+    }
+    if (!updData) {
+      console.error("update_event: row not found for id", id);
+      return err("Evento não encontrado", 404);
     }
     return ok({ success: true });
   }
