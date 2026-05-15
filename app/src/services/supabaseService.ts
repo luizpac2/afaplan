@@ -58,6 +58,10 @@ export const normalizeTime = (t: string | null | undefined): string => {
 
 export const normalizeEvent = (row: Record<string, unknown>): Record<string, unknown> => {
   // Mapeamento de snake_case português (banco) → camelCase (frontend)
+  // ATENÇÃO: colunas criadas SEM aspas no SQL ficam em lowercase no Postgres
+  // (ex: targetCourse→targetcourse, targetSquadron→targetsquadron).
+  // select("*") retorna chaves lowercase — mapear explicitamente para camelCase.
+  const r = row as Record<string, unknown>;
   return {
     ...row,
     date:           row.date ?? row.data ?? null,
@@ -69,8 +73,11 @@ export const normalizeEvent = (row: Record<string, unknown>): Record<string, unk
     location:          row.location ?? row.local_id ?? null,
     evaluationType:    row.evaluationType ?? row.evaluation_type ?? null,
     endDate:           row.endDate ?? row.end_date ?? null,
-    targetSquadrons:   Array.isArray(row.targetSquadrons) ? row.targetSquadrons : null,
-    extraTypes:        Array.isArray(row.extraTypes) ? row.extraTypes : null,
+    // Colunas camelCase sem aspas no DDL → lowercase no banco → mapear dos dois casos
+    targetSquadron:  r.targetSquadron  ?? r.targetsquadron  ?? null,
+    targetCourse:    r.targetCourse    ?? r.targetcourse    ?? null,
+    targetSquadrons: Array.isArray(row.targetSquadrons) ? row.targetSquadrons : null,
+    extraTypes:      Array.isArray(row.extraTypes) ? row.extraTypes : null,
   };
 };
 
