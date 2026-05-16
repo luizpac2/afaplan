@@ -489,22 +489,14 @@ Deno.serve(async (req) => {
 
     console.log("update_event id:", id, "payload:", JSON.stringify(safeUpdates));
 
-    const { data: updData, error: upErr } = await adminClient
+    const { error: upErr } = await adminClient
       .from("programacao_aulas")
-      .update(safeUpdates)
-      .eq("id", id)
-      .select("id,targetSquadron,targetSquadrons,targetCourse,type,description")
-      .single();
+      .upsert({ id, ...safeUpdates }, { onConflict: "id" });
     if (upErr) {
       console.error("update_event error:", upErr.code, upErr.message, upErr.details);
       return err(upErr.message, 500);
     }
-    if (!updData) {
-      console.error("update_event: row not found for id", id);
-      return err("Evento não encontrado", 404);
-    }
-    console.log("update_event saved:", JSON.stringify(updData));
-    return ok({ success: true, saved: updData });
+    return ok({ success: true });
   }
 
   // ── delete_event ────────────────────────────────────────────────────────────

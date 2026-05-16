@@ -56,6 +56,16 @@ export const normalizeTime = (t: string | null | undefined): string => {
   return `${h.padStart(2, "0")}:${(m ?? "00").padStart(2, "0")}`;
 };
 
+// JSONB columns may come back as parsed arrays OR as JSON strings (e.g. '[2,4]') depending
+// on the Supabase client version and whether the value was stored via upsert or update.
+const parseJsonbArray = (val: unknown): unknown[] | null => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try { const p = JSON.parse(val); return Array.isArray(p) ? p : null; } catch { return null; }
+  }
+  return null;
+};
+
 export const normalizeEvent = (row: Record<string, unknown>): Record<string, unknown> => {
   // Mapeamento de snake_case português (banco) → camelCase (frontend)
   // ATENÇÃO: colunas criadas SEM aspas no SQL ficam em lowercase no Postgres
@@ -76,8 +86,8 @@ export const normalizeEvent = (row: Record<string, unknown>): Record<string, unk
     // Colunas camelCase sem aspas no DDL → lowercase no banco → mapear dos dois casos
     targetSquadron:  r.targetSquadron  ?? r.targetsquadron  ?? null,
     targetCourse:    r.targetCourse    ?? r.targetcourse    ?? null,
-    targetSquadrons: Array.isArray(row.targetSquadrons) ? row.targetSquadrons : null,
-    extraTypes:      Array.isArray(row.extraTypes) ? row.extraTypes : null,
+    targetSquadrons: parseJsonbArray(row.targetSquadrons),
+    extraTypes:      parseJsonbArray(row.extraTypes),
   };
 };
 
